@@ -431,7 +431,8 @@ aoeonline(SDunit *u)
 static int
 aoerio(SDreq *r)
 {
-	int i, count;
+	int i;
+	ulong count;
 	uvlong lba;
 	char *name;
 	uchar *cmd;
@@ -447,14 +448,13 @@ aoerio(SDreq *r)
 	cmd = r->cmd;
 	name = unit->name;
 
-	if(r->cmd[0] == 0x35 || r->cmd[0] == 0x91){
+	if(*cmd == ScmdSynccache || *cmd == ScmdSynccache16)
 //		qlock(c);
 //		i = flushcache();
 //		qunlock(c);
 //		if(i == 0)
 //			return sdsetsense(r, SDok, 0, 0, 0);
 		return sdsetsense(r, SDcheck, 3, 0xc, 2);
-	}
 
 	if((i = sdfakescsi(r, c->ident, sizeof c->ident)) != SDnostatus){
 		r->status = i;
@@ -462,12 +462,12 @@ aoerio(SDreq *r)
 	}
 
 	switch(*cmd){
-	case 0x88:
-	case 0x28:
+	case ScmdRead16:
+	case ScmdExtread:
 		rio = devtab[c->c->type]->read;
 		break;
-	case 0x8a:
-	case 0x2a:
+	case ScmdWrite16:
+	case ScmdExtwrite:
 		rio = devtab[c->c->type]->write;
 		break;
 	default:
@@ -480,16 +480,11 @@ aoerio(SDreq *r)
 		return SDok;
 
 	if(r->clen == 16){
+		/* ata commands only go to 48-bit lba */
 		if(cmd[2] || cmd[3])
 			return sdsetsense(r, SDcheck, 3, 0xc, 2);
-		lba = (uvlong)cmd[4]<<40 | (uvlong)cmd[5]<<32;
-		lba |=   cmd[6]<<24 |  cmd[7]<<16 |  cmd[8]<<8 | cmd[9];
-		count = cmd[10]<<24 | cmd[11]<<16 | cmd[12]<<8 | cmd[13];
-	}else{
-		lba  = cmd[2]<<24 | cmd[3]<<16 | cmd[4]<<8 | cmd[5];
-		count = cmd[7]<<8 | cmd[8];
 	}
-
+	scsilbacount(cmd, r->clen, &lba, &count);
 	count *= Aoesectsz;
 
 	if(r->dlen < count)

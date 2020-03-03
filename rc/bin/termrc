@@ -1,6 +1,6 @@
 #!/bin/rc
 # terminal startup
-TIMESYNCARGS=(-rLa1000000)
+TIMESYNCARGS=(-ra1000000)
 NDBFILE=/lib/ndb/local
 
 mntgen -s slashn && chmod 666 /srv/slashn
@@ -42,8 +42,8 @@ if(test -e /cfg/$sysname/termrc)
 #
 # If your site provides DHCP service,
 #
-#if(! test -e /net/ipifc/0/ctl)
-#	ip/ipconfig
+if(! test -e /net/ipifc/0/ctl)
+	ip/ipconfig
 #
 # Otherwise, see /cfg/$sysname/termrc (/cfg/example/termrc is an example).
 
@@ -92,8 +92,11 @@ if(test -f /dev/mousectl){
 		aux/mouse $mouseport
 		# parse vgasize into fields
 		vgasize=`{echo $vgasize}
-		if(! ~ $"monitor '' && ! ~ `{cat /dev/user} none)
+		if(! ~ $"monitor '' && ! ~ `{cat /dev/user} none){
+			if(~ $monitor vesa)
+				aux/realemu
 			aux/vga -l $vgasize
+		}
 		if(~ $accupoint 1)
 			pipefile -dr /bin/aux/accupoint /dev/mouse
 	}

@@ -1410,6 +1410,16 @@ sndrst(Proto *tcp, uchar *source, uchar *dest, ushort length, Tcp *seg, uchar ve
 }
 
 /*
+ * close the conversation
+ */
+static char*
+tcpclose2(Conv *s)
+{
+	tcpclose(s);
+	return nil;
+}
+
+/*
  *  send a reset to the remote side and close the conversation
  *  called with s qlocked
  */
@@ -1774,11 +1784,13 @@ tcpincoming(Conv *s, Tcp *segp, uchar *src, uchar *dst, uchar version)
 	tcb->flgcnt = 0;
 	tcb->flags |= SYNACK;
 
+	/* set desired mss and scale */
+	tcb->mss = tcpmtu(s->p, dst, s->ipversion, &tcb->scale);
+
 	/* our sending max segment size cannot be bigger than what he asked for */
-	if(lp->mss != 0 && lp->mss < tcb->mss) {
+	if(lp->mss != 0 && lp->mss < tcb->mss)
 		tcb->mss = lp->mss;
-		tpriv->stats[Mss] = tcb->mss;
-	}
+	tpriv->stats[Mss] = tcb->mss;
 
 	/* window scaling */
 	tcpsetscale(new, tcb, lp->rcvscale, lp->sndscale);
@@ -3287,6 +3299,8 @@ tcpporthogdefensectl(char *val)
 static char*
 tcpctl(Conv* c, char** f, int n)
 {
+	if(n == 1 && strcmp(f[0], "close") == 0)
+		return tcpclose2(c);
 	if(n == 1 && strcmp(f[0], "hangup") == 0)
 		return tcphangup(c);
 	if(n >= 1 && strcmp(f[0], "keepalive") == 0)

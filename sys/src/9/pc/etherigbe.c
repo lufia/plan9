@@ -444,9 +444,13 @@ enum {					/* Td status */
 
 enum {
 	Rbsz		= 2048,
-	/* were 256, 1024 & 64, but 52, 253 and 9 are ample. */
+	/*
+	 * these were 256, 1024 & 64, but 52, 253 & 9 are usually ample;
+	 * however cpu servers and terminals can need more receive buffers
+	 * due to bursts of traffic.
+	 */
 	Nrd		= 128,		/* multiple of 8 */
-	Nrb		= 512,		/* private receive buffers per Ctlr */
+	Nrb		= 1024,		/* private receive buffers per Ctlr */
 	Ntd		= 32,		/* multiple of 8 */
 };
 
@@ -785,7 +789,7 @@ igberballoc(void)
 	if((bp = igberbpool) != nil){
 		igberbpool = bp->next;
 		bp->next = nil;
-		_xinc(&bp->ref);	/* prevent bp from being freed */
+		ainc(&bp->ref);	/* prevent bp from being freed */
 	}
 	iunlock(&igberblock);
 

@@ -964,8 +964,8 @@ sdfakescsi(SDreq *r, void *info, int ilen)
 	 * Rewrite read(6)/write(6) into read(10)/write(10).
 	 */
 	switch(cmd[0]){
-	case 0x08:	/* read */
-	case 0x0A:	/* write */
+	case ScmdRead:
+	case ScmdWrite:
 		cmd[9] = 0;
 		cmd[8] = cmd[4];
 		cmd[7] = 0;
@@ -984,17 +984,17 @@ sdfakescsi(SDreq *r, void *info, int ilen)
 	 * Fail any command with a LUN except INQUIRY which
 	 * will return 'logical unit not supported'.
 	 */
-	if((cmd[1]>>5) && cmd[0] != 0x12)
+	if((cmd[1]>>5) && cmd[0] != ScmdInq)
 		return sdsetsense(r, SDcheck, 0x05, 0x25, 0);
 
 	switch(cmd[0]){
 	default:
 		return sdsetsense(r, SDcheck, 0x05, 0x20, 0);
 
-	case 0x00:	/* test unit ready */
+	case ScmdTur:		/* test unit ready */
 		return sdsetsense(r, SDok, 0, 0, 0);
 
-	case 0x03:	/* request sense */
+	case ScmdRsense:	/* request sense */
 		if(cmd[4] < sizeof unit->sense)
 			len = cmd[4];
 		else
@@ -1005,7 +1005,7 @@ sdfakescsi(SDreq *r, void *info, int ilen)
 		}
 		return sdsetsense(r, SDok, 0, 0, 0);
 
-	case 0x12:	/* inquiry */
+	case ScmdInq:		/* inquiry */
 		if(cmd[4] < sizeof unit->inquiry)
 			len = cmd[4];
 		else
@@ -1016,13 +1016,13 @@ sdfakescsi(SDreq *r, void *info, int ilen)
 		}
 		return sdsetsense(r, SDok, 0, 0, 0);
 
-	case 0x1B:	/* start/stop unit */
+	case ScmdStart:		/* start/stop unit */
 		/*
 		 * nop for now, can use power management later.
 		 */
 		return sdsetsense(r, SDok, 0, 0, 0);
 
-	case 0x25:	/* read capacity */
+	case ScmdRcapacity:	/* read capacity */
 		if((cmd[1] & 0x01) || cmd[2] || cmd[3])
 			return sdsetsense(r, SDcheck, 0x05, 0x24, 0);
 		if(r->data == nil || r->dlen < 8)
@@ -1045,7 +1045,7 @@ sdfakescsi(SDreq *r, void *info, int ilen)
 		r->rlen = p - (uchar*)r->data;
 		return sdsetsense(r, SDok, 0, 0, 0);
 
-	case 0x9E:	/* long read capacity */
+	case ScmdRcapacity16:	/* long read capacity */
 		if((cmd[1] & 0x01) || cmd[2] || cmd[3])
 			return sdsetsense(r, SDcheck, 0x05, 0x24, 0);
 		if(r->data == nil || r->dlen < 8)
@@ -1071,15 +1071,67 @@ sdfakescsi(SDreq *r, void *info, int ilen)
 		r->rlen = p - (uchar*)r->data;
 		return sdsetsense(r, SDok, 0, 0, 0);
 
-	case 0x5A:	/* mode sense */
+	case ScmdMsense10:	/* mode sense */
 		return sdmodesense(r, cmd, info, ilen);
 
-	case 0x28:	/* read */
-	case 0x2A:	/* write */
-	case 0x88:	/* read16 */
-	case 0x8a:	/* write16 */
+	case ScmdExtread:
+	case ScmdExtwrite:
+	case ScmdRead16:
+	case ScmdWrite16:
 		return SDnostatus;
 	}
+}
+
+int
+sdfakescsirw(SDreq *r, uvlong *llba, int *nsec, int *rwp)
+{
+	uchar *c;
+	int rw, count;
+	uvlong lba;
+
+	c = r->cmd;
+	rw = 0;
+	if((c[0] & 0xf) == 0xa)
+		rw = 1;
+	switch(c[0]){
+	case 0x08:	/* read6 */
+	case 0x0a:
+		lba = (c[1] & 0xf)<<16 | c[2]<<8 | c[3];
+		count = c[4];
+		break;
+	case 0x28:	/* read10 */
+	case 0x2a:
+		lba = c[2]<<24 | c[3]<<16 | c[4]<<8 | c[5];
+		count = c[7]<<8 | c[8];
+		break;
+	case 0xa8:	/* read12 */
+	case 0xaa:
+		lba = c[2]<<24 | c[3]<<16 | c[4]<<8 | c[5];
+		count = c[6]<<24 | c[7]<<16 | c[8]<<8 | c[9];
+		break;
+	case 0x88:	/* read16 */
+	case 0x8a:
+		/* ata commands only go to 48-bit lba */
+		if(c[2] || c[3])
+			return sdsetsense(r, SDcheck, 3, 0xc, 2);
+		lba = (uvlong)c[4]<<40 | (uvlong)c[5]<<32;
+		lba |= c[6]<<24 | c[7]<<16 | c[8]<<8 | c[9];
+		count = c[10]<<24 | c[11]<<16 | c[12]<<8 | c[13];
+		break;
+	default:
+		print("%s: bad cmd 0x%.2ux\n", r->unit->name, c[0]);
+		r->status  = sdsetsense(r, SDcheck, 0x05, 0x20, 0);
+		return SDcheck;
+	}
+	if(r->data == nil)
+		return SDok;
+	if(r->dlen < count * r->unit->secsize)
+		count = r->dlen/r->unit->secsize;
+	if(rwp)
+		*rwp = rw;
+	*llba = lba;
+	*nsec = count;
+	return SDnostatus;
 }
 
 static long

@@ -336,6 +336,26 @@ extern	vlong	nsec(void);
 extern	void	cycles(uvlong*);	/* 64-bit value of the cycle counter if there is one, 0 if there isn't */
 
 /*
+ * endian conversion
+ */
+extern u16int	le16get(uchar *t,  uchar **r);
+extern u32int	le24get(uchar *t,  uchar **r);
+extern u32int	le32get(uchar *t,  uchar **r);
+extern u64int	le64get(uchar *t,  uchar **r);
+extern uchar*	le16put(uchar *t, u16int r);
+extern uchar*	le24put(uchar *t, u32int r);
+extern uchar*	le32put(uchar *t, u32int r);
+extern uchar*	le64put(uchar *t, u64int r);
+extern u16int	be16get(uchar *t,  uchar **r);
+extern u32int	be24get(uchar *t,  uchar **r);
+extern u32int	be32get(uchar *t,  uchar **r);
+extern u64int	be64get(uchar *t,  uchar **r);
+extern uchar*	be16put(uchar *t, u16int r);
+extern uchar*	be24put(uchar *t, u32int r);
+extern uchar*	be32put(uchar *t, u32int r);
+extern uchar*	be64put(uchar *t, u64int r);
+
+/*
  * one-of-a-kind
  */
 enum
@@ -383,6 +403,7 @@ extern	void	notejmp(void*, jmp_buf, int);
 extern	void	perror(char*);
 extern	int	postnote(int, int, char *);
 extern	double	pow10(int);
+extern	void	procsetname(char*, ...);
 extern	int	putenv(char*, char*);
 extern	void	qsort(void*, long, long, int (*)(void*, void*));
 extern	int	setjmp(jmp_buf);

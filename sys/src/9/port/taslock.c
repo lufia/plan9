@@ -23,7 +23,7 @@ struct
 static void
 inccnt(Ref *r)
 {
-	_xinc(&r->ref);
+	ainc(&r->ref);
 }
 
 static int
@@ -31,7 +31,7 @@ deccnt(Ref *r)
 {
 	int x;
 
-	x = _xdec(&r->ref);
+	x = adec(&r->ref);
 	if(x < 0)
 		panic("deccnt pc=%#p", getcallerpc(&r));
 	return x;
@@ -80,6 +80,7 @@ lock(Lock *l)
 		l->pc = pc;
 		l->p = up;
 		l->isilock = 0;
+		l->m = MACHP(m->machno);
 #ifdef LOCKCYCLES
 		l->lockcycles = -lcycles();
 #endif
@@ -115,6 +116,7 @@ lock(Lock *l)
 			l->pc = pc;
 			l->p = up;
 			l->isilock = 0;
+			l->m = MACHP(m->machno);
 #ifdef LOCKCYCLES
 			l->lockcycles = -lcycles();
 #endif
@@ -207,6 +209,7 @@ unlock(Lock *l)
 	if(l->p != up)
 		print("unlock: up changed: pc %#p, acquired at pc %lux, lock p %#p, unlock up %#p\n", getcallerpc(&l), l->pc, l->p, up);
 	l->m = nil;
+	coherence();
 	l->key = 0;
 	coherence();
 
@@ -246,6 +249,7 @@ iunlock(Lock *l)
 
 	sr = l->sr;
 	l->m = nil;
+	coherence();
 	l->key = 0;
 	coherence();
 	m->ilockdepth--;

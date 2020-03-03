@@ -1526,7 +1526,7 @@ ahcibuild(Drive *d, uchar *cmd, void *data, int n, vlong lba)
 	static uchar tab[2][2] = { 0xc8, 0x25, 0xca, 0x35, };
 
 	pm = &d->portm;
-	dir = *cmd != 0x28;
+	dir = *cmd == ScmdExtwrite || *cmd == ScmdWrite16;
 	llba = pm->feat&Dllba? 1: 0;
 	acmd = tab[dir][llba];
 	qlock(pm);
@@ -1548,7 +1548,7 @@ ahcibuild(Drive *d, uchar *cmd, void *data, int n, vlong lba)
 
 	c[8] = lba >> 24;	/* sector (exp)		lba 	31:24 */
 	c[9] = lba >> 32;	/* cylinder low (exp)	lba	39:32 */
-	c[10] = lba >> 48;	/* cylinder hi (exp)	lba	48:40 */
+	c[10] = lba >> 40;	/* cylinder hi (exp)	lba	47:40 */
 	c[11] = 0;		/* features (exp); */
 
 	c[12] = n;		/* sector count */
@@ -1772,10 +1772,10 @@ retry:
 		case SDperworm:
 		case SDpercd:
 			switch(cmd[0]){
-			case 0x0a:		/* write (6?) */
-			case 0x2a:		/* write (10) */
-			case 0x8a:		/* long write (16) */
-			case 0x2e:		/* write and verify (10) */
+			case ScmdWrite:
+			case ScmdExtwrite:
+			case ScmdExtwritever:
+			case ScmdWrite16:
 				wormwrite = 1;
 				break;
 			}
@@ -1803,8 +1803,9 @@ retry:
 static int
 iario(SDreq *r)
 {
-	int i, n, count, try, max, flag, task;
-	vlong lba;
+	int i, n, try, max, flag, task;
+	ulong count;
+	uvlong lba;
 	char *name;
 	uchar *cmd, *data;
 	Aport *p;
@@ -1822,7 +1823,7 @@ iario(SDreq *r)
 	name = d->unit->name;
 	p = d->port;
 
-	if(r->cmd[0] == 0x35 || r->cmd[0] == 0x91){
+	if(*cmd == ScmdSynccache || *cmd == ScmdSynccache16){
 		if(flushcache(d) == 0)
 			return sdsetsense(r, SDok, 0, 0, 0);
 		return sdsetsense(r, SDcheck, 3, 0xc, 2);
@@ -1833,14 +1834,17 @@ iario(SDreq *r)
 		return i;
 	}
 
-	if(*cmd != 0x28 && *cmd != 0x2a){
+	if(*cmd == ScmdRead16 || *cmd == ScmdWrite16){
+		/* ata commands only go to 48-bit lba */
+		if(cmd[2] || cmd[3])
+			return sdsetsense(r, SDcheck, 3, 0xc, 2);
+	}else if(*cmd != ScmdExtread && *cmd != ScmdExtwrite){
 		print("%s: bad cmd %.2#ux\n", name, cmd[0]);
 		r->status = SDcheck;
 		return SDcheck;
 	}
+	scsilbacount(cmd, r->clen, &lba, &count);
 
-	lba   = cmd[2]<<24 | cmd[3]<<16 | cmd[4]<<8 | cmd[5];
-	count = cmd[7]<<8 | cmd[8];
 	if(r->data == nil)
 		return SDok;
 	if(r->dlen < count * unit->secsize)
@@ -1964,6 +1968,7 @@ didtype(Pcidev *p)
 		 */
 		if (p->did == 0x1e02 ||			/* c210 */
 		    p->did == 0x24d1 ||			/* 82801eb/er */
+		    p->did == 0x2653 ||			/* 82801fbm */
 		    (p->did & 0xfffb) == 0x27c1 ||	/* 82801g[bh]m ich7 */
 		    p->did == 0x2821 ||			/* 82801h[roh] */
 		    (p->did & 0xfffe) == 0x2824 ||	/* 82801h[b] */

@@ -379,7 +379,7 @@ confinit(void)
 		+ conf.nproc*sizeof(Proc)
 		+ conf.nimage*sizeof(Image)
 		+ conf.nswap
-		+ conf.nswppo*sizeof(Page);
+		+ conf.nswppo*sizeof(Page*);
 	mainmem->maxsize = kpages;
 	if(!cpuserver){
 		/*
@@ -611,53 +611,6 @@ isaconfig(char *class, int ctlrno, ISAConf *isa)
 			isa->freq = strtoul(p+5, &p, 0);
 	}
 	return 1;
-}
-
-int
-cistrcmp(char *a, char *b)
-{
-	int ac, bc;
-
-	for(;;){
-		ac = *a++;
-		bc = *b++;
-	
-		if(ac >= 'A' && ac <= 'Z')
-			ac = 'a' + (ac - 'A');
-		if(bc >= 'A' && bc <= 'Z')
-			bc = 'a' + (bc - 'A');
-		ac -= bc;
-		if(ac)
-			return ac;
-		if(bc == 0)
-			break;
-	}
-	return 0;
-}
-
-int
-cistrncmp(char *a, char *b, int n)
-{
-	unsigned ac, bc;
-
-	while(n > 0){
-		ac = *a++;
-		bc = *b++;
-		n--;
-
-		if(ac >= 'A' && ac <= 'Z')
-			ac = 'a' + (ac - 'A');
-		if(bc >= 'A' && bc <= 'Z')
-			bc = 'a' + (bc - 'A');
-
-		ac -= bc;
-		if(ac)
-			return ac;
-		if(bc == 0)
-			break;
-	}
-
-	return 0;
 }
 
 int less_power_slower;

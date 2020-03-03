@@ -58,6 +58,12 @@
 /spim/lib
 /spim/mbr
 /spim/pbs*
+/spim64/9*
+/spim64/bin
+/spim64/init
+/spim64/lib
+/spim64/mbr
+/spim64/pbs*
 /sys/doc/*.pdf
 /sys/doc/*.ps
 /sys/doc/**/*.pdf

@@ -577,6 +577,7 @@ atadmamode(Drive* drive)
 		drive->dma = (dma>>8) & dma;
 		if(drive->dma)
 			drive->dma |= 'U'<<16;
+		drive->dmactl = drive->dma;
 	}
 
 	return dma;
@@ -1495,25 +1496,27 @@ atagenio(Drive* drive, uchar* cmd, int clen)
 {
 	uchar *p;
 	Ctlr *ctlr;
-	vlong lba, len;
-	int count, maxio;
+	int maxio;
+	ulong count;
+	vlong len;
+	uvlong lba;
 
 	/*
 	 * Map SCSI commands into ATA commands for discs.
 	 * Fail any command with a LUN except INQUIRY which
 	 * will return 'logical unit not supported'.
 	 */
-	if((cmd[1]>>5) && cmd[0] != 0x12)
+	if((cmd[1]>>5) && cmd[0] != ScmdInq)
 		return atasetsense(drive, SDcheck, 0x05, 0x25, 0);
 
 	switch(cmd[0]){
 	default:
 		return atasetsense(drive, SDcheck, 0x05, 0x20, 0);
 
-	case 0x00:			/* test unit ready */
+	case ScmdTur:			/* test unit ready */
 		return SDok;
 
-	case 0x03:			/* request sense */
+	case ScmdRsense:		/* request sense */
 		if(cmd[4] < sizeof(drive->sense))
 			len = cmd[4];
 		else
@@ -1524,7 +1527,7 @@ atagenio(Drive* drive, uchar* cmd, int clen)
 		}
 		return SDok;
 
-	case 0x12:			/* inquiry */
+	case ScmdInq:			/* inquiry */
 		if(cmd[4] < sizeof(drive->inquiry))
 			len = cmd[4];
 		else
@@ -1535,14 +1538,14 @@ atagenio(Drive* drive, uchar* cmd, int clen)
 		}
 		return SDok;
 
-	case 0x1B:			/* start/stop unit */
+	case ScmdStart:			/* start/stop unit */
 		/*
 		 * NOP for now, can use the power management feature
 		 * set later.
 		 */
 		return SDok;
 
-	case 0x25:			/* read capacity */
+	case ScmdRcapacity:			/* read capacity */
 		if((cmd[1] & 0x01) || cmd[2] || cmd[3])
 			return atasetsense(drive, SDcheck, 0x05, 0x24, 0);
 		if(drive->data == nil || drive->dlen < 8)
@@ -1564,7 +1567,7 @@ atagenio(Drive* drive, uchar* cmd, int clen)
 		drive->data += 8;
 		return SDok;
 
-	case 0x9E:			/* long read capacity */
+	case ScmdRcapacity16:
 		if((cmd[1] & 0x01) || cmd[2] || cmd[3])
 			return atasetsense(drive, SDcheck, 0x05, 0x24, 0);
 		if(drive->data == nil || drive->dlen < 8)
@@ -1590,29 +1593,23 @@ atagenio(Drive* drive, uchar* cmd, int clen)
 		drive->data += 12;
 		return SDok;
 
-	case 0x28:			/* read (10) */
-	case 0x88:			/* long read (16) */
-	case 0x2a:			/* write (10) */
-	case 0x8a:			/* long write (16) */
-	case 0x2e:			/* write and verify (10) */
+	case ScmdExtread:
+	case ScmdExtwrite:
+	case ScmdExtwritever:
+	case ScmdRead16:
+	case ScmdWrite16:
 		break;
 
-	case 0x5A:
+	case ScmdMsense10:
 		return atamodesense(drive, cmd);
 	}
 
 	ctlr = drive->ctlr;
-	if(clen == 16){
+	if(clen == 16)
 		/* ata commands only go to 48-bit lba */
 		if(cmd[2] || cmd[3])
 			return atasetsense(drive, SDcheck, 3, 0xc, 2);
-		lba = (uvlong)cmd[4]<<40 | (uvlong)cmd[5]<<32;
-		lba |= cmd[6]<<24 | cmd[7]<<16 | cmd[8]<<8 | cmd[9];
-		count = cmd[10]<<24 | cmd[11]<<16 | cmd[12]<<8 | cmd[13];
-	}else{
-		lba = cmd[2]<<24 | cmd[3]<<16 | cmd[4]<<8 | cmd[5];
-		count = cmd[7]<<8 | cmd[8];
-	}
+	scsilbacount(cmd, clen, &lba, &count);
 	if(drive->data == nil)
 		return SDok;
 	if(drive->dlen < count*drive->secsize)
@@ -1690,8 +1687,8 @@ atario(SDreq* r)
 	 * effort. Read/write(6) are easy.
 	 */
 	switch(r->cmd[0]){
-	case 0x08:			/* read */
-	case 0x0A:			/* write */
+	case ScmdRead:
+	case ScmdWrite:
 		cmdp = cmd10;
 		memset(cmdp, 0, sizeof(cmd10));
 		cmdp[0] = r->cmd[0]|0x20;
@@ -2090,7 +2087,6 @@ atapnp(void)
 		case (0x24D1<<16)|0x8086:	/* 82801EB/ER (ICH5 High-End) */
 		case (0x24DB<<16)|0x8086:	/* 82801EB (ICH5) */
 		case (0x25A3<<16)|0x8086:	/* 6300ESB (E7210) */
-		case (0x2653<<16)|0x8086:	/* 82801FBM (ICH6M) */
 		case (0x266F<<16)|0x8086:	/* 82801FB (ICH6) */
 		case (0x27DF<<16)|0x8086:	/* 82801G SATA (ICH7) */
 		case (0x27C0<<16)|0x8086:	/* 82801GB SATA AHCI (ICH7) */

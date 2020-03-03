@@ -294,11 +294,14 @@ asmb(void)
 		OFFSET = rnd(HEADR+textsize, 4096);
 		seek(cout, OFFSET, 0);
 		break;
+	case 6:
+		OFFSET = rnd(HEADR+textsize, INITRND);
+		seek(cout, OFFSET, 0);
+		break;
 	case 1:
 	case 2:
 	case 3:
 	case 5:
-	case 6:
 	case 7:
 		OFFSET = HEADR+textsize;
 		seek(cout, OFFSET, 0);
@@ -323,11 +326,14 @@ asmb(void)
 			OFFSET = rnd(HEADR+textsize, 4096)+datsize;
 			seek(cout, OFFSET, 0);
 			break;
+		case 6:
+			OFFSET = rnd(HEADR+textsize, INITRND)+datsize;
+			seek(cout, OFFSET, 0);
+			break;
 		case 3:
 		case 2:
 		case 1:
 		case 5:
-		case 6:
 		case 7:
 			OFFSET = HEADR+textsize+datsize;
 			seek(cout, OFFSET, 0);
@@ -669,7 +675,10 @@ datblk(long s, long n, int str)
 				fl = ieeedtof(p->to.ieee);
 				cast = (char*)&fl;
 				for(; i<c; i++) {
-					buf.dbuf[l] = cast[fnuxi8[i+4]];
+					if(little)
+						buf.dbuf[l] = cast[fnuxi8[i]];
+					else
+						buf.dbuf[l] = cast[fnuxi8[i+4]];
 					l++;
 				}
 				break;
@@ -1019,8 +1028,13 @@ asmout(Prog *p, Optab *o, int aflag)
 			o1 = OP_IRR(opirr(ALAST), v>>16, REGZERO, REGTMP);
 			o2 = OP_IRR(opirr(AOR), v, REGTMP, REGTMP);
 			o3 = OP_RRR(oprrr(AADDU), r, REGTMP, REGTMP);
-			o4 = OP_IRR(opirr(AMOVF+ALAST), 0, REGTMP, p->to.reg+1);
-			o5 = OP_IRR(opirr(AMOVF+ALAST), 4, REGTMP, p->to.reg);
+			if(little) {
+				o4 = OP_IRR(opirr(AMOVF+ALAST), 0, REGTMP, p->to.reg);
+				o5 = OP_IRR(opirr(AMOVF+ALAST), 4, REGTMP, p->to.reg+1);
+			} else {
+				o4 = OP_IRR(opirr(AMOVF+ALAST), 0, REGTMP, p->to.reg+1);
+				o5 = OP_IRR(opirr(AMOVF+ALAST), 4, REGTMP, p->to.reg);
+			}
 			break;
 		case 16:
 			o1 = OP_IRR(opirr(ALAST), v>>16, REGZERO, REGTMP);
@@ -1029,8 +1043,13 @@ asmout(Prog *p, Optab *o, int aflag)
 			o4 = OP_IRR(opirr(AMOVF+ALAST), 0, REGTMP, p->to.reg);
 			break;
 		case 8:
-			o1 = OP_IRR(opirr(AMOVF+ALAST), v, r, p->to.reg+1);
-			o2 = OP_IRR(opirr(AMOVF+ALAST), v+4, r, p->to.reg);
+			if(little) {
+				o1 = OP_IRR(opirr(AMOVF+ALAST), v, r, p->to.reg);
+				o2 = OP_IRR(opirr(AMOVF+ALAST), v+4, r, p->to.reg+1);
+			} else {
+				o1 = OP_IRR(opirr(AMOVF+ALAST), v, r, p->to.reg+1);
+				o2 = OP_IRR(opirr(AMOVF+ALAST), v+4, r, p->to.reg);
+			}
 			break;
 		case 4:
 			o1 = OP_IRR(opirr(AMOVF+ALAST), v, r, p->to.reg);
@@ -1050,8 +1069,13 @@ asmout(Prog *p, Optab *o, int aflag)
 			o1 = OP_IRR(opirr(ALAST), v>>16, REGZERO, REGTMP);
 			o2 = OP_IRR(opirr(AOR), v, REGTMP, REGTMP);
 			o3 = OP_RRR(oprrr(AADDU), r, REGTMP, REGTMP);
-			o4 = OP_IRR(opirr(AMOVF), 0, REGTMP, p->from.reg+1);
-			o5 = OP_IRR(opirr(AMOVF), 4, REGTMP, p->from.reg);
+			if(little) {
+				o4 = OP_IRR(opirr(AMOVF), 0, REGTMP, p->from.reg);
+				o5 = OP_IRR(opirr(AMOVF), 4, REGTMP, p->from.reg+1);
+			} else {
+				o4 = OP_IRR(opirr(AMOVF), 0, REGTMP, p->from.reg+1);
+				o5 = OP_IRR(opirr(AMOVF), 4, REGTMP, p->from.reg);
+			}
 			break;
 		case 16:
 			if(r == REGTMP)
@@ -1062,8 +1086,13 @@ asmout(Prog *p, Optab *o, int aflag)
 			o4 = OP_IRR(opirr(AMOVF), 0, REGTMP, p->from.reg);
 			break;
 		case 8:
-			o1 = OP_IRR(opirr(AMOVF), v, r, p->from.reg+1);
-			o2 = OP_IRR(opirr(AMOVF), v+4, r, p->from.reg);
+			if(little) {
+				o1 = OP_IRR(opirr(AMOVF), v, r, p->from.reg);
+				o2 = OP_IRR(opirr(AMOVF), v+4, r, p->from.reg+1);
+			} else {
+				o1 = OP_IRR(opirr(AMOVF), v, r, p->from.reg+1);
+				o2 = OP_IRR(opirr(AMOVF), v+4, r, p->from.reg);
+			}
 			break;
 		case 4:
 			o1 = OP_IRR(opirr(AMOVF), v, r, p->from.reg);

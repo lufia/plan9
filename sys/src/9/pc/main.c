@@ -180,7 +180,7 @@ mach0init(void)
 
 	machinit();
 
-	active.machs = 1;
+	cpuactive(0);
 	active.exiting = 0;
 }
 
@@ -489,7 +489,7 @@ confinit(void)
 		+ conf.nproc*sizeof(Proc)
 		+ conf.nimage*sizeof(Image)
 		+ conf.nswap
-		+ conf.nswppo*sizeof(Page);
+		+ conf.nswppo*sizeof(Page*);
 	mainmem->maxsize = kpages;
 	if(!cpuserver){
 		/*
@@ -762,9 +762,9 @@ shutdown(int ispanic)
 	lock(&active);
 	if(ispanic)
 		active.ispanic = ispanic;
-	else if(m->machno == 0 && (active.machs & (1<<m->machno)) == 0)
+	else if(m->machno == 0 && !iscpuactive(m->machno))
 		active.ispanic = 0;
-	once = active.machs & (1<<m->machno);
+	once = iscpuactive(m->machno);
 	/*
 	 * setting exiting will make hzclock() on each processor call exit(0),
 	 * which calls shutdown(0) and arch->reset(), which on mp systems is
@@ -772,7 +772,7 @@ shutdown(int ispanic)
 	 * processors (to permit a reboot).  clearing our bit in machs avoids
 	 * calling exit(0) from hzclock() on this processor.
 	 */
-	active.machs &= ~(1<<m->machno);
+	cpuinactive(m->machno);
 	active.exiting = 1;
 	unlock(&active);
 
@@ -783,7 +783,7 @@ shutdown(int ispanic)
 	spllo();
 	for(ms = 5*1000; ms > 0; ms -= TK2MS(2)){
 		delay(TK2MS(2));
-		if(active.machs == 0 && consactive() == 0)
+		if(active.nmachs == 0 && consactive() == 0)
 			break;
 	}
 
@@ -836,7 +836,8 @@ reboot(void *entry, void *code, ulong size)
 	/*
 	 * should be the only processor running now
 	 */
-	active.machs = 0;
+	memset(active.machsmap, 0, sizeof active.machsmap);
+	active.nmachs = 0;
 	if (m->machno != 0)
 		print("on cpu%d (not 0)!\n", m->machno);
 
@@ -910,53 +911,6 @@ isaconfig(char *class, int ctlrno, ISAConf *isa)
 			isa->freq = strtoul(p+5, &p, 0);
 	}
 	return 1;
-}
-
-int
-cistrcmp(char *a, char *b)
-{
-	int ac, bc;
-
-	for(;;){
-		ac = *a++;
-		bc = *b++;
-	
-		if(ac >= 'A' && ac <= 'Z')
-			ac = 'a' + (ac - 'A');
-		if(bc >= 'A' && bc <= 'Z')
-			bc = 'a' + (bc - 'A');
-		ac -= bc;
-		if(ac)
-			return ac;
-		if(bc == 0)
-			break;
-	}
-	return 0;
-}
-
-int
-cistrncmp(char *a, char *b, int n)
-{
-	unsigned ac, bc;
-
-	while(n > 0){
-		ac = *a++;
-		bc = *b++;
-		n--;
-
-		if(ac >= 'A' && ac <= 'Z')
-			ac = 'a' + (ac - 'A');
-		if(bc >= 'A' && bc <= 'Z')
-			bc = 'a' + (bc - 'A');
-
-		ac -= bc;
-		if(ac)
-			return ac;
-		if(bc == 0)
-			break;
-	}
-
-	return 0;
 }
 
 /*

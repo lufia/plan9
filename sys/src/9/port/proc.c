@@ -419,7 +419,12 @@ ready(Proc *p)
 		return;
 	}
 
-	if(up != p && (p->wired == nil || p->wired == m))
+	/*
+	 * since the 386 is short of registers, m always contains the constant
+	 * MACHADDR, not MACHP(m->machno); see ../pc/dat.h.  so we can't just 
+	 * compare addresses with m.
+	 */
+	if(up != p && (p->wired == nil || p->wired == MACHP(m->machno)))
 		m->readied = p;	/* group scheduling */
 
 	updatecpu(p);
@@ -471,8 +476,6 @@ another:
 		p = rq->head;
 		if(p == nil)
 			continue;
-		if(p->mp != MACHP(m->machno))
-			continue;
 		if(pri == p->basepri)
 			continue;
 		updatecpu(p);
@@ -504,8 +507,13 @@ runproc(void)
 	start = perfticks();
 
 	/* cooperative scheduling until the clock ticks */
+	/*
+	 * since the 386 is short of registers, m always contains the constant
+	 * MACHADDR, not MACHP(m->machno); see ../pc/dat.h.  so we can't just 
+	 * compare addresses with m.
+	 */
 	if((p=m->readied) && p->mach==0 && p->state==Ready
-	&& (p->wired == nil || p->wired == m)
+	&& (p->wired == nil || p->wired == MACHP(m->machno))
 	&& runq[Nrq-1].head == nil && runq[Nrq-2].head == nil){
 		skipscheds++;
 		rq = &runq[p->priority];
@@ -581,6 +589,43 @@ canpage(Proc *p)
 	return ok;
 }
 
+/*
+ * these assume that active.Lock is held when needed.
+ */
+
+void
+cpuactive(uint cpu)
+{
+#ifdef MACHS_BITMAP
+	active.machsmap[cpu / BI2WD] |= 1ULL << (cpu % BI2WD);
+	active.nmachs++;
+#else
+	active.machs |= 1ULL << cpu;
+#endif
+}
+
+void
+cpuinactive(uint cpu)
+{
+#ifdef MACHS_BITMAP
+	active.machsmap[cpu / BI2WD] &= ~(1ULL << (cpu % BI2WD));
+	active.nmachs--;
+#else
+	active.machs &= ~(1ULL << cpu);
+#endif
+}
+
+int
+iscpuactive(uint cpu)
+{
+#ifdef MACHS_BITMAP
+	return (active.machsmap[cpu / BI2WD] & (1ULL << (cpu % BI2WD))) != 0;
+#else
+	return (active.machs & (1ULL << cpu)) != 0;
+#endif
+}
+
+
 void
 noprocpanic(char *msg)
 {
@@ -590,7 +635,7 @@ noprocpanic(char *msg)
 	 * on this processor.
 	 */
 	lock(&active);
-	active.machs &= ~(1<<m->machno);
+	cpuinactive(m->machno);
 	active.exiting = 1;
 	unlock(&active);
 
@@ -1108,7 +1153,7 @@ pexit(char *exitstr, int freemem)
 	 * if not a kernel process and have a parent,
 	 * do some housekeeping.
 	 */
-	if(up->kp == 0) {
+	if(up->kp == 0 && up->parentpid != 0) {
 		p = up->parent;
 		if(p == 0) {
 			if(exitstr == 0)
@@ -1142,13 +1187,13 @@ pexit(char *exitstr, int freemem)
 			p->time[TCUser] += utime;
 			p->time[TCSys] += stime;
 			/*
-			 * If there would be more than 128 wait records
+			 * If there would be more than 2000 wait records
 			 * processes for my parent, then don't leave a wait
 			 * record behind.  This helps prevent badly written
 			 * daemon processes from accumulating lots of wait
 			 * records.
 		 	 */
-			if(p->nwait < 128) {
+			if(p->nwait < 2000) {
 				wq->next = p->waitq;
 				p->waitq = wq;
 				p->nwait++;
@@ -1299,7 +1344,7 @@ procdump(void)
 
 /*
  *  wait till all processes have flushed their mmu
- *  state about segement s
+ *  state about segment s
  */
 void
 procflushseg(Segment *s)
@@ -1336,8 +1381,13 @@ procflushseg(Segment *s)
 	 *  wait for all processors to take a clock interrupt
 	 *  and flush their mmu's
 	 */
+	/*
+	 * since the 386 is short of registers, m always contains the constant
+	 * MACHADDR, not MACHP(m->machno); see ../pc/dat.h.  so we can't just 
+	 * compare addresses with m.
+	 */
 	for(nm = 0; nm < conf.nmach; nm++)
-		if(MACHP(nm) != m)
+		if(nm != m->machno)
 			while(MACHP(nm)->flushmmu)
 				sched();
 }

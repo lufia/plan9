@@ -47,7 +47,7 @@ link
 	ether8169	pci ethermii
 #	ether82543gc	pci
 	ether82557	pci
-#	ether82563	pci
+	ether82563	pci
 	ether83815	pci
 #	etherdp83820	pci
 	etherec2t	ether8390
@@ -63,6 +63,7 @@ link
 	etherwavelan	wavelan devi82365 cis pci
 #	etherm10g	pci ethermii		# vast firmware
 #	ether82598	pci
+	ethervirtio	pci
 
 	ethermedium
 	pcmciamodem
@@ -75,7 +76,8 @@ misc
 	sdata		pci sdscsi
 	sd53c8xx	pci sdscsi
 	sdmylex		pci sdscsi
-#	sdiahci		pci sdscsi
+	sdiahci		pci sdscsi
+	sdvirtio	pci sdscsi
 
 	uarti8250
 

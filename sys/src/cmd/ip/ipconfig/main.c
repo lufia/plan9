@@ -36,6 +36,7 @@ enum
 	Taddrs,
 	Tstr,
 	Tbyte,
+	Tushort,
 	Tulong,
 	Tvec,
 };
@@ -79,7 +80,7 @@ Option option[256] =
 [OBttl]			{ "ttl",		Tulong },
 [OBpathtimeout]		{ "pathtimeout",	Taddrs },
 [OBpathplateau]		{ "pathplateau",	Taddrs },
-[OBmtu]			{ "mtu",		Tulong },
+[OBmtu]			{ "mtu",		Tushort },
 [OBsubnetslocal]	{ "subnetslocal",	Taddrs },
 [OBbaddr]		{ "baddr",		Taddrs },
 [OBdiscovermask]	{ "discovermask",	Taddrs },
@@ -208,6 +209,7 @@ int	optgetaddr(uchar*, int, uchar*);
 int	optgetbyte(uchar*, int);
 int	optgetstr(uchar*, int, char*, int);
 uchar*	optget(uchar*, int, int*);
+ushort	optgetushort(uchar*, int);
 ulong	optgetulong(uchar*, int);
 int	optgetvec(uchar*, int, uchar*, int);
 char*	optgetx(uchar*, uchar);
@@ -842,6 +844,15 @@ ip4cfg(void)
 		return -1;
 	}
 
+	if(!validip(conf.raddr) && conf.mtu != 0){
+		n = snprint(buf, sizeof buf, " mtu %d", conf.mtu);
+
+		if(write(conf.cfd, buf, n) < 0){
+			warning("write(%s): %r", buf);
+			return -1;
+		}
+	}
+
 	if(beprimary==1 && validip(conf.gaddr))
 		adddefroute(conf.mpoint, conf.gaddr);
 
@@ -1227,6 +1238,8 @@ dhcprecv(void)
 		if(!validip(conf.mask) || !Oflag){
 			if(!optgetaddr(bp->optdata, OBmask, conf.mask))
 				ipmove(conf.mask, IPnoaddr);
+			if(ipcmp(conf.mask, IPv4bcast) == 0)
+				ipmove(conf.mask, IPnoaddr);
 		}
 		DEBUG("ipaddr=%I ipmask=%M ", conf.laddr, conf.mask);
 
@@ -1262,6 +1275,14 @@ dhcprecv(void)
 			conf.hostname, sizeof conf.hostname);
 		optgetstr(bp->optdata, OBdomainname,
 			conf.domainname, sizeof conf.domainname);
+
+		/* get mtu */
+		if(conf.mtu == 0){
+			conf.mtu = optgetushort(bp->optdata, OBmtu);
+			if(conf.mtu != 0)
+				conf.mtu += 14; /* size of ethernet header */
+			DEBUG("mtu=%d ", conf.mtu);
+		}
 
 		/* get anything else we asked for */
 		getoptions(bp->optdata);
@@ -1459,6 +1480,18 @@ optgetbyte(uchar *p, int op)
 	if(p == nil)
 		return 0;
 	return *p;
+}
+
+ushort
+optgetushort(uchar *p, int op)
+{
+	int len;
+
+	len = 2;
+	p = optget(p, op, &len);
+	if(p == nil)
+		return 0;
+	return nhgets(p);
 }
 
 ulong

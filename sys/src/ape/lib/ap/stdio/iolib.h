@@ -14,7 +14,9 @@
  *	fseek		fsetpos		ftell		rewind		clearerr
  *	feof		ferror		perror	
  */
+
 #include <stdio.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>

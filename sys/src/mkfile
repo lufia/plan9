@@ -3,6 +3,7 @@
 LIBS=\
 	lib9p\
 	libString\
+	libaml\
 	libauth\
 	libauthsrv\
 	libavl\
@@ -13,6 +14,7 @@ LIBS=\
 	libcontrol\
 	libdisk\
 	libdraw\
+	libdynld\
 	libflate\
 	libframe\
 	libgeometry\
@@ -24,6 +26,7 @@ LIBS=\
 	libmemdraw\
 	libmemlayer\
 	libmp\
+	libmux\
 	libndb\
 	liboventi\
 	libplumb\
@@ -34,6 +37,7 @@ LIBS=\
 	libsunrpc\
 	libthread\
 	libventi\
+	libworker\
 
 
 CMDS=cmd\

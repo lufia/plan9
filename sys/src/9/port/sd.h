@@ -1,6 +1,8 @@
 /*
  * Storage Device.
  */
+#include <diskcmd.h>
+
 typedef struct SDev SDev;
 typedef struct SDifc SDifc;
 typedef struct SDio SDio;
@@ -170,9 +172,11 @@ extern void sdaddpart(SDunit*, char*, uvlong, uvlong);
 extern int sdsetsense(SDreq*, int, int, int, int);
 extern int sdmodesense(SDreq*, uchar*, void*, int);
 extern int sdfakescsi(SDreq*, void*, int);
+extern int sdfakescsirw(SDreq*, uvlong*, int*, int*);
 
 /* sdscsi.c */
 extern int scsiverify(SDunit*);
 extern int scsionline(SDunit*);
 extern long scsibio(SDunit*, int, int, void*, long, uvlong);
 extern SDev* scsiid(SDev*, SDifc*);
+extern void scsilbacount(uchar *, int, uvlong*, ulong*);

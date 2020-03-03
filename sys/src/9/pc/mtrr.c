@@ -131,12 +131,6 @@ sanity(Mtrreg *mtrr)
 	mtrr->mask &= Paerange - 1;
 }
 
-static int
-ispow2(uvlong ul)
-{
-	return (ul & (ul - 1)) == 0;
-}
-
 /* true if mtrr is valid */
 static int
 mtrrdec(Mtrreg *mtrr, uvlong *ptr, uvlong *size, int *type)
@@ -194,7 +188,7 @@ mtrrop(Mtrrop **op)
 	 * wait for all CPUs to sync here, so that the MTRR setup gets
 	 * done at roughly the same time on all processors.
 	 */
-	_xinc(&bar1);
+	ainc(&bar1);
 	while(bar1 < conf.nmach)
 		microdelay(10);
 
@@ -218,14 +212,14 @@ mtrrop(Mtrrop **op)
 	 * wait for all CPUs to sync up again, so that we don't continue
 	 * executing while the MTRRs are still being set up.
 	 */
-	_xinc(&bar2);
+	ainc(&bar2);
 	while(bar2 < conf.nmach)
 		microdelay(10);
 	*op = nil;
-	_xdec(&bar1);
+	adec(&bar1);
 	while(bar1 > 0)
 		microdelay(10);
-	_xdec(&bar2);
+	adec(&bar2);
 	wakeup(&oprend);
 	splx(s);
 }

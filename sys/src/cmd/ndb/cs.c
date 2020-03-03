@@ -970,7 +970,7 @@ readipinterfaces(void)
 {
 	if(myipaddr(ipa, mntpt) != 0)
 		ipmove(ipa, IPnoaddr);
-	sprint(ipaddr, "%I", ipa);
+	snprint(ipaddr, sizeof ipaddr, "%I", ipa);
 	if (debug)
 		syslog(0, "dns", "ipaddr is %s\n", ipaddr);
 }
@@ -1197,7 +1197,8 @@ lookup(Mfile *mf)
 						mf->replylen[mf->nreply] = strlen(cp);
 						mf->reply[mf->nreply++] = cp;
 						rv++;
-					}
+					}else
+						free(cp);
 				}
 			}
 			ndbfree(nt);

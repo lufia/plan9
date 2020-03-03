@@ -680,10 +680,12 @@ read(ulong *arg, vlong *offp)
 	}else
 		nnn = nn = devtab[c->type]->read(c, p, n, off);
 
-	lock(c);
-	c->devoffset += nn;
-	c->offset += nnn;
-	unlock(c);
+	if(c->qid.type & QTDIR || offp == nil){
+		lock(c);
+		c->devoffset += nn;
+		c->offset += nnn;
+		unlock(c);
+	}
 
 	poperror();
 	cclose(c);
@@ -1233,7 +1235,7 @@ packoldstat(uchar *buf, Dir *d)
 	strncpy((char*)p, d->gid, 28);
 	p += 28;
 	q = d->qid.path & ~DMDIR;	/* make sure doesn't accidentally look like directory */
-	if(d->qid.type & QTDIR)	/* this is the real test of a new directory */
+	if((ulong)d->qid.type & QTDIR)	/* this is the real test of a new directory */
 		q |= DMDIR;
 	PBIT32(p, q);
 	p += BIT32SZ;

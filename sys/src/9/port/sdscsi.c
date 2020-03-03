@@ -202,7 +202,7 @@ scsionline(SDunit* unit)
 		 */
 		r->write = 0;
 		memset(r->cmd, 0, sizeof(r->cmd));
-		r->cmd[0] = 0x25;
+		r->cmd[0] = ScmdRcapacity;
 		r->cmd[1] = r->lun<<5;
 		r->clen = 10;
 		r->data = p;
@@ -303,6 +303,21 @@ scsiexec(SDunit* unit, int write, uchar* cmd, int clen, void* data, int* dlen)
 	return status;
 }
 
+/* extract lba and count from scsi command block cmd of clen bytes */
+void
+scsilbacount(uchar *cmd, int clen, uvlong *lbap, ulong *countp)
+{
+	if (clen == 16) {
+		*lbap = (uvlong)cmd[4]<<40 | (uvlong)cmd[5]<<32 |
+			   cmd[6]<<24 |  cmd[7]<<16 |  cmd[8]<<8 | cmd[9];
+		*countp = cmd[10]<<24 | cmd[11]<<16 | cmd[12]<<8 | cmd[13];
+	} else if (clen == 10) {
+		*lbap  = cmd[2]<<24 | cmd[3]<<16 | cmd[4]<<8 | cmd[5];
+		*countp = cmd[7]<<8 | cmd[8];
+	} else
+		panic("scsilbacount: command len %d unexpected", clen);
+}
+
 static void
 scsifmt10(SDreq *r, int write, int lun, ulong nb, uvlong bno)
 {
@@ -310,9 +325,9 @@ scsifmt10(SDreq *r, int write, int lun, ulong nb, uvlong bno)
 
 	c = r->cmd;
 	if(write == 0)
-		c[0] = 0x28;
+		c[0] = ScmdExtread;
 	else
-		c[0] = 0x2A;
+		c[0] = ScmdExtwrite;
 	c[1] = lun<<5;
 	c[2] = bno>>24;
 	c[3] = bno>>16;
@@ -333,9 +348,9 @@ scsifmt16(SDreq *r, int write, int lun, ulong nb, uvlong bno)
 
 	c = r->cmd;
 	if(write == 0)
-		c[0] = 0x88;
+		c[0] = ScmdRead16;
 	else
-		c[0] = 0x8A;
+		c[0] = ScmdWrite16;
 	c[1] = lun<<5;		/* so wrong */
 	c[2] = bno>>56;
 	c[3] = bno>>48;

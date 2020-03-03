@@ -35,6 +35,7 @@ TARG=\
 	trampoline\
 	usage\
 	watchdog\
+	wpa\
 	write\
 	zerotrunc\
 
@@ -52,7 +53,8 @@ DIRS=mnihongo\
 	flashfs\
 	gps\
 	na\
-	vga
+	vga\
+	realemu
 
 all:V:	$DIRS
 

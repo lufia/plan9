@@ -68,6 +68,10 @@ link
 	ethersink
 	ethersmc	devi82365 cis
 	etherwavelan	wavelan devi82365 cis pci
+	ethervirtio		pci
+	etheriwl	pci wifi
+	etherwpi	pci wifi
+	etherrt2860	pci wifi
 
 	ethermedium
 	pcmciamodem
@@ -87,6 +91,7 @@ misc
 	sdmylex		pci sdscsi
 	sdiahci		pci sdscsi
 	sdaoe
+	sdvirtio	pci sdscsi
 
 	uarti8250
 	uartpci		pci
