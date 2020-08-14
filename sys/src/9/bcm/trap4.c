@@ -28,7 +28,7 @@
 #define IRQLOCAL(irq)	((irq) - IRQlocal + 13 + 16)
 #define IRQGLOBAL(irq)	((irq) + 64 + 32)
 
-#define ISSGI(irq)	((uint)(irq) < Nsgi)
+#define ISSGI(irq)	((uint)(irq) < Nppi)
 
 enum {
 	Debug = 0,
@@ -516,6 +516,7 @@ void
 irqenable(int irq, void (*f)(Ureg*, void*), void* a)
 {
 	Vctl *v;
+	int ena;
 	static char name[] = "anon";
 
 	/* permute irq numbers for pi4 */
@@ -530,21 +531,13 @@ irqenable(int irq, void (*f)(Ureg*, void*), void* a)
 		iprint("irqenable for %d %s called too early\n", irq, name);
 		return;
 	}
+
 	/*
 	 * if in use, could be a private interrupt on a secondary cpu,
-	 * so don't add anything to the vector chain.  irqs should
-	 * otherwise be one-to-one with devices.
+	 * or a shared irq number (eg emmc and sdhc)
 	 */
-	if(!ISSGI(irq) && irqinuse(irq)) {
-		lock(&vctllock);
-		if (vctl[irq] == nil) {
-			dumpintrpend();
-			panic("non-sgi irq %d in use yet no Vctl allocated", irq);
-		}
-		unlock(&vctllock);
-	}
-	/* could be 1st use of this irq or could be an sgi (always in use) */
-	else if (vctl[irq] == nil) {
+	ena = 1;
+	if(!ISSGI(irq) || vctl[irq] == nil) {
 		v = malloc(sizeof(Vctl));
 		if (v == nil)
 			panic("irqenable: malloc Vctl");
@@ -556,18 +549,24 @@ irqenable(int irq, void (*f)(Ureg*, void*), void* a)
 		strcpy(v->name, name);
 
 		lock(&vctllock);
-		if (vctl[irq] != nil) {
+		v->next = vctl[irq];
+		if (v->next == nil)
+			vctl[irq] = v;
+		else if (!ISSGI(irq)) {
+			/* shared irq number */
+			vctl[irq] = v;
+			ena = 0;
+		} else {
 			/* allocation race: someone else did it first */
 			free(v->name);
 			free(v);
-		} else {
-			v->next = vctl[irq];
-			vctl[irq] = v;
 		}
 		unlock(&vctllock);
 	}
-	intdismiss((Intrcpuregs *)(ARMLOCAL+Intrcpu), irq);
-	intcunmask(irq);
+	if (ena) {
+		intdismiss((Intrcpuregs *)(ARMLOCAL+Intrcpu), irq);
+		intcunmask(irq);
+	}
 }
 
 /*

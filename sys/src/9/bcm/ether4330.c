@@ -1306,6 +1306,7 @@ rproc(void *a)
 	Sdpcm *p;
 	Cmd *q;
 	int flowstart;
+	int bdc;
 
 	edev = a;
 	ctl = edev->ctlr;
@@ -1350,18 +1351,27 @@ rproc(void *a)
 		case 1:
 			if(iodebug) dump("event", b->rp, BLEN(b));
 			if(BLEN(b) > p->doffset + 4){
-				b->rp += p->doffset + 4;	/* skip BDC header */
-				bcmevent(ctl, b->rp, BLEN(b));
-			}else if(iodebug)
+				bdc = 4 + (b->rp[p->doffset + 3] << 2);
+				if(BLEN(b) > p->doffset + bdc){
+					b->rp += p->doffset + bdc;	/* skip BDC header */
+					bcmevent(ctl, b->rp, BLEN(b));
+					break;
+				}
+			}
+			if(iodebug && BLEN(b) != p->doffset)
 				print("short event %ld %d\n", BLEN(b), p->doffset);
 			break;
 		case 2:
 			if(iodebug) dump("packet", b->rp, BLEN(b));
-			b->rp += p->doffset + 4;		/* skip BDC header */
-			if(BLEN(b) < ETHERHDRSIZE)
-				break;
-			etheriq(edev, b, 1);
-			continue;
+			if(BLEN(b) > p->doffset + 4){
+				bdc = 4 + (b->rp[p->doffset + 3] << 2);
+				if(BLEN(b) >= p->doffset + bdc + ETHERHDRSIZE){
+					b->rp += p->doffset + bdc;	/* skip BDC header */
+					etheriq(edev, b, 1);
+					continue;
+				}
+			}
+			break;
 		default:
 			dump("ether4330: bad packet", b->rp, BLEN(b));
 			break;

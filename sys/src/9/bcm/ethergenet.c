@@ -14,6 +14,8 @@
 #include "etherif.h"
 #include "ethermii.h"
 
+#define	MIIDBG	if(0)print
+
 enum
 {
 	Rbsz		= 2048,
@@ -875,7 +877,7 @@ attach(Ether *edev)
 	if(ctlr->mii->curphy == nil)
 		error("no phy");
 
-	print("#l%d: phy%d id %.8ux oui %x\n", 
+	MIIDBG("#l%d: phy%d id %.8ux oui %x\n", 
 		edev->ctlrno, ctlr->mii->curphy->phyno, 
 		ctlr->mii->curphy->id, ctlr->mii->curphy->oui);
 
