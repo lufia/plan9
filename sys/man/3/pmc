@@ -1,0 +1,118 @@
+.TH PMC 3 
+.SH NAME
+pmc \- performance monitoring counters
+.SH SYNOPSIS
+.nf
+.B bind '#ε' /dev
+
+.BI #ε/ctrdesc
+.BI #ε/core0000
+.BI #ε/core0001
+.BI #ε/core0002
+ ...
+.fi
+.SH DESCRIPTION
+.PP
+The
+.I pmc
+device serves a one-level directory, giving
+access to the hardware counters on the
+different cores. This counters can count events,
+cycles or any unit of measure imagined by the designer
+of the architecture.
+There is a file per core,
+.B coreNNNN,
+containing the state of the active counters on
+that core.
+.PP
+This file provide access to the value of the counters.
+.PP
+Any change to or from the counters or the configurations is seen
+as soon as possible. In the worst case, it is guaranteed that the values
+read or set are at least as fresh as the last time a process went in or out
+of the kernel on that core.
+.PP
+The file contains a line per active counter. Each line has 7 fields separated by spaces.
+The fields are:
+.IP \-
+The counter number (each core my have a number of counters).
+.IP \-
+The value of the counter.
+.IP \-
+The string
+.B on.
+.IP \-
+A string describing whether it is counts only in user space, either
+.B user
+or
+.B nouser.
+.IP \-
+A string describing whether it is counts only in kernel space, either
+.B os
+or
+.B noos.
+.IP \-
+A string the configuration in a format recognized by this
+driver. Readable versions of this string can be found in the file
+.B ctrdesc.
+.PP
+A line similar to those obtained when reading can be written to the file to configure
+the counters. The first two fields are mandatory, the rest are optional and may or may
+not be present. If the number of the counter is -, the driver picks
+an appropiate one or returns an error if there is not any free.
+Any other field  with the value
+.B -
+is simply ignored. 
+.PP
+.SH "EXAMPLES
+.EX
+	% bind '#ε' /dev
+	% cat /dev/ctrdesc
+	locked instr
+	locked cycles nonspecul
+	SMI intr
+	DC access
+	DC miss
+	DC refills
+	DC evicted
+	L1 DTLB miss
+	L2 DTLB miss
+	L1 DTLB hit
+	global TLB flush
+	L2 hit
+	L2 miss
+	IC miss
+	IC refill from L2
+	IC refill from system
+	L1 ITLB miss
+	L2 ITLB miss
+	DRAM access
+	L3 miss
+	
+	% echo 00 - on > core0000
+	% cat core0000
+	00 0x23423 on user noos 0xe0 0x3f
+	% echo '00 0x0 on user noos L1 DTLB miss' > core0000
+	% cat core0000
+	00 0x2 on user noos 0xe0 0x3f
+	% echo '- 0xdead on user noos DRAM access' > core0000
+	% cat core0000
+	00 0x78 on user noos 0xe0 0x3f
+	01 0xdefd on user noos 0xe0 0x3f
+	% echo 00 - off > core0000
+	% cat core0000
+	01 0xfabc on user noos 0xe0 0x3f
+.EE
+.SH SOURCE
+.PP
+.B /sys/src/nix/port/pmc.h
+.B /sys/src/nix/port/devpmc.c
+.B /sys/src/nix/k10/pmcio.c
+.SH "SEE ALSO
+AMD
+``BIOS and Kernel Develper's Guide (BKDG) For AMD Family 10h Processors'',
+.I
+section 3.14, Performance Counter Events .
+Intel Software Deveveloper's Manual, chapter 18 and 19.
+.SH BUGS
+More portable description for different families of Intel should be added.
