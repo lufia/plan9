@@ -714,6 +714,70 @@ mpintrcpu(void)
 }
 
 static int
+mpmsimask(Vctl *v, int mask)
+{
+	Pcidev *p;
+
+	p = pcimatchtbdf(v->tbdf);
+	if(p == nil)
+		return -1;
+	return pcimsimask(p, mask);
+}
+
+
+static int
+mpintrenablemsi(Vctl* v, int tbdf)
+{
+	uint vno, lo, hi;
+	uvlong msivec;
+	Pcidev *p;
+
+	p = pcimatchtbdf(tbdf);
+	if(p == nil)
+		return -1;
+
+	lock(&mpvnoref);
+	vno = VectorAPIC + mpvnoref.ref*8;		/* really? */
+	if(vno > MaxVectorAPIC){
+		unlock(&mpvnoref);
+		print("msiirq: out of vectors %T %s\n", tbdf, v->name);
+		return -1;
+	}
+
+	lo = ApicLOW | ApicEDGE | vno;
+	lo |= ApicPHYSICAL;			/* no-op */
+
+	if(lo & ApicLOGICAL)
+		lo |= ApicLOWEST;
+
+	msivec = (uvlong)hi<<32 | lo;
+	if(pcimsienable(p, msivec) == -1){
+		unlock(&mpvnoref);
+		dprint("msiirq: %T: can't enable %s\n", p->tbdf, v->name);
+		return -1;
+	}
+	v->type = "msi";
+	v->isr = lapicisr;		/* XXX */
+	v->eoi = lapiceoi;
+	v->mask = mpmsimask;
+	dprint("msiirq: %T: enabling %.16llux %s irq %d vno %d\n", p->tbdf, msivec, v->name, v->irq, vno);
+	mpvnoref.ref++;
+	unlock(&mpvnoref);
+	return vno;
+}
+
+int
+mpdisablemsi(Vctl*, int tbdf)
+{
+	Pcidev *p;
+
+	p = pcimatchtbdf(tbdf);
+	if(p == nil)
+		return -1;
+	return pcimsimask(p, 1);
+}
+
+static int
 mpintrenablex(Vctl* v, int tbdf)
 {
 	Bus *bus;
@@ -857,8 +921,13 @@ mpintrenable(Vctl* v)
 	 * breakpoint and page-fault).
 	 */
 	tbdf = v->tbdf;
-	if(tbdf != BUSUNKNOWN && (vno = mpintrenablex(v, tbdf)) != -1)
-		return vno;
+	if(tbdf != BUSUNKNOWN){
+		if((vno = mpintrenablemsi(v, tbdf)) != -1)
+			return vno;
+		mpdisablemsi(v, tbdf);	/* should be in pcireset? */
+		if((vno = mpintrenablex(v, tbdf)) != -1)
+			return vno;
+	}
 
 	irq = v->irq;
 	if(irq >= IrqLINT0 && irq <= MaxIrqLAPIC){
