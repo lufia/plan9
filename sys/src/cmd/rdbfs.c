@@ -224,9 +224,11 @@ eiaread(void*)
 					goto Break2;
 				}else{
 					DBG(2, "unknown message\n");
+					break;
 				}
 			}
 		}
+		respond(r, "timed out");
 	Break2:;
 	}
 }
