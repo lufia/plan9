@@ -136,6 +136,10 @@ extern	int	tokenize(char*, char**, int);
 extern	int	dec64(uchar*, int, char*, int);
 extern	int	encodefmt(Fmt*);
 extern	void	qsort(void*, long, long, int (*)(void*, void*));
+extern	uvlong	getle(uchar*, int);
+extern	void	putle(uchar*, uvlong, int);
+extern	uvlong	getbe(uchar*, int);
+extern	void	putbe(uchar*, uvlong, int);
 
 /*
  * Syscall data structures

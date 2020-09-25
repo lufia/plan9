@@ -356,6 +356,14 @@ extern uchar*	be32put(uchar *t, u32int r);
 extern uchar*	be64put(uchar *t, u64int r);
 
 /*
+ * endian conversion
+ */
+extern	uvlong	getbe(uchar*, int);
+extern	void	putbe(uchar*, uvlong, int);
+extern	uvlong	getle(uchar*, int);
+extern	void	putle(uchar*, uvlong, int);
+
+/*
  * one-of-a-kind
  */
 enum
