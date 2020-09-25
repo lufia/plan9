@@ -9,6 +9,7 @@ menuitem=cdboot, Boot Plan 9 from this CD
 # very cautious settings to get started.
 # will defeat booting from usb devices.
 *nomp=1
+*nomsi=1
 *nobiosload=1
 debugboot=1
 # *noahciload=1
