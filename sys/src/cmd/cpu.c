@@ -40,6 +40,10 @@ char	*srvname = "ncpu";
 char	*exportfs = "/bin/exportfs";
 char	*ealgs = "rc4_256 sha1";
 
+char *filterp;
+char *aan = "/bin/aan";
+char *anstring  = "tcp!*!0";
+
 /* message size for exportfs; may be larger so we can do big graphics in CPU window */
 int	msgsize = Maxfdata+IOHDRSZ;
 
@@ -50,6 +54,9 @@ static int	p9auth(int);
 static int	srvp9auth(int, char*);
 static int	noauth(int);
 static int	srvnoauth(int, char*);
+
+static int	srvfilter(int, char *);
+static int	filter(int, char*, char*);
 
 typedef struct AuthMethod AuthMethod;
 struct AuthMethod {
@@ -196,6 +203,9 @@ main(int argc, char **argv)
 		user = EARGF(usage());
 		keyspec = smprint("%s user=%s", keyspec, user);
 		break;
+	case 'p':
+		filterp = aan;
+		break;
 	default:
 		usage();
 	}ARGEND;
@@ -285,7 +295,7 @@ char *negstr = "negotiating authentication method";
 void
 remoteside(void)
 {
-	char user[MaxStr], home[MaxStr], buf[MaxStr], xdir[MaxStr], cmd[MaxStr];
+	char user[MaxStr], home[MaxStr], buf[MaxStr], xdir[MaxStr], cmd[MaxStr], *auth;
 	int i, n, fd, badchdir, gotcmd;
 
 	rfork(RFENVG);
@@ -296,7 +306,19 @@ remoteside(void)
 	n = readstr(fd, cmd, sizeof(cmd));
 	if(n < 0)
 		fatal(1, "authenticating");
-	if(setamalg(cmd) < 0){
+
+	auth = strchr(cmd, ' ');
+
+	if(auth != nil){
+		*auth++ = 0;
+	}
+
+	if (strcmp(cmd, "aan") == 0)
+		filterp = aan;
+	else if (strcmp(cmd, "nofilter") != 0)
+		fatal(1, "import filter argument unsupported: %s\n", cmd);
+
+	if(setamalg(auth) < 0){
 		writestr(fd, "unsupported auth method", nil, 0);
 		fatal(1, "bad auth method %s", cmd);
 	} else
@@ -387,9 +409,9 @@ rexcall(int *fd, char *host, char *service)
 
 	/* negotiate authentication mechanism */
 	if(ealgs != nil)
-		snprint(msg, sizeof(msg), "%s %s", am->name, ealgs);
+		snprint(msg, sizeof(msg), "%s %s %s", filterp? "aan": "nofilter", am->name, ealgs);
 	else
-		snprint(msg, sizeof(msg), "%s", am->name);
+		snprint(msg, sizeof(msg), "%s %s", filterp? "aan": "nofilter", am->name);
 	procsetname("writing %s", msg);
 	writestr(*fd, msg, negstr, 0);
 	procsetname("awaiting auth method");
@@ -569,6 +591,9 @@ p9auth(int fd)
 	mksecret(fromclientsecret, digest);
 	mksecret(fromserversecret, digest+10);
 
+	if (filterp)
+		fd = filter(fd, filterp, system);
+
 	/* set up encryption */
 	procsetname("pushssl");
 	i = pushssl(fd, ealgs, fromclientsecret, fromserversecret, nil);
@@ -643,6 +668,9 @@ srvp9auth(int fd, char *user)
 	mksecret(fromclientsecret, digest);
 	mksecret(fromserversecret, digest+10);
 
+	if (filterp)
+		fd = srvfilter(fd, filterp);
+
 	/* set up encryption */
 	i = pushssl(fd, ealgs, fromserversecret, fromclientsecret, nil);
 	if(i < 0)
@@ -670,8 +698,9 @@ int
 setamalg(char *s)
 {
 	ealgs = strchr(s, ' ');
-	if(ealgs != nil)
+	if(ealgs != nil){
 		*ealgs++ = 0;
+	}
 	return setam(s);
 }
 
@@ -1168,4 +1197,111 @@ lclnoteproc(int netfd)
 		exits(nil);
 	exits(0);
 /*	exits(w->msg); */
+}
+
+/* Network on fd1, mount driver on fd0 */
+static int
+srvfilter(int fd, char *cmd)
+{
+	int p[2], lfd, len, nb, argc;
+	char newport[128], buf[128], devdir[40], *s, *file, *argv[16];
+
+	/* Get a free port and post it to the client. */
+	if (announce(anstring, devdir) < 0)
+		sysfatal("filter: Cannot announce %s: %r", anstring);
+
+	snprint(buf, sizeof(buf), "%s/local", devdir);
+	buf[sizeof buf - 1] = '\0';
+	if ((lfd = open(buf, OREAD)) < 0)
+		sysfatal("filter: Cannot open %s: %r", buf);
+	if ((len = read(lfd, newport, sizeof newport - 1)) < 0)
+		sysfatal("filter: Cannot read %s: %r", buf);
+	close(lfd);
+	newport[len] = '\0';
+
+	if ((s = strchr(newport, '\n')) != nil)
+		*s = '\0';
+
+	if ((nb = write(fd, newport, len)) < 0) 
+		sysfatal("getport; cannot write port; %r");
+	assert(nb == len);
+
+	argc = tokenize(cmd, argv, nelem(argv)-2);
+	if (argc == 0)
+		sysfatal("filter: empty command");
+	argv[argc++] = buf;
+	argv[argc] = nil;
+	file = argv[0];
+	if (s = strrchr(argv[0], '/'))
+		argv[0] = s+1;
+
+	if(pipe(p) < 0)
+		sysfatal("pipe");
+
+	switch(rfork(RFNOWAIT|RFPROC|RFFDG)) {
+	case -1:
+		sysfatal("rfork record module");
+	case 0:
+		if (dup(p[0], 1) < 0)
+			sysfatal("filter: Cannot dup to 1; %r\n");
+		if (dup(p[0], 0) < 0)
+			sysfatal("filter: Cannot dup to 0; %r\n");
+		close(p[0]);
+		close(p[1]);
+		exec(file, argv);
+		sysfatal("exec record module");
+	default:
+		close(fd);
+		close(p[0]);
+	}
+	return p[1];	
+}
+
+/* Network on fd1, mount driver on fd0 */
+static int
+filter(int fd, char *cmd, char *host)
+{
+	int p[2], len, argc;
+	char newport[256], buf[256], *s;
+	char *argv[16], *file, *pbuf;
+
+	if ((len = read(fd, newport, sizeof newport - 1)) < 0)
+		sysfatal("filter: cannot write port; %r");
+	newport[len] = '\0';
+
+	if ((s = strchr(newport, '!')) == nil)
+		sysfatal("filter: illegally formatted port %s", newport);
+
+	strecpy(buf, buf+sizeof buf, netmkaddr(host, "tcp", "0"));
+	pbuf = strrchr(buf, '!');
+	strecpy(pbuf, buf+sizeof buf, s);
+
+	argc = tokenize(cmd, argv, nelem(argv)-2);
+	if (argc == 0)
+		sysfatal("filter: empty command");
+	argv[argc++] = "-c";
+	argv[argc++] = buf;
+	argv[argc] = nil;
+	file = argv[0];
+	if (s = strrchr(argv[0], '/'))
+		argv[0] = s+1;
+
+	if(pipe(p) < 0)
+		sysfatal("pipe: %r");
+
+	switch(rfork(RFNOWAIT|RFPROC|RFFDG)) {
+	case -1:
+		sysfatal("rfork record module: %r");
+	case 0:
+		dup(p[0], 1);
+		dup(p[0], 0);
+		close(p[0]);
+		close(p[1]);
+		exec(file, argv);
+		sysfatal("exec record module: %r");
+	default:
+		close(fd);
+		close(p[0]);
+	}
+	return p[1];
 }
