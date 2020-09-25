@@ -1,0 +1,20 @@
+</$objtype/mkfile
+
+TARG=nfs
+
+OFILES=\
+	box.$O\
+	decode.$O\
+	fs.$O\
+	imap.$O\
+	main.$O\
+	sx.$O\
+	thread.$O\
+	util.$O\
+
+HFILES=a.h box.h imap.h sx.h
+
+BIN=/$objtype/bin/upas
+
+</sys/src/cmd/mkone
+
