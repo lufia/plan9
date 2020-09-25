@@ -77,6 +77,7 @@ struct Fs {
 	Cache	*cache;		/* immutable */
 	int	mode;		/* immutable */
 	int	noatimeupd;	/* immutable */
+	int	nomtimeupd;	/* immutable */
 	int	blockSize;	/* immutable */
 	VtConn *z;		/* immutable */
 	Snap	*snap;		/* immutable */

@@ -750,6 +750,9 @@ allow wstat to make arbitrary changes to the user and group fields
 do not update file access times;
 primarily to avoid wear on flash memories
 .TP
+.B -m
+do not update file modification times
+.TP
 .B -r
 open the file system read-only
 .TP

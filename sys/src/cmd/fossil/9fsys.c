@@ -1540,12 +1540,12 @@ fsysOpen(char* name, int argc, char* argv[])
 {
 	char *p, *host;
 	Fsys *fsys;
-	int noauth, noventi, noperm, rflag, wstatallow, noatimeupd;
+	int noauth, noventi, noperm, rflag, wstatallow, noatimeupd, nomtimeupd;
 	long ncache;
 	char *usage = "usage: fsys name open [-APVWr] [-c ncache]";
 
 	ncache = 1000;
-	noauth = noperm = wstatallow = noventi = noatimeupd = 0;
+	noauth = noperm = wstatallow = noventi = noatimeupd = nomtimeupd = 0;
 	rflag = OReadWrite;
 
 	ARGBEGIN{
@@ -1565,6 +1565,9 @@ fsysOpen(char* name, int argc, char* argv[])
 		break;
 	case 'a':
 		noatimeupd = 1;
+		break;
+	case 'm':
+		nomtimeupd = 1;
 		break;
 	case 'c':
 		p = ARGF();
@@ -1627,6 +1630,7 @@ fsysOpen(char* name, int argc, char* argv[])
 	fsys->noperm = noperm;
 	fsys->wstatallow = wstatallow;
 	fsys->fs->noatimeupd = noatimeupd;
+	fsys->fs->nomtimeupd = nomtimeupd;
 	qunlock(&fsys->lock);
 	fsysPut(fsys);
 
