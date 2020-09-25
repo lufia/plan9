@@ -1709,10 +1709,10 @@ mmcxwrite(Otrack *o, void *v, long nblk)
 	 * "write and verify" (ScmdExtwritever) only works on write-once media
 	 * and not on CDs (mmc-6 §6.48.1).
 	 */
-	if ((drive->mmctype == Mmcbd || dvdcanverify(drive)) &&
-	    drive->recordable == Yes && drive->erasable == No)
-		initcdb(cmd, sizeof cmd, ScmdExtwritever);
-	else
+//	if ((drive->mmctype == Mmcbd || dvdcanverify(drive)) &&
+//	    drive->recordable == Yes && drive->erasable == No)
+//		initcdb(cmd, sizeof cmd, ScmdExtwritever);
+//	else
 		initcdb(cmd, sizeof cmd, ScmdExtwrite);	/* write (10) */
 	cmd[2] = aux->mmcnwa>>24;
 	cmd[3] = aux->mmcnwa>>16;
