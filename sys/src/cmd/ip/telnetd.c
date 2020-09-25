@@ -128,6 +128,7 @@ main(int argc, char *argv[])
 	/* setup default telnet options */
 	if(!noproto){
 		send3(1, Iac, Will, opt[Echo].code);
+		send3(1, Iac, Do, opt[Line].code);
 		send3(1, Iac, Do, opt[Term].code);
 		send3(1, Iac, Do, opt[Xloc].code);
 	}
@@ -398,18 +399,21 @@ fromnet(char *bp, int len)
 		} else
 			crnl = 0;
 
-		/* raw processing (each character terminates */
-		if(cons->raw){
-			*bp++ = c;
-			break;
-		}
-
 		/* in binary mode, there are no control characters */
 		if(opt[Binary].local){
 			if(opt[Echo].local)
 				ECHO(c);
 			*bp++ = c;
 			continue;
+		}
+
+		/* raw processing (each character terminates) */
+		if(cons->raw){
+			if(c == 0x00)
+			if(!noproto)		/* telnet ignores nulls */
+				continue;
+			*bp++ = c;
+			break;
 		}
 
 		/* cooked processing */
