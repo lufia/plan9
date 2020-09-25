@@ -232,4 +232,7 @@ extern void mpinit(void);
 extern int mpintrenable(Vctl*);
 extern void mpshutdown(void);
 
+extern int pcimsienable(Pcidev*, uvlong);
+extern int pcimsimask(Pcidev*, int);
+
 extern _MP_ *_mp_;

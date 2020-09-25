@@ -48,11 +48,13 @@ typedef struct Vctl {
 	Vctl*	next;			/* handlers on this vector */
 
 	char	name[KNAMELEN];		/* of driver */
+	char	*type;
 	int	isintr;			/* interrupt or fault/trap */
 	int	irq;
 	int	tbdf;
 	int	(*isr)(int);		/* get isr bit for this irq */
 	int	(*eoi)(int);		/* eoi */
+	int	(*mask)(Vctl*, int);	/* interrupt enable returns masked vector */
 
 	void	(*f)(Ureg*, void*);	/* handler to call */
 	void*	a;			/* argument to call it with */
