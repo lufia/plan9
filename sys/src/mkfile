@@ -15,6 +15,7 @@ LIBS=\
 	libdisk\
 	libdraw\
 	libdynld\
+	libfis\
 	libflate\
 	libframe\
 	libgeometry\
