@@ -1,0 +1,13 @@
+TEXT cpuid1(SB), 1, $0
+	MOVL	regs+0(FP), BP
+	MOVL	0(BP), AX
+	MOVL	4(BP), BX
+	MOVL	8(BP), CX
+	MOVL	8(BP), DX
+	BYTE $0x0F; BYTE $0xA2
+	MOVL	regs+0(FP), BP
+	MOVL	AX, 0(BP)
+	MOVL	BX, 4(BP)
+	MOVL	CX, 8(BP)
+	MOVL	DX, 12(BP)
+	RET
