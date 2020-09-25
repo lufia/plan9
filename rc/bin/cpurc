@@ -42,7 +42,7 @@ if(! test -e /srv/dns)
 # auth/cron >>/sys/log/cron >[2=1] &
 
 # keep other bootes processes from creating capabilities
-rm -f '#¤/caphash'
+# rm -f '#¤/caphash'
 
 # also rename some files on an auth server:
 #
