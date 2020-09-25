@@ -882,6 +882,11 @@ fileSetDir(File *f, DirEntry *dir, char *uid)
 		f->dir.gid = vtstrdup(dir->gid);
 	}
 
+	if(strcmp(f->dir.mid, dir->mid) != 0){
+		vtfree(f->dir.mid);
+		f->dir.mid = vtstrdup(dir->mid);
+	}
+
 	f->dir.mtime = dir->mtime;
 	f->dir.atime = dir->atime;
 
