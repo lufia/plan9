@@ -469,7 +469,7 @@ fileCreate(File *f, char *elem, ulong mode, char *uid)
 	dir->mtime = time(0L);
 	dir->mcount = 0;
 	dir->ctime = dir->mtime;
-	dir->atime = dir->mtime;
+	dir->atime = 0L;
 	dir->mode = mode;
 
 	ff->boff = fileMetaAlloc(f, dir, 0);
@@ -1706,7 +1706,7 @@ fileRAccess(File* f)
 static void
 fileWAccess(File* f, char *mid)
 {
-	if(f->mode == OReadOnly)
+	if(f->mode == OReadOnly || f->fs->nomtimeupd)
 		return;
 
 	fileMetaLock(f);
