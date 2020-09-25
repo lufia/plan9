@@ -455,29 +455,6 @@ fixnames(void *dot, void *arg)
 }
 
 static uvlong
-getle(uchar *p, int len)
-{
-	uvlong v;
-	int i;
-
-	v = 0ULL;
-	for(i=0; i<len; i++)
-		v |= ((uvlong)p[i]) << i*8;
-	return v;
-}
-
-static void
-putle(uchar *p, int len, uvlong v)
-{
-	int i;
-
-	for(i=0; i<len; i++){
-		p[i] = v;
-		v >>= 8;
-	}
-}
-
-static uvlong
 rwreg(void *reg, int off, int len, uvlong v, int write)
 {
 	uchar buf[8], *p;
