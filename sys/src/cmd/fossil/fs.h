@@ -11,6 +11,12 @@ enum
 	STACK = 32*1024,
 };
 
+enum
+{
+	// XXX What to do here?
+	VtMaxLumpSize = 65536,
+};
+
 /* modes */
 
 enum {
