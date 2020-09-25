@@ -13,6 +13,7 @@ char	*mailboxdir = nil;				/* nil == /mail/box/$user */
 char *fsname;						/* filesystem for mailboxdir/mboxname is at maildir/fsname */
 char	*user;
 char	*outgoing;
+char *srvname;
 
 Window	*wbox;
 Message	mbox;
@@ -39,7 +40,7 @@ int			shortmenu;
 void
 usage(void)
 {
-	fprint(2, "usage: Mail [-sS] [-o outgoing] [mailboxname [directoryname]]\n");
+	fprint(2, "usage: Mail [-sS] [-n srvname] [-o outgoing] [mailboxname [directoryname]]\n");
 	threadexitsall("usage");
 }
 
@@ -82,11 +83,15 @@ threadmain(int argc, char *argv[])
 	quotefmtinstall();
 
 	/* open these early so we won't miss notification of new mail messages while we read mbox */
-	plumbsendfd = plumbopen("send", OWRITE|OCEXEC);
-	plumbseemailfd = plumbopen("seemail", OREAD|OCEXEC);
-	plumbshowmailfd = plumbopen("showmail", OREAD|OCEXEC);
+	if(plumbsendfd = plumbopen("send", OWRITE|OCEXEC) < 0)
+		fprint(2, "warning: open plumb/send: %r\n");
+	if(plumbseemailfd = plumbopen("seemail", OREAD|OCEXEC) < 0)
+		fprint(2, "warning: open plumb/seemail: %r\n");
+	if(plumbshowmailfd = plumbopen("showmail", OREAD|OCEXEC) < 0)
+		fprint(2, "warning: open plumb/showmail: %r\n");
 
 	shortmenu = 0;
+	srvname = "mail";
 	ARGBEGIN{
 	case 's':
 		shortmenu = 1;
@@ -99,6 +104,9 @@ threadmain(int argc, char *argv[])
 		break;
 	case 'm':
 		smprint(maildir, "%s/", EARGF(usage()));
+		break;
+	case 'n':
+		srvname = EARGF(usage());
 		break;
 	default:
 		usage();
@@ -116,9 +124,9 @@ threadmain(int argc, char *argv[])
 		if(argc>2 || i==0)
 			usage();
 		/* see if the name is that of an existing /mail/fs directory */
-		if(argc==1 && strchr(argv[0], '/')==0 && ismaildir(argv[0])){
+		if(argc==1 && argv[0][0] != '/' && ismaildir(argv[0])){
 			name = argv[0];
-			mboxname = eappend(estrdup(maildir), "", name);
+			mboxname = estrdup(name);
 			newdir = 0;
 		}else{
 			if(argv[0][i-1] == '/')
@@ -148,8 +156,8 @@ threadmain(int argc, char *argv[])
 	if(outgoing == nil)
 		outgoing = estrstrdup(mailboxdir, "/outgoing");
 
-	s = estrstrdup(maildir, "ctl");
-	mbox.ctlfd = open(s, ORDWR|OCEXEC);
+	s = estrstrdup(estrstrdup(maildir, mboxname), "/ctl");
+	mbox.ctlfd = open(s, OWRITE);
 	if(mbox.ctlfd < 0)
 		error("can't open %s: %r", s);
 
@@ -219,6 +227,7 @@ threadmain(int argc, char *argv[])
 	proccreate(plumbproc, nil, STACK);
 	proccreate(plumbshowproc, nil, STACK);
 	threadcreate(plumbshowthread, nil, STACK);
+	write(mbox.ctlfd, "refresh", 7);
 	/* ... and use this thread to read the messages */
 	plumbthread();
 }
@@ -286,26 +295,35 @@ void
 showmesg(char *name, char *digest)
 {
 	char *n;
+	char *mb;
 
-	if(strncmp(name, mbox.name, strlen(mbox.name)) != 0)
+	mb = mbox.name;
+	if(strncmp(name, mb, strlen(mb)) != 0)
 		return;	/* message is about another mailbox */
-	n = estrdup(name+strlen(mbox.name));
+	n = estrdup(name+strlen(mb));
 	if(n[strlen(n)-1] != '/')
 		n = egrow(n, "/", nil);
-	mesgopen(&mbox, mbox.name, name+strlen(mbox.name), nil, 1, digest);
+	mesgopen(&mbox, mbox.name, name+strlen(mb), nil, 1, digest);
 	free(n);
 }
 
 void
-delmesg(char *name, char *digest, int dodel)
+delmesg(char *name, char *digest, int dodel, char *save)
 {
 	Message *m;
 
 	m = mesglookupfile(&mbox, name, digest);
 	if(m != nil){
-		mesgmenumarkdel(wbox, &mbox, m, 0);
+		if(save)
+			mesgcommand(m, estrstrdup("Save ", save));
 		if(dodel)
-			m->writebackdel = 1;
+			mesgmenumarkdel(wbox, &mbox, m, 1);
+		else{
+			/* notification came from plumber - message is gone */
+			mesgmenudel(wbox, &mbox, m);
+			if(!m->opened)
+				mesgdel(&mbox, m);
+		}
 	}
 }
 
@@ -326,7 +344,7 @@ plumbthread(void)
 		else if(strcmp(type, "new") == 0)
 			newmesg(m->data, digest);
 		else if(strcmp(type, "delete") == 0)
-			delmesg(m->data, digest, 0);
+			delmesg(m->data, digest, 0, nil);
 		else
 			fprint(2, "Mail: unknown plumb attribute %s\n", type);
 		plumbfree(m);
@@ -335,10 +353,11 @@ plumbthread(void)
 }
 
 void
-plumbshowthread(void*)
+plumbshowthread(void *v)
 {
 	Plumbmsg *m;
 
+	USED(v);
 	threadsetname("plumbshowthread");
 	while((m = recvp(cplumbshow)) != nil){
 		showmesg(m->data, plumblookup(m->attr, "digest"));
@@ -348,10 +367,11 @@ plumbshowthread(void*)
 }
 
 void
-plumbsendthread(void*)
+plumbsendthread(void *v)
 {
 	Plumbmsg *m;
 
+	USED(v);
 	threadsetname("plumbsendthread");
 	while((m = recvp(cplumbsend)) != nil){
 		mkreply(nil, "Mail", m->data, m->attr, nil);
@@ -363,7 +383,7 @@ plumbsendthread(void*)
 int
 mboxcommand(Window *w, char *s)
 {
-	char *args[10], **targs;
+	char *args[10], **targs, *save;
 	Message *m, *next;
 	int ok, nargs, i, j;
 	char buf[128];
@@ -414,13 +434,14 @@ mboxcommand(Window *w, char *s)
 		rewritembox(wbox, &mbox);
 		return 1;
 	}
+	if(strcmp(s, "Get") == 0){
+		write(mbox.ctlfd, "refresh", 7);
+		return 1;
+	}
 	if(strcmp(s, "Delmesg") == 0){
-		if(nargs > 1){
-			for(i=1; i<nargs; i++){
-				snprint(buf, sizeof buf, "%s%s", mbox.name, args[i]);
-				delmesg(buf, nil, 1);
-			}
-		}
+		save = nil;
+		if(nargs > 1)
+			save = args[1];
 		s = winselection(w);
 		if(s == nil)
 			return 1;
@@ -437,7 +458,7 @@ mboxcommand(Window *w, char *s)
 			if(j == 0)
 				continue;
 			snprint(buf, sizeof buf, "%s%d", mbox.name, j);
-			delmesg(buf, nil, 1);
+			delmesg(buf, nil, 1, save);
 		}
 		free(s);
 		free(targs);
@@ -455,6 +476,7 @@ mainctl(void *v)
 	char *s, *t, *buf;
 
 	w = v;
+	winincref(w);
 	proccreate(wineventproc, w, STACK);
 
 	for(;;){

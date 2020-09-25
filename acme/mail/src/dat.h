@@ -7,7 +7,7 @@ enum
 {
 	STACK		= 8192,
 	EVENTSIZE	= 256,
-	NEVENT		= 5,
+	NEVENT		= 5
 };
 
 struct Event
@@ -25,6 +25,10 @@ struct Event
 
 struct Window
 {
+	/* coordinate wineventproc and window thread */
+	QLock	lk;
+	int		ref;
+
 	/* file descriptors */
 	int		ctl;
 	int		event;
@@ -57,13 +61,15 @@ struct Message
 	uchar	tagposted;
 	uchar	recursed;
 	uchar	level;
+	uint		replywinid;
 
 	/* header info */
-	char		*fromcolon;	/* from header file; all rest are from info file */
 	char		*from;
+	char		*fromcolon;
 	char		*to;
 	char		*cc;
 	char		*replyto;
+	char		*sender;
 	char		*date;
 	char		*subject;
 	char		*type;
@@ -112,6 +118,8 @@ extern	int		winsetaddr(Window*, char*, int);
 extern	char*	winreadbody(Window*, int*);
 extern	void		windormant(Window*);
 extern	void		winsetdump(Window*, char*, char*);
+extern	void		winincref(Window*);
+extern	void		windecref(Window*);
 
 extern	void		readmbox(Message*, char*, char*);
 extern	void		rewritembox(Window*, Message*);
@@ -132,6 +140,7 @@ extern	void		mesgmenumarkdel(Window*, Message*, Message*, int);
 extern	Message*	mesglookup(Message*, char*, char*);
 extern	Message*	mesglookupfile(Message*, char*, char*);
 extern	void		mesgfreeparts(Message*);
+extern	int		mesgcommand(Message*, char*);
 
 extern	char*	readfile(char*, char*, int*);
 extern	char*	readbody(char*, char*, int*);
@@ -158,7 +167,10 @@ extern	int		plumbseemailfd;
 extern	char		*home;
 extern	char		*outgoing;
 extern	char		*mailboxdir;
+extern	char		*mboxname;
 extern	char		*user;
+extern	char		*srvname;
 extern	char		deleted[];
 extern	int		wctlfd;
 extern	int		shortmenu;
+

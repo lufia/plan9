@@ -22,7 +22,29 @@ newwindow(void)
 	w->body = nil;
 	w->data = -1;
 	w->cevent = chancreate(sizeof(Event*), 0);
+	w->ref = 1;
 	return w;
+}
+
+void
+winincref(Window *w)
+{
+	qlock(&w->lk);
+	++w->ref;
+	qunlock(&w->lk);
+}
+
+void
+windecref(Window *w)
+{
+	qlock(&w->lk);
+	if(--w->ref > 0){
+		qunlock(&w->lk);
+		return;
+	}
+	close(w->event);
+	chanfree(w->cevent);
+	free(w);
 }
 
 void
@@ -121,6 +143,7 @@ wingetec(Window *w)
 		w->nbuf = read(w->event, w->buf, sizeof w->buf);
 		if(w->nbuf <= 0){
 			/* probably because window has exited, and only called by wineventproc, so just shut down */
+			windecref(w);
 			threadexits(nil);
 		}
 		w->bufp = w->buf;
