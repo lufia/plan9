@@ -69,12 +69,25 @@ quote(Message *m, Biobuf *b, char *dir, char *quotetext)
 void
 mkreply(Message *m, char *label, char *to, Plumbattr *attr, char *quotetext)
 {
+	char buf[100];
+	Biobuf *fd;
 	Message *r;
 	char *dir, *t;
 	int quotereply;
 	Plumbattr *a;
 
 	quotereply = (label[0] == 'Q');
+	
+	if(quotereply && m && m->replywinid > 0){
+		snprint(buf, sizeof buf, "/mnt/wsys/%d/body", m->replywinid);
+		if((fd = Bopen(buf, OWRITE)) != nil){
+			dir = estrstrdup(mbox.name, m->name);
+			quote(m, fd, dir, quotetext);
+			free(dir);
+			return;
+		}
+	}
+	
 	r = emalloc(sizeof(Message));
 	r->isreply = 1;
 	if(m != nil)
@@ -89,6 +102,8 @@ mkreply(Message *m, char *label, char *to, Plumbattr *attr, char *quotetext)
 	r->name = emalloc(strlen(mbox.name)+strlen(label)+10);
 	sprint(r->name, "%s%s%d", mbox.name, label, ++replyid);
 	r->w = newwindow();
+	if(m)
+		m->replywinid = r->w->id;
 	winname(r->w, r->name);
 	ctlprint(r->w->ctl, "cleartag");
 	wintagwrite(r->w, "fmt Look Post Undo", 4+5+5+4);
@@ -210,14 +225,6 @@ execproc(void *v)
 		close(q[1]);
 	}
 	procexec(nil, prog, argv);
-//fprint(2, "exec: %s", e->prog);
-//{int i;
-//for(i=0; argv[i]; i++) print(" '%s'", argv[i]);
-//print("\n");
-//}
-//argv[0] = "cat";
-//argv[1] = nil;
-//procexec(nil, "/bin/cat", argv);
 	fprint(2, "Mail: can't exec %s: %r\n", prog);
 	threadexits("can't exec");
 }
@@ -228,7 +235,7 @@ enum{
 	CC,
 	FROM,
 	INCLUDE,
-	TO,
+	TO
 };
 
 char *headers[] = {
@@ -238,7 +245,7 @@ char *headers[] = {
 	"from:",
 	"include:",
 	"to:",
-	nil,
+	nil
 };
 
 int
@@ -466,6 +473,7 @@ mesgsend(Message *m)
 	if(ofd > 0){
 		/* From dhog Fri Aug 24 22:13:00 EDT 2001 */
 		now = ctime(time(0));
+		seek(ofd, 0, 2);
 		fprint(ofd, "From %s %s", user, now);
 		fprint(ofd, "From: %s\n", user);
 		fprint(ofd, "Date: %s", now);
@@ -484,7 +492,11 @@ mesgsend(Message *m)
 		error("can't create pipe: %r");
 	e->p[0] = p[0];
 	e->p[1] = p[1];
+#ifdef PLAN9PORT
+	e->prog = unsharp("#9/bin/upas/marshal");
+#else
 	e->prog = "/bin/upas/marshal";
+#endif
 	e->argv = emalloc((1+1+2+4*natt+1)*sizeof(char*));
 	e->argv[0] = estrdup("marshal");
 	e->argv[1] = estrdup("-8");
@@ -504,7 +516,7 @@ mesgsend(Message *m)
 	e->sync = sync;
 	proccreate(execproc, e, EXECSTACK);
 	recvul(sync);
-	close(p[0]);
+	/* close(p[0]); */
 
 	/* using marshal -8, so generate rfc822 headers */
 	if(nto > 0){

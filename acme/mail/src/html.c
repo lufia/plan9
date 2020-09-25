@@ -6,7 +6,6 @@
 #include <plumb.h>
 #include "dat.h"
 
-
 char*
 formathtml(char *body, int *np)
 {
@@ -27,7 +26,11 @@ formathtml(char *body, int *np)
 	e->argv[0] = estrdup("htmlfmt");
 	e->argv[1] = estrdup("-cutf-8");
 	e->argv[2] = nil;
+#ifdef PLAN9PORT
+	e->prog = "htmlfmt";
+#else
 	e->prog = "/bin/htmlfmt";
+#endif
 	sync = chancreate(sizeof(int), 0);
 	e->sync = sync;
 	proccreate(execproc, e, EXECSTACK);
