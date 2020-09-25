@@ -439,6 +439,13 @@ int	okThumbprint(uchar *sha1, Thumbprint *ok);
 uchar	*readcert(char *filename, int *pcertlen);
 PEMChain*readcertchain(char *filename);
 
+/* X509.c */
+typedef struct Bytes {
+	int	len;
+	uchar	data[1];
+} Bytes;
+mpint	*pkcs1pad(Bytes *b, mpint *modulus);
+
 /* password-based key derivation function 2 (rfc2898) */
 void pbkdf2_x(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen);

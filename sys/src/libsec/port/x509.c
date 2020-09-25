@@ -19,7 +19,6 @@ typedef DigestState*(*DigestFun)(uchar*,ulong,uchar*,DigestState*);
 typedef struct Elem Elem;
 typedef struct Tag Tag;
 typedef struct Value Value;
-typedef struct Bytes Bytes;
 typedef struct Ints Ints;
 typedef struct Bits Bits;
 typedef struct Elist Elist;
@@ -56,10 +55,6 @@ typedef struct Elist Elist;
 #define UniversalString 28
 #define BMPString 30
 
-struct Bytes {
-	int	len;
-	uchar	data[1];
-};
 
 struct Ints {
 	int	len;
@@ -2058,7 +2053,7 @@ asn1mpint(Elem *e)
 	return nil;
 }
 
-static mpint*
+mpint*
 pkcs1pad(Bytes *b, mpint *modulus)
 {
 	int n = (mpsignif(modulus)+7)/8;
