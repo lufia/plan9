@@ -50,7 +50,7 @@ link
 
 misc
 	realmode
-	archmp		mp apic mpacpi
+	archmp		mp apic mpacpi msi
 	mtrr
 
 	uarti8250

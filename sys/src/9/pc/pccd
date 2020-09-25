@@ -81,7 +81,7 @@ link
 	usbehci		usbehcipc
 
 misc
-	archmp		mp apic mpacpi
+	archmp		mp apic mpacpi msi
 	mtrr
 
 	sdata		pci sdscsi

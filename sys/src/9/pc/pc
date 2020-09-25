@@ -85,7 +85,7 @@ link
 	x86watchdog
 
 misc
-	archmp		mp apic mpacpi
+	archmp		mp apic mpacpi msi
 	mtrr
 
 	sdata		pci sdscsi
