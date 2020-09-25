@@ -447,7 +447,7 @@ initxvacroot(uchar score[VtScoreSize])
 		return stringnode("unpack %d-byte root: %r", n);
 
 	h.blockSize = vac.blocksize;
-	t = stringnode("vac version=%#ux name=%s type=%s blocksize=%ud score=%V prev=%V",
+	t = stringnode("vac version=%#ux name=%s type=%s blocksize=%lud score=%V prev=%V",
 		VtRootVersion, vac.name, vac.type, vac.blocksize, vac.score, vac.prev);
 	t->expand = xvacrootexpand;
 	return t;
