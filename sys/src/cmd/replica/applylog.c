@@ -429,6 +429,10 @@ main(int argc, char **argv)
 				nd.gid = rd.gid;
 				if(dirfwstat(fd, &nd) < 0)
 					fprint(2, "warning: cannot set gid on %q\n", local);
+				nulldir(&nd);
+				nd.mtime = rd.mtime;
+				if(dirfwstat(fd, &nd) < 0)
+					fprint(2, "warning: cannot set mtime on %q\n", local);
 				if(douid){
 					nulldir(&nd);
 					nd.uid = rd.uid;
