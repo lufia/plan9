@@ -69,6 +69,7 @@ OFILES=\
 # The first driver is the default.
 DRIVERS=\
 	plan9\
+	bit\
 	bj10e\
 	bjc600\
 	bjc800\
@@ -246,8 +247,8 @@ gs%/src:	ghostscript-%.tar.gz
 
 ghostscript-%.tar.gz:
 	#outside
-	#hget -o $target http://download.sourceforge.net/ghostscript/$target
-	hget -o $target ftp://mirror.cs.wisc.edu/pub/mirrors/ghost/AFPL/gs^`{echo $stem | sed 's/\.//'}^/$target
+	hget -o $target http://download.sourceforge.net/ghostscript/$target
+	#hget -o $target ftp://mirror.cs.wisc.edu/pub/mirrors/ghost/AFPL/gs^`{echo $stem | sed 's/\.//'}^/$target
 	#ftpfs -a $user^'@' ftp.cs.wisc.edu
 	#cp /n/ftp/ghost/aladdin/*/ghostscript-$stem.tar.gz .
 
