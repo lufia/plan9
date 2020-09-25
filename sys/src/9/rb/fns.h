@@ -88,6 +88,7 @@ void	pcisetbme(Pcidev*);
 void	pcisetioe(Pcidev*);
 void	pcisetmwi(Pcidev*);
 int	pcisetpms(Pcidev*, int);
+void	(*pmcupdate)(void);
 ulong	prid(void);
 void	procrestore(Proc *);
 void	procsave(Proc *);
@@ -134,6 +135,14 @@ ulong	wiredpte(vlong);
 void	machwire(void);
 void	_uartputs(char*, int);
 int	_uartprint(char*, ...);
+u32int	getperfctl0(void);
+u32int	getperfctl1(void);
+u32int	getperfctr0(void);
+u32int	getperfctr1(void);
+int	setperfctl0(u32int);
+int	setperfctl1(u32int);
+int	setperfctr0(u32int);
+int	setperfctr1(u32int);
 
 #define PTR2UINT(p)	((uintptr)(p))
 #define UINT2PTR(i)	((void*)(i))

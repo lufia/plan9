@@ -209,11 +209,17 @@ kvce(Ureg *ur, int ecode)
 	}
 }
 
+void (*pmcupdate)(void);
+
 /* prepare to go to user space */
 void
 kexit(Ureg*)
 {
 	Tos *tos;
+
+	/* performance counters */
+	if(pmcupdate != nil)
+		pmcupdate();
 
 	/* precise time accounting, kernel exit */
 	tos = (Tos*)(USTKTOP-sizeof(Tos));
@@ -241,6 +247,9 @@ trap(Ureg *ur)
 		cycles(&up->kentry);
 		/* no fpu, so no fp state to save */
 	}
+	/* performance counters */
+	if(pmcupdate != nil)
+		pmcupdate();
 
 	if (up && (char *)(ur) - up->kstack < 1024 && dumps++ == 0) {
 		iprint("trap: proc %ld kernel stack getting full\n", up->pid);
