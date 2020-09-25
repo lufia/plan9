@@ -50,6 +50,7 @@ UPDATE=\
 </sys/src/cmd/mkmany
 
 DIRS=mnihongo\
+	dmi\
 	flashfs\
 	gps\
 	na\

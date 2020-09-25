@@ -1,0 +1,8 @@
+</$objtype/mkfile
+
+TARG=dmi
+OFILES=\
+	dmi.$O\
+
+BIN=/$objtype/bin/aux
+</sys/src/cmd/mkone
