@@ -708,7 +708,7 @@ i8250config(char *p)
 
 	if(!uart->enabled)
 		(*uart->phys->enable)(uart, 0);
-	uartctl(uart, "b9600 l8 pn s1");
+	uartctl(uart, "b115200 l8 pn s1");
 	if(*cmd != '\0')
 		uartctl(uart, cmd);
 
