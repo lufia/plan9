@@ -199,7 +199,8 @@ ysearch(char *file, char *ndump)
 			case 0:
 				dargv[ndargv] = pair[toggle];
 				dargv[ndargv+1] = pair[toggle ^ 1];
-				exec("/bin/diff", dargv);
+				dargv[ndargv+2] = "-Nru";
+				exec("/bin/ape/diff", dargv);
 				fprint(2, "can't exec diff: %r\n");
 				exits(0);
 			case -1:
