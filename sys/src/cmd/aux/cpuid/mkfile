@@ -1,0 +1,9 @@
+</$objtype/mkfile
+
+TARG=cpuid
+OFILES=\
+	cpuid.$O\
+	$objtype.$O\
+
+BIN=/$objtype/bin/aux/
+</sys/src/cmd/mkone

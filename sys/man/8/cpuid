@@ -1,0 +1,64 @@
+.TH CPUID 8
+.SH NAME
+cpuid \- x86 cpuid instriction
+.SH SYNOPSIS
+.B cpuid
+[
+.B -w
+.I mach
+] [-efisvt] [-n fn]
+...
+.SH DESCRIPTION
+.I
+Cpuid
+prints out information gleaned from the
+Intel
+.B CPUID
+instruction.  A function number may be
+specified with the
+.B -n
+flag.  Alternatively, a few known functions
+are available
+.TF "-xx "
+.PD
+.TP
+.B "-e"
+decode extended feature information from function
+0x80000001.
+.TP
+.B "-f"
+decode feature information from function 1.
+.TP
+.B "-i"
+print the informational brand string gathered
+from functions 0x80000002-6.
+.TP
+.B "-s"
+print the processor signature returned in AX
+from function 0x01 in raw form and also as
+.IR family . model . stepping .
+.TP
+.B "-v"
+print the manufacturer's identification string
+returned by function 0x00.
+.TP
+.B "-t"
+Intel only?  print the X2APIC processor topology.  
+.PP
+.SH
+EXAMPLE
+.IP
+.EX
+chula; aux/cpuid -t
+thread	00000001 00000002 00000100 00000000
+core  	00000004 00000008 00000201 00000000
+mach0	apic 00000000
+mach1	apic 00000002
+mach2	apic 00000004
+mach3	apic 00000006
+4 machs inactive
+.EE
+.SH SOURCE
+.B /sys/src/cmd/aux/cpuid
+.SH BUGS
+Functions are architecture and vendor specific.
