@@ -1065,8 +1065,32 @@ TEXT	getperfctl0(SB), $-4
 	MFC0(PERFCOUNT, 0, 1)
 	RETURN
 
+TEXT	getperfctr0(SB), $-4
+	MFC0(PERFCOUNT, 1, 1)
+	RETURN
+
 TEXT	getperfctl1(SB), $-4
 	MFC0(PERFCOUNT, 2, 1)
+	RETURN
+
+TEXT	getperfctr1(SB), $-4
+	MFC0(PERFCOUNT, 3, 1)
+	RETURN
+
+TEXT	setperfctl0(SB), $0
+	MTC0(1, PERFCOUNT, 0)
+	RETURN
+
+TEXT	setperfctr0(SB), $0
+	MTC0(1, PERFCOUNT, 1)
+	RETURN
+
+TEXT	setperfctl1(SB), $0
+	MTC0(1, PERFCOUNT, 2)
+	RETURN
+
+TEXT	setperfctr1(SB), $0
+	MTC0(1, PERFCOUNT, 3)
 	RETURN
 
 	GLOBL	sanity(SB), $4

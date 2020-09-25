@@ -20,6 +20,7 @@ dev
 	ip		arp chandial inferno ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum
 
 	uart
+	pmc		pmcio
 link
 	loopbackmedium
 	ethermedium
