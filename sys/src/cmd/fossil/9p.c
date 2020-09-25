@@ -172,17 +172,18 @@ rTwstat(Msg* m)
 		}
 		tsync = 0;
 	}
+	op = 0;
 	if(dir.muid != nil && *dir.muid != '\0'){
 		if((uid = uidByUname(dir.muid)) == nil){
 			werrstr("wstat -- unknown muid");
 			goto error;
 		}
 		if(strcmp(uid, de.mid) != 0){
-			werrstr("wstat -- attempt to change muid");
-			goto error;
+			vtfree(de.mid);
+			de.mid = uid;
+			uid = nil;
+			op = 1;
 		}
-		vtfree(uid);
-		uid = nil;
 		tsync = 0;
 	}
 
@@ -195,8 +196,6 @@ rTwstat(Msg* m)
 			goto error;
 		}
 	}
-
-	op = 0;
 
 	oldmode = de.mode;
 	if(dir.qid.type != (uchar)~0 || dir.mode != ~0){
