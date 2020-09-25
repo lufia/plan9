@@ -1,0 +1,60 @@
+.TH DMI 8
+.SH NAME
+dmi \- x86 dmi dump
+.SH SYNOPSIS
+.B dmi
+.B -m
+.B dmi
+.B -s
+.br
+.B dmi
+.B -m
+.br
+.B dmi
+[
+.B -h
+.I handle
+]
+[
+.B -t
+.I type
+]
+.SH DESCRIPTION
+SMBIOS, also known as DMI, provides a number of system description
+tables in low memory.  Each table has a one-byte ID and a 2-byte
+instance handle.  There may be many tables with the same ID, but
+table handles are unique.  With no arguments, all tables are printed.
+The
+.B -l
+flag lists the supported tables and table names. With
+.B -t 
+.IR id ,
+only the tables with table ID or name
+matching
+.IR id
+are printed.  With
+.B -m
+a summary of memory device by physical address is printed.
+With
+.B -s
+a raw dump of syslog messages is printed, if the syslog storage
+method is supported.  Only 32-bit mmio is currently supported.
+.SH EXAMPLE
+.EX
+ocilla# aux/dmi -m
+0x0000000000000000	0x0000000080000000	Kingston	9965413-011.A00LF   
+0x0000000080000000	0x0000000100000000	Kingston	9965413-011.A00LF   
+.EE
+.SH SOURCE
+.B /sys/src/cmd/aux/dmi
+.SH "SEE ALSO"
+.IR cpuid (8),
+.br
+\fISystem Management Bios (SMBIOS) Reference Specification\fP,
+DMTF, document number DSP0134.
+.br
+http://dmtf.org/sites/default/files/standards/documents/DSP0134_2.7.1.pdf
+.SH BUGS
+Many types are not fully decoded.
+.br
+DMI tables tend to have may errors and omissions.
