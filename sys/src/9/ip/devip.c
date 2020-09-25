@@ -918,6 +918,9 @@ Fsstdconnect(Conv *c, char *argv[], int argc)
 {
 	char *p;
 
+	if(!iseve() && strcmp(up->user, "none") != 0)
+		return "not allowed";
+
 	switch(argc) {
 	default:
 		return "bad args to connect";
