@@ -110,6 +110,8 @@ userwrite(char *a, int n)
 {
 	if(n!=4 || strncmp(a, "none", 4)!=0)
 		error(Eperm);
+	if(!iseve())
+		error(Eperm);
 	kstrdup(&up->user, "none");
 	up->basepri = PriNormal;
 	return n;
