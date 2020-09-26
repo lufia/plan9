@@ -5,33 +5,36 @@
 
 char	end[];
 static	char	*bloc = { end };
-extern	int	_BRK_(void*);
+
+enum
+{
+	Round	= 7
+};
 
 char *
 brk(char *p)
 {
-	uintptr_t n;
+	uintptr_t bl;
 
-	n = (uintptr_t)p;
-	n += sizeof(uintptr_t) - 1;
-	n &= ~(sizeof(uintptr_t) - 1);
-	if(_BRK_((void*)n) < 0){
+	bl = ((uintptr_t)p + Round) & ~Round;
+	if(_BRK_((void*)bl) < 0){
 		errno = ENOMEM;
 		return (char *)-1;
 	}
-	bloc = (char *)n;
+	bloc = (char *)bl;
 	return 0;
 }
 
 void *
 sbrk(uintptr_t n)
 {
-	n += sizeof(uintptr_t) - 1;
-	n &= ~(sizeof(uintptr_t) - 1);
+	uintptr_t bl;
+
+	bl = ((uintptr_t)bloc + Round) & ~Round;
 	if(_BRK_((void *)(bloc+n)) < 0){
 		errno = ENOMEM;
 		return (void *)-1;
 	}
-	bloc += n;
-	return (void *)(bloc-n);
+	bloc += (char*)bl + n;;
+	return (void *)bl;
 }
