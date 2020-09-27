@@ -6,6 +6,6 @@ int
 fsync(int fd)
 {
 	USED(fd);
-	errno = EINVAL;
-	return -1;
+	/* TODO: should fsync return an error? */
+	return 0;
 }

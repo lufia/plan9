@@ -4,6 +4,7 @@ APE=/sys/src/ape
 LIB=/$objtype/lib/ape/libbsd.a
 OFILES=\
 	accept.$O\
+	arc4random.$O\
 	bcopy.$O\
 	bind.$O\
 	connect.$O\
@@ -18,6 +19,7 @@ OFILES=\
 	getnameinfo.$O\
 	getopt.$O\
 	getpeername.$O\
+	getprogname.$O\
 	getprotobyname.$O\
 	getservbyaddr.$O\
 	getservbyname.$O\
@@ -32,6 +34,7 @@ OFILES=\
 	ip6const.$O\
 	listen.$O\
 	lstat.$O\
+	mkstemp.$O\
 	mktemp.$O\
 	ntohl.$O\
 	nptohl.$O\
@@ -42,7 +45,9 @@ OFILES=\
 	rresvport.$O\
 	send.$O\
 	sendto.$O\
+	setenv.$O\
 	setlinebuf.$O\
+	setprogname.$O\
 	shutdown.$O\
 	_sock_ingetaddr.$O\
 	_sock_ipattr.$O\
@@ -52,6 +57,7 @@ OFILES=\
 	strncasecmp.$O\
 	socket.$O\
 	socketpair.$O\
+	unsetenv.$O\
 	pty.$O\
 	writev.$O\
 	
