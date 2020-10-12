@@ -277,6 +277,8 @@ wunlock(RWLock *q)
 	unlock(&q->lock);
 }
 
+#endif
+
 void
 rsleep(Rendez *r)
 {
@@ -364,5 +366,3 @@ rwakeupall(Rendez *r)
 		;
 	return i;
 }
-
-#endif

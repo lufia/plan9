@@ -62,6 +62,7 @@ typedef long ssize_t;
 #define	_SC_SAVED_IDS		9	/* saved suid/sgid per process */
 #define	_SC_VERSION		10	/* this version */
 #define _SC_LOGIN_NAME_MAX	11	/* max length of a login name */
+#define _SC_PAGESIZE	12
 
 /* pathconf argument */
 #define _PC_LINK_MAX		1
@@ -115,6 +116,7 @@ extern int setuid(uid_t);
 extern int setgid(gid_t);
 extern int getgroups(int, gid_t *);
 extern pid_t getpgrp(void);
+extern int getpgid(pid_t);
 extern int setpgid(pid_t, pid_t);
 extern pid_t setsid(void);
 #endif
@@ -129,6 +131,7 @@ extern int rename(const char *, const char *);
 extern int access(const char *, int);
 extern long pathconf(const char *, int);
 extern long fpathconf(int, int);
+extern int fchdir(int);
 #ifdef __TYPES_H
 extern int chown(const char *, uid_t, gid_t);
 #endif
@@ -161,6 +164,8 @@ extern char *getlogin_r(char *, int);
 /* berkeley specific functions */
 #ifdef _BSD_EXTENSION
 #include <bsd.h>
+
+extern int getpagesize(void);
 #endif
 
 int gethostname(char *, size_t);

@@ -95,7 +95,7 @@ good:
 		}
 	}
 	unlock(&arena);
-		
+
 	bp->size = pow;
 	bp->magic = MAGIC;
 
