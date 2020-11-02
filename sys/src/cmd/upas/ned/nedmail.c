@@ -62,6 +62,7 @@ Ctype ctype[] = {
 	{ "text/calendar",		"ics",	1,	0	},
 	{ "text",			"txt",	1,	0	},
 	{ "message/rfc822",		"msg",	0,	0	},
+	{ "message/delivery-status",	"txt",	1,	0	},
 	{ "image/bmp",			"bmp",	0,	"image"	},
 	{ "image/jpeg",			"jpg",	0,	"image"	},
 	{ "image/gif",			"gif",	0,	"image"	},
@@ -132,12 +133,12 @@ struct {
 	{ "|",	1,	pipecmd, "|cmd     pipe message body to a command" },
 	{ "||",	1,	rpipecmd, "||cmd     pipe raw message to a command" },
 	{ "!",	1,	bangcmd, "!cmd     run a command" },
-	{ nil,	0,	nil, 	nil },
+	{ nil,	0,	nil, 	nil }
 };
 
 enum
 {
-	NARG=	32,
+	NARG=	32
 };
 
 struct Cmd {
@@ -203,7 +204,7 @@ plural(int n)
 	if (n == 1)
 		return "";
 
-	return "s";		
+	return "s";
 }
 
 void
@@ -267,7 +268,7 @@ main(int argc, char **argv)
 		av[0] = "fs";
 		av[1] = "-p";
 		av[2] = 0;
-		system("/bin/upas/fs", av, -1);
+		system("/bin/upas/nfs", av, -1);
 	}
 
 	switchmb(file, singleton);
@@ -354,6 +355,38 @@ main(int argc, char **argv)
 	qcmd(nil, nil);
 }
 
+static char*
+mkaddrs(char *t)
+{
+	int i, nf, inquote;
+	char **f, *s;
+	Fmt fmt;
+
+	inquote = 0;
+	nf = 2;
+	for(s=t; *s; s++){
+		if(*s == '\'')
+			inquote = !inquote;
+		if(*s == ' ' && !inquote)
+			nf++;
+	}
+	f = malloc(nf*sizeof f[0]);
+	if(f == nil)
+		return nil;
+	nf = tokenize(t, f, nf);
+	fmtstrinit(&fmt);
+	for(i=0; i+1<nf; i+=2){
+		if(i > 0)
+			fmtprint(&fmt, " ");
+	/*	if(f[i][0] == 0 || strcmp(f[i], f[i+1]) == 0) */
+			fmtprint(&fmt, "%s", f[i+1]);
+	/*	else */
+	/*		fmtprint(&fmt, "%s <%s>", f[i], f[i+1]); */
+	}
+	free(f);
+	return fmtstrflush(&fmt);
+}
+
 //
 // read the message info
 //
@@ -362,7 +395,8 @@ file2message(Message *parent, char *name)
 {
 	Message *m;
 	String *path;
-	char *f[10];
+	char *f[30], *s, *t;
+	int i, nf;
 
 	m = mallocz(sizeof(Message), 1);
 	if(m == nil)
@@ -370,16 +404,42 @@ file2message(Message *parent, char *name)
 	m->path = path = extendpath(parent->path, name);
 	m->fileno = atoi(name);
 	m->info = file2string(path, "info");
-	lineize(s_to_c(m->info), f, nelem(f));
-	m->from = f[0];
-	m->to = f[1];
-	m->cc = f[2];
-	m->replyto = f[3];
-	m->date = f[4];
-	m->subject = f[5];
-	m->type = f[6];
-	m->disposition = f[7];
-	m->filename = f[8];
+	m->from = "";
+	m->to = "";
+	m->cc = "";
+	m->replyto = "";
+	m->date = "";
+	m->subject = "";
+	m->type = "";
+	m->disposition = "";
+	m->filename = "";
+	nf = lineize(s_to_c(m->info), f, nelem(f));
+	for(i=0; i<nf; i++){
+		s = f[i];
+		t = strchr(f[i], ' ');
+		if(t == nil)
+			continue;
+		*t++ = 0;
+
+		if(strcmp(s, "from") == 0)
+			m->from = mkaddrs(t);
+		else if(strcmp(s, "to") == 0)
+			m->to = mkaddrs(t);
+		else if(strcmp(s, "cc") == 0)
+			m->cc = mkaddrs(t);
+		else if(strcmp(s, "replyto") == 0)
+			m->replyto = mkaddrs(t);
+		else if(strcmp(s, "unixdate") == 0 && (t=strchr(t, ' ')) != nil)
+			m->date = t;
+		else if(strcmp(s, "subject") == 0)
+			m->subject = t;
+		else if(strcmp(s, "type") == 0)
+			m->type = t;
+		else if(strcmp(s, "disposition") == 0)
+			m->disposition = t;
+		else if(strcmp(s, "filename") == 0)
+			m->filename = t;
+	}
 	m->len = filelen(path, "raw");
 	if(strstr(m->type, "multipart") != nil || strcmp(m->type, "message/rfc822") == 0)
 		dir2message(m, 0);
@@ -720,7 +780,11 @@ findctype(Message *m)
 		dup(pfd[0], 0);
 		close(1);
 		dup(pfd[0], 1);
+#ifdef PLAN9PORT
+		execl(unsharp("#9/bin/file"), "file", "-m", s_to_c(extendpath(m->path, "body")), nil);
+#else
 		execl("/bin/file", "file", "-m", s_to_c(extendpath(m->path, "body")), nil);
+#endif
 		exits(0);
 	default:
 		close(pfd[0]);
@@ -842,7 +906,7 @@ snprintHeader(char *buf, int len, int indent, Message *m)
 
 char sstring[256];
 
-//	cmd := range cmd ' ' arg-list ; 
+//	cmd := range cmd ' ' arg-list ;
 //	range := address
 //		| address ',' address
 //		| 'g' search ;
@@ -952,7 +1016,7 @@ parseaddr(char **pp, Message *first, Message *cur, Message *unspec, Message **mp
 			goto number;
 		}
 		*mp = unspec;
-		break;	
+		break;
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
 		n = strtoul(p, pp, 10);
@@ -1151,7 +1215,6 @@ parsecmd(char *p, Cmd *cmd, Message *first, Message *cur)
 			free(prog);
 		}
 	} else {
-	
 		// parse an address
 		s = e = nil;
 		err = parseaddr(&p, first, cur, cur, &s);
@@ -1218,7 +1281,7 @@ parsecmd(char *p, Cmd *cmd, Message *first, Message *cur)
 		}
 		cmd->f = cmdtab[i].f;
 	}
-	return nil; 
+	return nil;
 }
 
 // inefficient read from standard input
@@ -1373,7 +1436,11 @@ printhtml(Message *m)
 	Cmd c;
 
 	c.an = 3;
+#ifdef PLAN9PORT
+	c.av[1] = "htmlfmt";
+#elese
 	c.av[1] = "/bin/htmlfmt";
+#endif
 	c.av[2] = "-l 40 -cutf-8";
 	Bprint(&out, "!%s\n", c.av[1]);
 	Bflush(&out);
@@ -1608,13 +1675,14 @@ flushdeleted(Message *cur)
 	doflush = 0;
 	deld = 0;
 
-	fd = open("/mail/fs/ctl", ORDWR);
+	snprint(buf, sizeof buf, "/mail/fs/%s/ctl", mbname);
+	fd = open(buf, OWRITE);
 	if(fd < 0){
-		fprint(2, "!can't delete mail, opening /mail/fs/ctl: %r\n");
+		fprint(2, "!can't delete mail, opening %s: %r\n", buf);
 		exitfs(0);
 	}
 	e = &buf[sizeof(buf)];
-	p = seprint(buf, e, "delete %s", mbname);
+	p = seprint(buf, e, "delete");
 	n = 0;
 	for(l = &top.child; *l != nil;){
 		m = *l;
@@ -1636,7 +1704,7 @@ flushdeleted(Message *cur)
 		if(e-p < 10){
 			write(fd, buf, p-buf);
 			n = 0;
-			p = seprint(buf, e, "delete %s", mbname);
+			p = seprint(buf, e, "delete");
 		}
 		p = seprint(p, e, " %s", msg);
 		n++;
@@ -1739,8 +1807,15 @@ ucmd(Cmd*, Message *m)
 Message*
 icmd(Cmd*, Message *m)
 {
-	int n;
+	int n, fd;
+	char buf[1024];
 
+	snprint(buf, sizeof buf, "/mail/fs/%s/ctl", mbname);
+	fd = open(buf, OWRITE);
+	if(fd){
+		write(fd, "refresh", 7);
+		close(fd);
+	}
 	n = dir2message(&top, reverse);
 	if(n > 0)
 		Bprint(&out, "%d new message%s\n", n, plural(n));
@@ -1765,24 +1840,32 @@ helpcmd(Cmd*, Message *m)
 int
 tomailer(char **av)
 {
+	static char *marshal;
 	Waitmsg *w;
 	int pid, i;
 
-	// start the mailer and get out of the way
+	if(marshal == nil)
+#ifdef PLAN9PORT
+		marshal = unsharp("#9/bin/upas/marshal");
+#else
+		marshal = "/bin/upas/marshal";
+#endif
+
+	/* start the mailer and get out of the way */
 	switch(pid = fork()){
 	case -1:
 		fprint(2, "can't fork: %r\n");
 		return -1;
 	case 0:
-		Bprint(&out, "!/bin/upas/marshal");
+		Bprint(&out, "!%s", marshal);
 		for(i = 1; av[i]; i++)
 			Bprint(&out, " %q", av[i]);
 		Bprint(&out, "\n");
 		Bflush(&out);
 		av[0] = "marshal";
 		chdir(wd);
-		exec("/bin/upas/marshal", av);
-		fprint(2, "couldn't exec /bin/upas/marshal\n");
+		exec(marshal, av);
+		fprint(2, "couldn't exec %s\n", marshal);
 		exits(0);
 	default:
 		w = wait();
@@ -1814,7 +1897,7 @@ tokenize822(char *str, char **args, int max)
 	int intok = 0, inquote = 0;
 
 	if(max <= 0)
-		return 0;	
+		return 0;
 	for(na=0; ;str++)
 		switch(*str) {
 		case ' ':
@@ -2099,7 +2182,9 @@ appendtofile(Message *m, char *part, char *base, int mbox)
 Message*
 scmd(Cmd *c, Message *m)
 {
-	char *file;
+	char buf[256];
+	int fd;
+	char *file, *msg;
 
 	if(m == &top){
 		Bprint(&out, "!address\n");
@@ -2118,9 +2203,24 @@ scmd(Cmd *c, Message *m)
 		return nil;
 	}
 
-	if(appendtofile(m, "raw", file, 1) < 0)
-		return nil;
-
+	if(file[0] == '/' || (file[0]=='.' && file[1]=='/')){
+		if(appendtofile(m, "raw", file, 1) < 0)
+			return nil;
+	}else{
+		snprint(buf, sizeof buf, "/mail/fs/%s/ctl", mbname);
+		if((fd = open(buf, OWRITE)) < 0)
+			return nil;
+		msg = strrchr(s_to_c(m->path), '/');
+		if(msg == nil)
+			msg = s_to_c(m->path);
+		else
+			msg++;
+		if(fprint(fd, "save %s %s", file, msg) < 0){
+			close(fd);
+			return nil;
+		}
+		close(fd);
+	}
 	m->stored = 1;
 	return m;
 }
@@ -2271,6 +2371,12 @@ system(char *cmd, char **av, int in)
 	case -1:
 		return;
 	case 0:
+		if(strcmp(cmd, "rc") == 0)
+#ifdef PLAN9PORT
+			cmd = unsharp("#9/bin/rc");
+#else
+			cmd = "/bin/rc";
+#endif
 		if(in >= 0){
 			close(0);
 			dup(in, 0);
@@ -2311,7 +2417,7 @@ bangcmd(Cmd *c, Message *m)
 	av[1] = "-c";
 	av[2] = cmd;
 	av[3] = 0;
-	system("/bin/rc", av, -1);
+	system("rc", av, -1);
 	Bprint(&out, "!\n");
 	return m;
 }
@@ -2357,7 +2463,7 @@ xpipecmd(Cmd *c, Message *m, char *part)
 	av[1] = "-c";
 	av[2] = cmd;
 	av[3] = 0;
-	system("/bin/rc", av, fd);	/* system closes fd */
+	system("rc", av, fd);	/* system closes fd */
 	Bprint(&out, "!\n");
 	return m;
 }
@@ -2379,7 +2485,7 @@ closemb(void)
 {
 	int fd;
 
-	fd = open("/mail/fs/ctl", ORDWR);
+	fd = open("/mail/fs/ctl", OWRITE);
 	if(fd < 0)
 		sysfatal("can't open /mail/fs/ctl: %r");
 
@@ -2401,7 +2507,7 @@ switchmb(char *file, char *singleton)
 	// if the user didn't say anything and there
 	// is an mbox mounted already, use that one
 	// so that the upas/fs -fdefault default is honored.
-	if(file 
+	if(file
 	|| (singleton && access(singleton, 0)<0)
 	|| (!singleton && access("/mail/fs/mbox", 0)<0)){
 		if(file == nil)
@@ -2414,9 +2520,9 @@ switchmb(char *file, char *singleton)
 		fd = open("/mail/fs/ctl", ORDWR);
 		if(fd < 0)
 			sysfatal("can't open /mail/fs/ctl: %r");
-	
+
 		path = s_new();
-	
+
 		// get an absolute path to the mail box
 		if(strncmp(file, "./", 2) == 0){
 			// resolve path here since upas/fs doesn't know
@@ -2430,7 +2536,7 @@ switchmb(char *file, char *singleton)
 		} else {
 			mboxpath(file, user, path, 0);
 		}
-	
+
 		// make up a handle to use when talking to fs
 		p = strrchr(file, '/');
 		if(p == nil){
@@ -2472,9 +2578,12 @@ switchmb(char *file, char *singleton)
 		path = s_reset(nil);
 		mboxpath(mbname, user, path, 0);
 	}else{
+		if(file)
+			strecpy(mbname, mbname+sizeof mbname, file);
+		else
+			strcpy(mbname, "mbox");
 		path = s_reset(nil);
-		mboxpath("mbox", user, path, 0);
-		strcpy(mbname, "mbox");
+		mboxpath(mbname, user, path, 0);
 	}
 
 	snprint(root, sizeof root, "/mail/fs/%s", mbname);
