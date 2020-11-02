@@ -1381,15 +1381,13 @@ procflushseg(Segment *s)
 	 *  wait for all processors to take a clock interrupt
 	 *  and flush their mmu's
 	 */
-	/*
-	 * since the 386 is short of registers, m always contains the constant
-	 * MACHADDR, not MACHP(m->machno); see ../pc/dat.h.  so we can't just 
-	 * compare addresses with m.
-	 */
-	for(nm = 0; nm < conf.nmach; nm++)
-		if(nm != m->machno)
-			while(MACHP(nm)->flushmmu)
-				sched();
+again:
+	for(nm = 0; nm < conf.nmach; nm++){
+		if(nm != m->machno && MACHP(nm)->flushmmu){
+			sched();
+			goto again;
+		}
+	}
 }
 
 void
