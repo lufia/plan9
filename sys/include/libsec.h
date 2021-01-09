@@ -21,6 +21,7 @@ typedef struct AESstate AESstate;
 struct AESstate
 {
 	ulong	setup;
+	ulong	offset;
 	int	rounds;
 	int	keybytes;
 	uint	ctrsz;
@@ -38,6 +39,8 @@ void	aes_decrypt(ulong rk[], int Nr, uchar ct[16], uchar pt[16]);
 void	setupAESstate(AESstate *s, uchar key[], int keybytes, uchar *ivec);
 void	aesCBCencrypt(uchar *p, int len, AESstate *s);
 void	aesCBCdecrypt(uchar *p, int len, AESstate *s);
+void	aesCFBencrypt(uchar *p, int len, AESstate *s);
+void	aesCFBdecrypt(uchar *p, int len, AESstate *s);
 void	aesCTRdecrypt(uchar *p, int len, AESstate *s);
 void	aesCTRencrypt(uchar *p, int len, AESstate *s);
 
