@@ -459,3 +459,20 @@ PEMChain*readcertchain(char *filename);
 /* password-based key derivation function 2 (rfc2898) */
 void pbkdf2_x(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen);
+
+/*
+ * Diffie-Hellman key exchange
+ */
+
+typedef struct DHstate DHstate;
+struct DHstate
+{
+	mpint	*g;	/* base g */
+	mpint	*p;	/* large prime */
+	mpint	*q;	/* subgroup prime */
+	mpint	*x;	/* random secret */
+	mpint	*y;	/* public key y = g**x & p */
+};
+
+mpint	*dh_new(DHstate *s, mpint *p, mpint *q, mpint *g);
+mpint	*dh_finish(DHstate *s, mpint *y);
