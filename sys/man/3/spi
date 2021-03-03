@@ -39,9 +39,9 @@ It accepts the following commands:
 .BI clock " freq"
 Set the frequency of the SPI clock.
 The clock from which the SPI clock is derived runs at 250MHz,
-and the Broadcom documentation specifies that the divisor
-must be a power of 2.
-The driver sets the divisor to the highest power of 2 that results
+and the divisor must be a multiple of 2.
+(The Broadcom documentation incorrectly says "power of 2".)
+The driver sets the divisor to the highest multiple of 2 that results
 in a clock rate that is less than or equal to the
 .I freq
 parameter in MHz.

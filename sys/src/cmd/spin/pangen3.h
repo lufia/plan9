@@ -234,11 +234,11 @@ static const char *Head1[] = {
 
 static const char *Addp0[] = {
 	/* addproc(....parlist... */ ")",
-	"{	int j, h = now._nr_pr;",
+	"{	int j = 0, h = now._nr_pr;",
 	"#ifndef NOCOMP",
 	"	int k;",
 	"#endif",
-	"	uchar *o_this = this;\n",
+	"	uchar *o_this = _this;\n",
 	"#ifndef INLINE",
 	"	if (TstOnly) return (h < MAXPROC);",
 	"#endif",
@@ -347,11 +347,11 @@ static const char *Addp1[] = {
 	"#endif",
 
 	"	memset((char *)pptr(h), 0, j);",
-	"	this = pptr(h);",
+	"	_this = pptr(h);",
 	"	if (BASE > 0 && h > 0)",
-	"	{	((P0 *)this)->_pid = h-BASE;",
+	"	{	((P0 *)_this)->_pid = h-BASE;",
 	"	} else",
-	"	{	((P0 *)this)->_pid = h;",
+	"	{	((P0 *)_this)->_pid = h;",
 	"	}",
 	"	switch (n) {",
 	0,
@@ -654,10 +654,47 @@ static const char *Addq5[] = {
 };
 
 static const char *Code0[] = {
+	"#ifdef INIT_STATE",
+	"void",	/* Bocchino */
+	"init_state(State state)"
+	"{	state._nr_pr = 0;",
+	"	state._nr_qs = 0;",
+	"	state._a_t = 0;",
+	"#ifndef NOFAIR",
+	"	memset(&state._cnt, 0, sizeof(state._cnt));",
+	"#endif",
+	"#ifndef NOVSZ",
+	"	state._vsz = 0;",
+	"#endif",
+	"#ifdef HAS_LAST",
+	"	state._last = 0;",
+	"#endif",
+	"#if defined(BITSTATE) && defined(BCS) && defined(STORE_CTX)",
+	"	state._ctx = 0;",
+	"#endif",
+	"#if defined(BFS_PAR) && defined(L_BOUND)",
+	"	state._l_bnd = 0;",
+	"	state._l_sds = 0;",
+	"#endif",
+	"#ifdef EVENT_TRACE",
+	"	state_event = 0;",
+	"#endif",
+	"#ifdef TRIX",
+	"	memset(&state._ids_, 0, sizeof(state._ids_));",
+	"#else",
+	"	memset(&state.sv, 0, sizeof(state.sv));",
+	"#endif",
+	"}",
+	"#endif",
+	"",
 	"void",
 	"run(void)",
 	"{	/* int i; */",
+	"#ifdef INIT_STATE",
+	"	init_state(now);",
+	"#else",
 	"	memset((char *)&now, 0, sizeof(State));",
+	"#endif",
 	"	vsize = (ulong) (sizeof(State) - VECTORSZ);",
 	"#ifndef NOVSZ",
 	"	now._vsz = vsize;",
@@ -769,7 +806,7 @@ static const char *R5[] = {
 };
 static const char *R6[] = {
 	"	}",
-	"	this = o_this;",
+	"	_this = o_this;",
 	"#ifdef TRIX",
 	"	re_mark_all(1); /* addproc */",
 	"#endif",
@@ -982,7 +1019,8 @@ static const char *R12[] = {
 	"\t\tcase %d: r = ((Q%d *)z)->contents[slot].fld%d; break;",
 	0,
 };
-const char *R13[] = {
+
+const char *R13_[] = {
 	"int ",
 	"unsend(int into)",
 	"{	int _m=0, j; uchar *z;\n",
@@ -1011,7 +1049,7 @@ const char *R13[] = {
 	"	switch (((Q0 *)qptr(into))->_t) {",
 	0,
 };
-const char *R14[] = {
+const char *R14_[] = {
 	"	default: Uerror(\"bad queue - unsend\");",
 	"	}",
 	"	return _m;",
@@ -1041,7 +1079,7 @@ const char *R14[] = {
 	"	switch (((Q0 *)qptr(from))->_t) {",
 	0,
 };
-const char *R15[] = {
+const char *R15_[] = {
 	"	default: Uerror(\"bad queue - qrecv\");",
 	"	}",
 	"}",
@@ -1131,9 +1169,9 @@ static const char *Proto[] = {
 	"#ifndef XUSAFE",
 	"	int q_S_check(int, int);",
 	"	int q_R_check(int, int);",
-	"	uchar q_claim[MAXQ+1];",
-	"	char *q_name[MAXQ+1];",
-	"	char *p_name[MAXPROC+1];",
+	"	extern uchar q_claim[MAXQ+1];",
+	"	extern char *q_name[MAXQ+1];",
+	"	extern char *p_name[MAXPROC+1];",
 	"#endif",
 	"",
 	"#ifndef NO_V_PROVISO",

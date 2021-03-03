@@ -37,7 +37,8 @@ static int	xscale = 2;
 static int	yscale = 1;
 static int	no_box;
 
-extern int	ntrail, s_trail, pno, depth;
+extern int	ntrail, s_trail, prno, depth;
+extern short	Have_claim;
 extern Symbol	*oFname;
 
 extern void	exit(int);
@@ -89,7 +90,8 @@ colbox(int ix, int iy, int w, int h_unused, char *color)
 	int y = iy*HH;
 
 	if (ix < 0 || ix > 255)
-	{	fatal("msc_tcl: unexpected\n", (char *) 0);
+	{	fprintf(stderr, "saw ix=%d\n", ix);
+		fatal("msc_tcl: unexpected\n", (char *) 0);
 	}
 
 	if (ProcLine[ix] < iy)
@@ -358,9 +360,11 @@ pstext(int x, char *s)
 
 void
 dotag(FILE *fd, char *s)
-{	extern int columns, notabs; extern RunList *X;
+{	extern int columns, notabs; extern RunList *X_lst;
 	int i = (!strncmp(s, "MSC: ", 5))?5:0;
-	int pid = s_trail ? pno : (X?X->pid:0);
+	int pid = s_trail ? (prno - Have_claim) : (X_lst?X_lst->pid:0);
+
+	if (pid < 0) { pid = 0; }
 
 	if (columns == 2)
 	{	pstext(pid, &s[i]);

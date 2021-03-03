@@ -14,7 +14,7 @@ typedef struct BuildStack {
 	struct BuildStack *nxt;
 } BuildStack;
 
-extern ProcList	*rdy;
+extern ProcList	*ready;
 extern int verbose, eventmapnr, claimnr, rvopt, export_ast, u_sync;
 extern Element *Al_El;
 
@@ -24,7 +24,7 @@ static BuildStack *bs, *bf;
 static int max_st_id;
 static int cur_st_id;
 int o_max;
-FSM_state *fsm;
+FSM_state *fsmx;
 FSM_state **fsm_tbl;
 FSM_use   *use_free;
 
@@ -49,7 +49,7 @@ fsm_table(void)
 	cur_st_id = max_st_id;
 	max_st_id = 0;
 
-	for (f = fsm; f; f = f->nxt)
+	for (f = fsmx; f; f = f->nxt)
 		fsm_tbl[f->from] = f;
 }
 
@@ -263,7 +263,7 @@ FSM_MERGER(/* char *pname */ void)	/* find candidates for safely merging steps *
 	FSM_trans *t;
 	Lextok	*lt;
 
-	for (f = fsm; f; f = f->nxt)		/* all states */
+	for (f = fsmx; f; f = f->nxt)		/* all states */
 	for (t = f->t; t; t = t->nxt)		/* all edges */
 	{	if (!t->step) continue;		/* happens with 'unless' */
 
@@ -314,7 +314,7 @@ FSM_MERGER(/* char *pname */ void)	/* find candidates for safely merging steps *
 
 	/* 2nd scan -- find possible merge_starts */
 
-	for (f = fsm; f; f = f->nxt)		/* all states */
+	for (f = fsmx; f; f = f->nxt)		/* all states */
 	for (t = f->t; t; t = t->nxt)		/* all edges */
 	{	if (!t->step || t->step->merge)
 			continue;
@@ -368,7 +368,7 @@ FSM_ANA(void)
 	FSM_use *u, *v, *w;
 	int n;
 
-	for (f = fsm; f; f = f->nxt)		/* all states */
+	for (f = fsmx; f; f = f->nxt)		/* all states */
 	for (t = f->t; t; t = t->nxt)		/* all edges */
 	for (n = 0; n < 2; n++)			/* reads and writes */
 	for (u = t->Val[n]; u; u = u->nxt)
@@ -382,7 +382,7 @@ FSM_ANA(void)
 	}
 
 	if (!export_ast)
-	for (f = fsm; f; f = f->nxt)
+	for (f = fsmx; f; f = f->nxt)
 	for (t = f->t; t; t = t->nxt)
 	for (n = 0; n < 2; n++)
 	for (u = t->Val[n], w = (FSM_use *) 0; u; )
@@ -452,8 +452,8 @@ rel_state(FSM_state *f)
 static void
 FSM_DEL(void)
 {
-	rel_state(fsm);
-	fsm = (FSM_state *) 0;
+	rel_state(fsmx);
+	fsmx = (FSM_state *) 0;
 }
 
 static FSM_state *
@@ -461,7 +461,7 @@ mkstate(int s)
 {	FSM_state *f;
 
 	/* fsm_tbl isn't allocated yet */
-	for (f = fsm; f; f = f->nxt)
+	for (f = fsmx; f; f = f->nxt)
 		if (f->from == s)
 			break;
 	if (!f)
@@ -473,8 +473,8 @@ mkstate(int s)
 			f = (FSM_state *) emalloc(sizeof(FSM_state));
 		f->from = s;
 		f->t = (FSM_trans *) 0;
-		f->nxt = fsm;
-		fsm = f;
+		f->nxt = fsmx;
+		fsmx = f;
 		if (s > max_st_id)
 			max_st_id = s;
 	}
@@ -519,7 +519,8 @@ FSM_EDGE(int from, int to, Element *e)
 	}
 
 	if (t->step)
-		ana_stmnt(t, t->step->n, 0);
+	{	ana_stmnt(t, t->step->n, 0);
+	}
 }
 
 #define LVAL	1
@@ -671,12 +672,16 @@ ana_stmnt(FSM_trans *t, Lextok *now, int usage)
 		ana_stmnt(t, now->lft, RVAL);
 		for (v = now->rgt; v; v = v->rgt)
 		{	if (v->lft->ntyp == EVAL)
-				ana_stmnt(t, v->lft->lft, RVAL);
-			else
-			if (v->lft->ntyp != CONST
-			&&  now->ntyp != 'R')		/* was v->lft->ntyp */
-				ana_stmnt(t, v->lft, LVAL);
-		}
+			{	if (v->lft->lft->ntyp == ',')
+				{	ana_stmnt(t, v->lft->lft->lft, RVAL);
+				} else
+				{	ana_stmnt(t, v->lft->lft, RVAL);
+				}
+			} else
+			{	if (v->lft->ntyp != CONST
+				&&  now->ntyp != 'R')		/* was v->lft->ntyp */
+				{	ana_stmnt(t, v->lft, LVAL);
+		}	}	}
 		break;
 
 	case '?':
@@ -698,8 +703,8 @@ ana_stmnt(FSM_trans *t, Lextok *now, int usage)
 		break;
 
 	default:
-		if (0) printf("spin: %s:%d, bad node type %d (ana_stmnt)\n",
-			now->fn->name, now->ln, now->ntyp);
+		if (0) printf("spin: %s:%d, bad node type %d usage %d (ana_stmnt)\n",
+			now->fn->name, now->ln, now->ntyp, usage);
 		fatal("aborting (ana_stmnt)", (char *) 0);
 	}
 }
@@ -711,7 +716,7 @@ ana_src(int dataflow, int merger)	/* called from main.c and guided.c */
 #if 0
 	int counter = 1;
 #endif
-	for (p = rdy; p; p = p->nxt)
+	for (p = ready; p; p = p->nxt)
 	{
 		ana_seq(p->s);
 		fsm_table();

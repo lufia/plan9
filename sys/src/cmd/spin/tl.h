@@ -9,6 +9,9 @@
  * presented at the PSTV Conference, held in 1995, Warsaw, Poland 1995.
  */
 
+#ifndef TLH
+#define TLH
+
 #include <stdio.h>
 #include <string.h>
 
@@ -91,6 +94,7 @@ int	isequal(Node *, Node *);
 int	tl_Getchar(void);
 
 void	*tl_emalloc(int);
+void	*tl_erealloc(void*, int, int);
 void	a_stats(void);
 void	addtrans(Graph *, char *, Node *, char *);
 void	cache_stats(void);
@@ -129,3 +133,5 @@ typedef Node	*Nodeptr;
 
 #define Assert(x, y)	{ if (!(x)) { tl_explain(y); \
 			  Fatal(": assertion failed\n",(char *)0); } }
+
+#endif

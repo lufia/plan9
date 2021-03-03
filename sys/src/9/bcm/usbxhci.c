@@ -474,14 +474,19 @@ init(Hci *hp)
 
 	ctlr->hccparams = ctlr->mmio[HCCPARAMS];
 	handoff(ctlr);
+	xhcireset(BUSBNO(hp->tbdf)<<20 | BUSDNO(hp->tbdf)<<15 | BUSFNO(hp->tbdf)<<12);
 
 	for(i=0; (ctlr->opr[USBSTS] & CNR) != 0 && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
+	if(i == 100)
+		print("%s: controller not ready, status %ux\n", hp->type, ctlr->opr[USBSTS]);
 
 	ctlr->opr[USBCMD] = HCRST;
 	delay(1);
 	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != HCH && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
+	if(i == 100)
+		print("%s: controller not halted, status %ux\n", hp->type, ctlr->opr[USBSTS]);
 
 	pcisetbme(ctlr->pcidev);
 	pciintrenable(ctlr->pcidev->tbdf, hp->interrupt, hp);

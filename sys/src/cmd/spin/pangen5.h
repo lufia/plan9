@@ -27,7 +27,7 @@ static const char *Xpt[] = {
 	"}",
 	"",
 	"static void",
-	"wclose(fd)",
+	"wclose(int fd)",
 	"{",
 	"	if (wcnt > 0)",
 	"		write(fd, wbuf, wcnt);",

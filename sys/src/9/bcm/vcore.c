@@ -36,6 +36,7 @@ enum {
 	TagGetfwrev	= 0x00000001,
 	TagGetrev	= 0x00010002,
 	TagGetmac	= 0x00010003,
+	TagGetser	= 0x00010004,
 	TagGetram	= 0x00010005,
 	TagGetpower	= 0x00020001,
 	TagSetpower	= 0x00028001,
@@ -44,6 +45,7 @@ enum {
 	TagGetclkmax= 0x00030004,
 	TagSetclkspd= 0x00038002,
 	TagGettemp	= 0x00030006,
+	TagXhciReset= 0x00030058,
 	TagFballoc	= 0x00040001,
 	TagFbfree	= 0x00048001,
 	TagFbblank	= 0x00040002,
@@ -300,6 +302,19 @@ getfirmware(void)
 }
 
 /*
+ * Get serial number
+ */
+uvlong
+getserial(void)
+{
+	uvlong buf;
+
+	if(vcreq(TagGetser, &buf, 0, sizeof buf) != sizeof buf)
+		return 0;
+	return buf;
+}
+
+/*
  * Get ARM ram
  */
 void
@@ -355,6 +370,22 @@ getcputemp(void)
 	if(vcreq(TagGettemp, buf, sizeof(buf[0]), sizeof buf) != sizeof buf)
 		return 0;
 	return buf[1];
+}
+
+/*
+ * Notify gpu that xhci firmware might need loading. This is for some
+ * pi4 board versions which are missing the eeprom chip for the vl805,
+ * requiring its firmware to come from the boot eeprom instead.
+ */
+int
+xhcireset(int devaddr)
+{
+	u32int buf[1];
+
+	buf[0] = devaddr;
+	if(vcreq(TagXhciReset, buf, sizeof(buf), sizeof(buf[0])) == sizeof(buf[0]))
+		return buf[0];
+	return -1;
 }
 
 /*

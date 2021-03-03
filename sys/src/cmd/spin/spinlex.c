@@ -40,8 +40,8 @@ typedef struct C_Added {
 	struct C_Added *nxt;
 } C_Added;
 
-extern RunList	*X;
-extern ProcList	*rdy;
+extern RunList	*X_lst;
+extern ProcList	*ready;
 extern Symbol	*Fname, *oFname;
 extern Symbol	*context, *owner;
 extern YYSTYPE	yylval;
@@ -109,7 +109,9 @@ Getchar(void)
 		return c;	/* expanded select statement */
 	}
 	if (Inlining<0)
-	{	c = getc(yyin);
+	{	do {	c = getc(yyin);
+		} while (c == 0);	// ignore null chars
+		// eventually there will always be an EOF
 	} else
 	{	c = getinline();
 	}
@@ -172,7 +174,10 @@ getword(int first, int (*tst)(int))
 
 	yytext[i++]= (char) first;
 	while (tst(c = Getchar()))
-	{	yytext[i++] = (char) c;
+	{	if (c == EOF)
+		{	break;
+		}
+		yytext[i++] = (char) c;
 		if (c == '\\')
 		{	c = Getchar();
 			yytext[i++] = (char) c;	/* no tst */
@@ -475,7 +480,7 @@ jump_etc(C_Added *r)
 	if (strchr(p, '[')
 	&& (!r->ival
 	||  !r->ival->name
-	||  !strchr(r->ival->name, '{')))	// was !strchr(p, '{'))
+	||  !strchr(r->ival->name, '{')))	/* was !strchr(p, '{')) */
 	{	non_fatal("array initialization error, c_state (%s)", p);
 		p = (char *) 0;
 	}
@@ -553,12 +558,12 @@ c_add_locinit(FILE *fd, int tpnr, char *pnm)
 				continue;
 
 			if (frst)
-			{	fprintf(fd, "\tuchar *this = pptr(h);\n");
+			{	fprintf(fd, "\tuchar *_this = pptr(h);\n");
 				frst = 0;
 			}
 
 			if (p)
-			{	fprintf(fd, "\t\t((P%d *)this)->%s = %s;\n",
+			{	fprintf(fd, "\t\t((P%d *)_this)->%s = %s;\n",
 					tpnr, p, r->ival->name);
 			}
 		}
@@ -894,15 +899,15 @@ check_inline(IType *tmp)
 {	char buf[128];
 	ProcList *p;
 
-	if (!X) return;
+	if (!X_lst) return;
 
-	for (p = rdy; p; p = p->nxt)
-	{	if (strcmp(p->n->name, X->n->name) == 0)
+	for (p = ready; p; p = p->nxt)
+	{	if (strcmp(p->n->name, X_lst->n->name) == 0)
 			continue;
 		sprintf(buf, "P%s->", p->n->name);
 		if (strstr((char *)tmp->cn, buf))
 		{	printf("spin: in proctype %s, ref to object in proctype %s\n",
-				X->n->name, p->n->name);
+				X_lst->n->name, p->n->name);
 			fatal("invalid variable ref in '%s'", tmp->nm->name);
 	}	}
 }
@@ -1428,8 +1433,8 @@ new_select(void)
 	tmp_has = 0;
 }
 
-int
-scan_to(int stop, int (*tst)(int), char *buf)
+static int
+scan_to(int stop, int (*tst)(int), char *buf, int bufsz)
 {	int c, i = 0;
 
 	do {	c = Getchar();
@@ -1438,8 +1443,11 @@ scan_to(int stop, int (*tst)(int), char *buf)
 		}
 		if (c == '\n')
 		{	lineno++;
-		} else if (buf)
+		} else if (buf && i < bufsz-1)
 		{	buf[i++] = c;
+		} else if (buf && i >= bufsz-1)
+		{	buf[bufsz-1] = '\0';
+			fatal("name too long", buf);
 		}
 		if (tst && !tst(c) && c != ' ' && c != '\t')
 		{	break;
@@ -1447,7 +1455,10 @@ scan_to(int stop, int (*tst)(int), char *buf)
 	} while (c != stop && c != EOF);
 
 	if (buf)
-	{	buf[i-1] = '\0';
+	{	if (i <= 0)
+		{	fatal("input error", (char *) 0);
+		}
+		buf[i-1] = '\0';
 	}
 
 	if (c != stop)
@@ -1473,6 +1484,7 @@ lex(void)
 {	int c;
 again:
 	c = Getchar();
+/* more: */
 	yytext[0] = (char) c;
 	yytext[1] = '\0';
 	switch (c) {
@@ -1496,7 +1508,20 @@ again:
 		&&  in_seq
 		&&  par_cnt == 0
 		&&  follows_token(last_token))
-		{	if (0)
+		{	if (last_token == '}')
+			{	do {	c = Getchar();
+					if (c == '\n')
+					{	lineno++;
+					}
+				} while (c == ' ' || c == '\t' ||
+					 c == '\f' || c == '\n' ||
+					 c == '\r');
+				Ungetch(c);
+				if (0) printf("%d: saw %d\n", lineno, c);
+				if (c == 'u') /* first letter of UNLESS */
+				{	goto again;
+			}	}
+			if (0)
 			{	printf("insert ; line %d, last_token %d in_seq %d\n",
 				 lineno-1, last_token, in_seq);
 			}
@@ -1566,24 +1591,26 @@ again:
 		if (!in_comment)
 		{	c = check_name(yytext);
 
-// replace timeout with (timeout)
-			if (c == TIMEOUT && last_token != '(')
+/* replace timeout with (timeout) */
+			if (c == TIMEOUT
+			&&  Inlining < 0
+			&&  last_token != '(')
 			{	push_back("timeout)");
 				last_token = '(';
 				return '(';
 			}
-// end
+/* end */
 
 #ifdef EXPAND_SELECT
 			if (c == SELECT && Inlining < 0)
 			{	char name[64], from[32], upto[32];
 				int i, a, b;
 				new_select();
-				if (!scan_to('(', 0, 0)
-				||  !scan_to(':', isalnum, name)
-				||  !scan_to('.', isdigit, from)
-				||  !scan_to('.', 0, 0)
-				||  !scan_to(')', isdigit, upto))
+				if (!scan_to('(', 0, 0, 0)
+				||  !scan_to(':', isalnum, name, sizeof(name))
+				||  !scan_to('.', isdigit, from, sizeof(from))
+				||  !scan_to('.', 0, 0, 0)
+				||  !scan_to(')', isdigit, upto, sizeof(upto)))
 				{	goto not_expanded;
 				}
 				a = atoi(from);
@@ -1599,7 +1626,7 @@ again:
 				if (b - a <= 32)
 				{	push_back("if ");
 					for (i = a; i <= b; i++)
-					{	char buf[128];
+					{	char buf[256];
 						push_back(":: ");
 						sprintf(buf, "%s = %d ",
 							name, i);
@@ -1607,7 +1634,7 @@ again:
 					}
 					push_back("fi ");
 				} else
-				{	char buf[128];
+				{	char buf[256];
 					sprintf(buf, "%s = %d; do ",
 						name, a);
 					push_back(buf);
@@ -1839,8 +1866,9 @@ check_name(char *s)
 
 			/* check for occurrence of param as field of struct */
 			{ char *ptr = Inline_stub[Inlining]->anms[i];
+				char *optr = ptr;
 				while ((ptr = strstr(ptr, s)) != NULL)
-				{	if (*(ptr-1) == '.'
+				{	if ((ptr > optr && *(ptr-1) == '.')
 					||  *(ptr+strlen(s)) == '.')
 					{	fatal("formal par of %s used in structure name",
 						Inline_stub[Inlining]->nm->name);

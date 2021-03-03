@@ -7,6 +7,7 @@
  */
 
 #include <stdlib.h>
+#include <assert.h>
 #include "spin.h"
 #include "y.tab.h"
 
@@ -14,18 +15,18 @@
 #define MAXQ	2500		/* default max # queues  */
 #endif
 
-extern RunList	*X;
+extern RunList	*X_lst;
 extern Symbol	*Fname;
 extern int	verbose, TstOnly, s_trail, analyze, columns;
 extern int	lineno, depth, xspin, m_loss, jumpsteps;
 extern int	nproc, nstop;
 extern short	Have_claim;
 
-QH	*qh;
+QH	*qh_lst;
 Queue	*qtab = (Queue *) 0;	/* linked list of queues */
 Queue	*ltab[MAXQ];		/* linear list of queues */
-int	nqs = 0, firstrow = 1, has_stdin = 0;
-char	Buf[4096];
+int	nrqs = 0, firstrow = 1, has_stdin = 0;
+char	GBuf[4096];
 
 static Lextok	*n_rem = (Lextok *) 0;
 static Queue	*q_rem = (Queue  *) 0;
@@ -55,17 +56,17 @@ int
 qmake(Symbol *s)
 {	Lextok *m;
 	Queue *q;
-	int i;
+	int i, j;
 
 	if (!s->ini)
 		return 0;
 
-	if (nqs >= MAXQ)
+	if (nrqs >= MAXQ)
 	{	lineno = s->ini->ln;
 		Fname  = s->ini->fn;
 		fatal("too many queues (%s)", s->name);
 	}
-	if (analyze && nqs >= 255)
+	if (analyze && nrqs >= 255)
 	{	fatal("too many channel types", (char *)0);
 	}
 
@@ -73,14 +74,15 @@ qmake(Symbol *s)
 		return eval(s->ini);
 
 	q = (Queue *) emalloc(sizeof(Queue));
-	q->qid    = (short) ++nqs;
+	q->qid    = (short) ++nrqs;
 	q->nslots = s->ini->val;
 	q->nflds  = cnt_mpars(s->ini->rgt);
 	q->setat  = depth;
 
 	i = max(1, q->nslots);	/* 0-slot qs get 1 slot minimum */
+	j = q->nflds * i;
 
-	q->contents  = (int *) emalloc(q->nflds*i*sizeof(int));
+	q->contents  = (int *) emalloc(j*sizeof(int));
 	q->fld_width = (int *) emalloc(q->nflds*sizeof(int));
 	q->mtp       = (char **) emalloc(q->nflds*sizeof(char *));
 	q->stepnr    = (int *) emalloc(i*sizeof(int));
@@ -140,10 +142,10 @@ qsend(Lextok *n)
 	if (whichq < MAXQ && whichq >= 0 && ltab[whichq])
 	{	ltab[whichq]->setat = depth;
 		if (ltab[whichq]->nslots > 0)
-			return a_snd(ltab[whichq], n);
-		else
-			return s_snd(ltab[whichq], n);
-	}
+		{	return a_snd(ltab[whichq], n);;
+		} else
+		{	return s_snd(ltab[whichq], n);
+	}	}
 	return 0;
 }
 
@@ -258,7 +260,7 @@ typ_ck(int ft, int at, char *s)
 	if ((verbose&32) && ft != at
 	&& (ft == CHAN || at == CHAN)
 	&& (at != PREDEF || strcmp(s, "recv") != 0))
-	{	char buf[128], tag1[64], tag2[64];
+	{	char buf[256], tag1[64], tag2[64];
 		(void) sputtype(tag1, ft);
 		(void) sputtype(tag2, at);
 		sprintf(buf, "type-clash in %s, (%s<-> %s)", s, tag1, tag2);
@@ -307,10 +309,12 @@ a_snd(Queue *q, Lextok *n)
 	int j = 0;			/* q field# */
 
 	if (q->nslots > 0 && q->qlen >= q->nslots)
-		return m_loss;	/* q is full */
+	{	return m_loss;	/* q is full */
+	}
 
-	if (TstOnly) return 1;
-
+	if (TstOnly)
+	{	return 1;
+	}
 	if (n->val) i = sa_snd(q, n);	/* sorted insert */
 
 	q->stepnr[i/q->nflds] = depth;
@@ -322,23 +326,24 @@ a_snd(Queue *q, Lextok *n)
 		if (q->fld_width[i+j] == MTYPE)
 		{	mtype_ck(q->mtp[i+j], m->lft);	/* 6.4.8 */
 		}
-
 		if ((verbose&16) && depth >= jumpsteps)
-			sr_talk(n, New, "Send ", "->", i+j, q);
-
+		{	sr_talk(n, New, "Send ", "->", j, q); /* XXX j was i+j in 6.4.8 */
+		}
 		typ_ck(q->fld_width[i+j], Sym_typ(m->lft), "send");
 	}
 
 	if ((verbose&16) && depth >= jumpsteps)
 	{	for (i = j; i < q->nflds; i++)
-			sr_talk(n, 0, "Send ", "->", i, q);
+		{	sr_talk(n, 0, "Send ", "->", i, q);
+		}
 		if (j < q->nflds)
-			printf("%3d: warning: missing params in send\n",
+		{	printf("%3d: warning: missing params in send\n",
 				depth);
+		}
 		if (m)
-			printf("%3d: warning: too many params in send\n",
+		{	printf("%3d: warning: too many params in send\n",
 				depth);
-	}
+	}	}
 	q->qlen++;
 	return 1;
 }
@@ -360,16 +365,45 @@ try_slot:
 		{	mtype_ck(q->mtp[i*q->nflds+j], m->lft);	/* 6.4.8 */
 		}
 
-		if ((m->lft->ntyp == CONST
-		   && q->contents[i*q->nflds+j] != m->lft->val)
-		||  (m->lft->ntyp == EVAL
-		   && q->contents[i*q->nflds+j] != eval(m->lft->lft)))
-		{	if (n->val == 0		/* fifo recv */
+		if (m->lft->ntyp == CONST
+		&&  q->contents[i*q->nflds+j] != m->lft->val)
+		{
+			if (n->val == 0		/* fifo recv */
 			||  n->val == 2		/* fifo poll */
 			|| ++i >= q->qlen)	/* last slot */
-				return 0;	/* no match  */
-			goto try_slot;
-	}	}
+			{	return 0;	/* no match  */
+			}
+			goto try_slot;		/* random recv */
+		}
+
+		if (m->lft->ntyp == EVAL)
+		{	Lextok *fix = m->lft->lft;
+
+			if (fix->ntyp == ',')	/* new, usertype7 */
+			{	do {
+					assert(j < q->nflds);
+					if (q->contents[i*q->nflds+j] != eval(fix->lft))
+					{	if (n->val == 0
+						||  n->val == 2
+						||  ++i >= q->qlen)
+						{	return 0;
+						}
+						goto try_slot;	/* random recv */
+					}
+					j++;
+					fix = fix->rgt;
+				} while (fix && fix->ntyp == ',');
+				j--;
+			} else
+			{	if (q->contents[i*q->nflds+j] != eval(fix))
+				{	if (n->val == 0		/* fifo recv */
+					||  n->val == 2		/* fifo poll */
+					|| ++i >= q->qlen)	/* last slot */
+					{	return 0;	/* no match  */
+					}
+					goto try_slot;		/* random recv */
+		}	}	}
+	}
 
 	if (TstOnly) return 1;
 
@@ -428,7 +462,7 @@ try_slot:
 static int
 s_snd(Queue *q, Lextok *n)
 {	Lextok *m;
-	RunList *rX, *sX = X;	/* rX=recvr, sX=sendr */
+	RunList *rX, *sX = X_lst;	/* rX=recvr, sX=sendr */
 	int i, j = 0;	/* q field# */
 
 	for (m = n->rgt; m && j < q->nflds; m = m->rgt, j++)
@@ -451,7 +485,7 @@ s_snd(Queue *q, Lextok *n)
 	q->stepnr[0] = depth;
 	if ((verbose&16) && depth >= jumpsteps)
 	{	m = n->rgt;
-		rX = X; X = sX;
+		rX = X_lst; X_lst = sX;
 
 		for (j = 0; m && j < q->nflds; m = m->rgt, j++)
 		{	sr_talk(n, eval(m->lft), "Sent ", "->", j, q);
@@ -469,7 +503,7 @@ s_snd(Queue *q, Lextok *n)
 				depth);
 		}
 
-		X = rX;	/* restore receiver's context */
+		X_lst = rX;	/* restore receiver's context */
 		if (!s_trail)
 		{	if (!n_rem || !q_rem)
 				fatal("cannot happen, s_snd", (char *) 0);
@@ -506,51 +540,51 @@ channm(Lextok *n)
 {	char lbuf[512];
 
 	if (n->sym->type == CHAN)
-		strcat(Buf, n->sym->name);
+		strcat(GBuf, n->sym->name);
 	else if (n->sym->type == NAME)
-		strcat(Buf, lookup(n->sym->name)->name);
+		strcat(GBuf, lookup(n->sym->name)->name);
 	else if (n->sym->type == STRUCT)
 	{	Symbol *r = n->sym;
 		if (r->context)
 		{	r = findloc(r);
 			if (!r)
-			{	strcat(Buf, "*?*");
+			{	strcat(GBuf, "*?*");
 				return;
 		}	}
 		ini_struct(r);
 		printf("%s", r->name);
 		strcpy(lbuf, "");
 		struct_name(n->lft, r, 1, lbuf);
-		strcat(Buf, lbuf);
+		strcat(GBuf, lbuf);
 	} else
-		strcat(Buf, "-");
+		strcat(GBuf, "-");
 	if (n->lft->lft)
 	{	sprintf(lbuf, "[%d]", eval(n->lft->lft));
-		strcat(Buf, lbuf);
+		strcat(GBuf, lbuf);
 	}
 }
 
 static void
 difcolumns(Lextok *n, char *tr, int v, int j, Queue *q)
-{	extern int pno;
+{	extern int prno;
 
 	if (j == 0)
-	{	Buf[0] = '\0';
+	{	GBuf[0] = '\0';
 		channm(n);
-		strcat(Buf, (strncmp(tr, "Sen", 3))?"?":"!");
+		strcat(GBuf, (strncmp(tr, "Sen", 3))?"?":"!");
 	} else
-		strcat(Buf, ",");
-	if (tr[0] == '[') strcat(Buf, "[");
+		strcat(GBuf, ",");
+	if (tr[0] == '[') strcat(GBuf, "[");
 	sr_buf(v, q->fld_width[j] == MTYPE, q->mtp[j]);
 	if (j == q->nflds - 1)
 	{	int cnr;
 		if (s_trail)
-		{	cnr = pno;
+		{	cnr = prno - Have_claim;
 		} else
-		{	cnr = X?X->pid - Have_claim:0;
+		{	cnr = X_lst?X_lst->pid - Have_claim:0;
 		}
-		if (tr[0] == '[') strcat(Buf, "]");
-		pstext(cnr, Buf);
+		if (tr[0] == '[') strcat(GBuf, "]");
+		pstext(cnr, GBuf);
 	}
 }
 
@@ -567,13 +601,13 @@ docolumns(Lextok *n, char *tr, int v, int j, Queue *q)
 	}
 	if (j == 0)
 	{	printf("%3d", q->qid);
-		if (X)
-		for (i = 0; i < X->pid - Have_claim; i++)
+		if (X_lst)
+		for (i = 0; i < X_lst->pid - Have_claim; i++)
 			printf("   .");
 		printf("   ");
-		Buf[0] = '\0';
+		GBuf[0] = '\0';
 		channm(n);
-		printf("%s%c", Buf, (strncmp(tr, "Sen", 3))?'?':'!');
+		printf("%s%c", GBuf, (strncmp(tr, "Sen", 3))?'?':'!');
 	} else
 		printf(",");
 	if (tr[0] == '[') printf("[");
@@ -588,14 +622,14 @@ void
 qhide(int q)
 {	QH *p = (QH *) emalloc(sizeof(QH));
 	p->n = q;
-	p->nxt = qh;
-	qh = p;
+	p->nxt = qh_lst;
+	qh_lst = p;
 }
 
 int
 qishidden(int q)
 {	QH *p;
-	for (p = qh; p; p = p->nxt)
+	for (p = qh_lst; p; p = p->nxt)
 		if (p->n == q)
 			return 1;
 	return 0;
@@ -645,7 +679,8 @@ sr_talk(Lextok *n, int v, char *tr, char *a, int j, Queue *q)
 				snm, n->ln, s);
 		}
 	} else
-		printf(",");
+	{	printf(",");
+	}
 	sr_mesg(stdout, v, q->fld_width[j] == MTYPE, q->mtp[j]);
 
 	if (j == q->nflds - 1)
@@ -655,9 +690,9 @@ sr_talk(Lextok *n, int v, char *tr, char *a, int j, Queue *q)
 			return;
 		}
 		printf("\t%s queue %d (", a, eval(n->lft));
-		Buf[0] = '\0';
+		GBuf[0] = '\0';
 		channm(n);
-		printf("%s)\n", Buf);
+		printf("%s)\n", GBuf);
 	}
 	fflush(stdout);
 }
@@ -678,19 +713,19 @@ sr_buf(int v, int j, const char *s)
 				break;
 			}
 			sprintf(lbuf, "%s", n->lft->sym->name);
-			strcat(Buf, lbuf);
+			strcat(GBuf, lbuf);
 			return;
 	}	}
 	sprintf(lbuf, "%d", v);
-	strcat(Buf, lbuf);
+	strcat(GBuf, lbuf);
 }
 
 void
 sr_mesg(FILE *fd, int v, int j, const char *s)
-{	Buf[0] ='\0';
+{	GBuf[0] ='\0';
 
 	sr_buf(v, j, s);
-	fprintf(fd, Buf, (char *) 0); /* prevent compiler warning */
+	fprintf(fd, GBuf, (char *) 0); /* prevent compiler warning */
 }
 
 void
@@ -742,6 +777,14 @@ void
 nochan_manip(Lextok *p, Lextok *n, int d)	/* p=lhs n=rhs */
 {	int e = 1;
 
+	if (!n
+	||  !p
+	||  !p->sym
+	||   p->sym->type == STRUCT)
+	{	/* if a struct, assignments to structure fields arent checked yet */
+		return;
+	}
+
 	if (d == 0 && p->sym && p->sym->type == CHAN)
 	{	setaccess(p->sym, ZS, 0, 'L');
 
@@ -792,7 +835,8 @@ nochan_manip(Lextok *p, Lextok *n, int d)	/* p=lhs n=rhs */
 
 	if (n->ntyp == NAME
 	||  n->ntyp == '.')
-		e = 0;	/* array index or struct element */
+	{	e = 0;	/* array index or struct element */
+	}
 
 	nochan_manip(p, n->lft, e);
 	nochan_manip(p, n->rgt, 1);
@@ -867,7 +911,11 @@ scan_tree(Lextok *t, char *mn, char *mx)
 	lineno = t->ln;
 
 	if (t->ntyp == NAME)
-	{	strcat(mn, t->sym->name);
+	{	if (strlen(t->sym->name) + strlen(mn) > 256) // conservative
+		{	fatal("name too long", t->sym->name);
+		}
+
+		strcat(mn, t->sym->name);
 		strcat(mx, t->sym->name);
 		if (t->lft)		/* array index */
 		{	strcat(mn, "[]");
