@@ -926,8 +926,8 @@ match_struct(Symbol *s, Symbol *t)
 	}
 	/* we already know that s is a STRUCT */
 	if (0)
-	{	printf("index type %s %p ==\n", s->Snm->name, s->Snm);
-		printf("chan type  %s %p --\n\n", t->ini->rgt->sym->name, t->ini->rgt->sym);
+	{	printf("index type %s %p ==\n", s->Snm->name, (void *) s->Snm);
+		printf("chan type  %s %p --\n\n", t->ini->rgt->sym->name, (void *) t->ini->rgt->sym);
 	}
 
 	return (s->Snm == t->ini->rgt->sym);
@@ -1018,12 +1018,22 @@ for_index(Lextok *a3, Lextok *a5)
 		in_for = 1;
 		return z3;
 	} else
-	{	if (a5->sym->isarray == 0
-		||  a5->sym->nel <= 0)
-		{	fatal("bad arrayname %s", a5->sym->name);
+	{	Lextok *leaf = a5;
+		if (leaf->sym->type == STRUCT)	// find leaf node, which should be an array
+		{	while (leaf->rgt
+			&&     leaf->rgt->ntyp == '.')
+			{	leaf = leaf->rgt;
+			}
+			leaf = leaf->lft;
+			// printf("%s %d\n", leaf->sym->name, leaf->sym->isarray);
+		}
+
+		if (leaf->sym->isarray == 0
+		||  leaf->sym->nel <= 0)
+		{	fatal("bad arrayname %s", leaf->sym->name);
 		}
 		z1 = nn(ZN, CONST, ZN, ZN); z1->val = 0;
-		z2 = nn(ZN, CONST, ZN, ZN); z2->val = a5->sym->nel - 1;
+		z2 = nn(ZN, CONST, ZN, ZN); z2->val = leaf->sym->nel - 1;
 		for_setup(a3, z1, z2);
 		return a3;
 	}

@@ -18,8 +18,8 @@
 
 enum
 {
-	Rbsz		= 2048,
-	Maxtu		= 1536,
+	Rbsz		= 10240,
+	Maxtu		= 9014,
 
 	DmaOWN		= 0x8000,
 	DmaSOP		= 0x2000,
@@ -371,7 +371,7 @@ recvproc(void *arg)
 			freeb(b);
 			continue;
 		}
-		b->wp += (s & 0x0FFF0000) >> 16;
+		b->wp += (s & 0x7FFF0000) >> 16;
 		etheriq(edev, b, 1);
 	}
 }

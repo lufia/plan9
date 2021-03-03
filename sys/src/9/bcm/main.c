@@ -506,7 +506,7 @@ userinit(void)
 void
 confinit(void)
 {
-	int i;
+	int i, userpcnt;
 	ulong kpages;
 	uintptr pa;
 	char *p;
@@ -531,14 +531,18 @@ confinit(void)
 	/*
 	 * pi4 extra memory (beyond video ram) indicated by board id
 	 */
-	switch(getboardrev()&0xFFFFFF){
-	case 0xA03111:
+	switch(getboardrev()&0xF00000){
+	case 0xA00000:
 		break;
-	case 0xB03111:
+	case 0xB00000:
 		conf.mem[1].base = 1*GiB;
 		conf.mem[1].limit = 2*GiB;
 		break;
-	case 0xC03111:
+	case 0xC00000:
+		conf.mem[1].base = 1*GiB;
+		conf.mem[1].limit = 0xFFF00000;
+		break;
+	case 0xD00000:
 		conf.mem[1].base = 1*GiB;
 		conf.mem[1].limit = 0xFFF00000;
 		break;
@@ -552,6 +556,11 @@ confinit(void)
 		}else if(memsize >= conf.mem[1].base && memsize < conf.mem[1].limit)
 			conf.mem[1].limit = memsize;
 	}
+
+	if(p = getconf("*kernelpercent"))
+		userpcnt = 100 - strtol(p, 0, 0);
+	else
+		userpcnt = 0;
 
 	conf.npage = 0;
 	pa = PADDR(PGROUND(PTR2UINT(end)));
@@ -569,7 +578,11 @@ confinit(void)
 		conf.npage += conf.mem[i].npage;
 	}
 
-	conf.upages = (conf.npage*80)/100;
+	if(userpcnt < 10 || userpcnt > 99)
+		userpcnt = 90;
+	conf.upages = (conf.npage*userpcnt)/100;
+	if(conf.npage - conf.upages > 256*MiB/BY2PG)
+		conf.upages = conf.npage - 256*MiB/BY2PG;
 	conf.ialloc = ((conf.npage-conf.upages)/2)*BY2PG;
 
 	/* set up other configuration parameters */

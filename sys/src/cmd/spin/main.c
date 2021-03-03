@@ -30,6 +30,8 @@ extern void	qhide(int);
 extern char	CurScope[MAXSCOPESZ];
 extern short	has_provided, has_code, has_ltl, has_accept;
 extern int	realread, buzzed;
+extern void	ana_src(int, int);
+extern void	putprelude(void);
 
 static void	add_comptime(char *);
 static void	add_runtime(char *);
@@ -78,7 +80,7 @@ static char	**nvr_file = (char **) 0;
 static char	*ltl_claims = (char *) 0;
 static char	*pan_runtime = "";
 static char	*pan_comptime = "";
-static char	formula[4096];
+static char	*formula = NULL;
 static FILE	*fd_ltl = (FILE *) 0;
 static char	*PreArg[64];
 static int	PreCnt = 0;
@@ -101,7 +103,7 @@ void	explain(int);
 	   can later be truncated at that point
 	*/
  #if 1
-	#define CPP	"gcc -std=gnu99 -E -x c" /* 6.4.0 new default on all systems */
+	#define CPP	"gcc -std=gnu99 -Wformat-overflow=0 -E -x c"
 	/* if gcc-4 is available, this setting is modified below */
  #else
 	#if defined(PC) || defined(MAC)
@@ -286,11 +288,10 @@ alldone(int estatus)
 	}	}
 
 	if (buzzed && replay && !has_code && !estatus)
-	{	extern QH *qh;
+	{	extern QH *qh_lst;
 		QH *j;
 		int i;
-		char *tmp = (char *) emalloc(strlen("spin -t") +
-				strlen(pan_runtime) + strlen(Fname->name) + 8);
+
 		pan_runtime = (char *) emalloc(2048);	/* more than enough */
 		sprintf(pan_runtime, "-n%d ", SeedUsed);
 		if (jumpsteps)
@@ -306,7 +307,7 @@ alldone(int estatus)
 		{	strcat(pan_runtime, PreArg[i]);
 			strcat(pan_runtime, " ");
 		}
-		for (j = qh; j; j = j->nxt)
+		for (j = qh_lst; j; j = j->nxt)
 		{	sprintf(&pan_runtime[strlen(pan_runtime)], "-q%d ", j->n);
 		}
 		if (strcmp(PreProc, CPP) != 0)
@@ -331,6 +332,10 @@ alldone(int estatus)
 		if (verbose&32)      strcat(pan_runtime, "-v ");
 		if (verbose&64)      strcat(pan_runtime, "-w ");
 		if (m_loss)          strcat(pan_runtime, "-m ");
+
+		char *tmp = (char *) emalloc(strlen("spin -t") +
+				strlen(pan_runtime) + strlen(Fname->name) + 8);
+
 		sprintf(tmp, "spin -t %s %s", pan_runtime, Fname->name);
 		estatus = e_system(1, tmp);	/* replay */
 		exit(estatus);	/* replay without c_code */
@@ -581,10 +586,10 @@ preprocess(char *a, char *b, int a_tmp)
 	   the code below assumes we are on a cygwin-like system
 	 */
 	if (strncmp(PreProc, "gcc ", strlen("gcc ")) == 0)
-	{	if (e_system(0, "gcc-4 --version > pan.pre") == 0)
-		{	strcpy(PreProc, "gcc-4 -std=gnu99 -E -x c");
-		} else if (e_system(0, "gcc-3 --version > pan.pre") == 0)
-		{	strcpy(PreProc, "gcc-3 -std=gnu99 -E -x c");
+	{	if (e_system(0, "gcc-4 --version > pan.pre 2>&1") == 0)
+		{	strcpy(PreProc, "gcc-4 -std=gnu99 -Wformat-overflow=0 -E -x c");
+		} else if (e_system(0, "gcc-3 --version > pan.pre 2>&1") == 0)
+		{	strcpy(PreProc, "gcc-3 -std=gnu99 -Wformat-overflow=0 -E -x c");
 	}	}
 #endif
 
@@ -598,11 +603,11 @@ preprocess(char *a, char *b, int a_tmp)
 	{	fprintf(stdout, "spin: too many -D args, aborting\n");
 		alldone(1);
 	}
-	sprintf(cmd, "%s %s > %s", precmd, a, b);
-	if (e_system(2, (const char *)cmd))		/* preprocessing */
+	sprintf(cmd, "%s \"%s\" > \"%s\"", precmd, a, b);
+	if (e_system(2, (const char *)cmd))	/* preprocessing step */
 	{	(void) unlink((const char *) b);
 		if (a_tmp) (void) unlink((const char *) a);
-		fprintf(stdout, "spin: preprocessing failed\n");	/* 4.1.2 was stderr */
+		fprintf(stdout, "spin: preprocessing failed %s\n", cmd);
 		alldone(1); /* no return, error exit */
 	}
 	if (a_tmp) (void) unlink((const char *) a);
@@ -859,12 +864,23 @@ add_runtime(char *s)
 	pan_runtime = tmp;
 }
 
+ssize_t
+getline(char **lineptr, size_t *n, FILE *stream)
+{	static char buffer[8192];
+
+	*lineptr = (char *) &buffer;
+
+	if (!fgets(buffer, sizeof(buffer), stream))
+	{	return 0;
+	}
+	return 1;
+}
+
 int
 main(int argc, char *argv[])
 {	Symbol *s;
 	int T = (int) time((time_t *)0);
 	int usedopts = 0;
-	extern void ana_src(int, int);
 
 	yyin  = stdin;
 	yyout = stdout;
@@ -1037,12 +1053,14 @@ samecase:			if (buzzed != 0)
 		{	printf("spin: cannot open %s\n", *ltl_file);
 			alldone(1);
 		}
-		if (!fgets(formula, 4096, tl_out))
+		size_t linebuffsize = 0;
+		ssize_t length = getline(&formula, &linebuffsize, tl_out);
+		if (!formula || !length)
 		{	printf("spin: cannot read %s\n", *ltl_file);
 		}
 		fclose(tl_out);
 		tl_out = stdout;
-		*ltl_file = (char *) formula;
+		*ltl_file = formula;
 	}
 	if (argc > 1)
 	{	FILE *fd = stdout;
@@ -1112,8 +1130,7 @@ samecase:			if (buzzed != 0)
 		alldone(1);
 	}
 	if (columns == 2)
-	{	extern void putprelude(void);
-		if (xspin || (verbose & (1|4|8|16|32)))
+	{	if (xspin || (verbose & (1|4|8|16|32)))
 		{	printf("spin: -c precludes all flags except -t\n");
 			alldone(1);
 		}
@@ -1262,7 +1279,13 @@ emalloc(size_t n)
 
 void
 trapwonly(Lextok *n /* , char *unused */)
-{	short i = (n->sym)?n->sym->type:0;
+{	short i;
+
+	if (!n)
+	{	fatal("unexpected error,", (char *) 0);
+	}
+
+	i = (n->sym)?n->sym->type:0;
 
 	/* printf("%s	realread %d type %d\n", n->sym?n->sym->name:"--", realread, i); */
 
@@ -1410,6 +1433,7 @@ rem_var(Symbol *a, Lextok *b, Symbol *c, Lextok *ndx)
 	has_remote++;
 	has_remvar++;
 	dataflow = 0;	/* turn off dead variable resets 4.2.5 */
+	merger   = 0;	/* turn off statement merging for locals 6.4.9 */
 	tmp1 = nn(ZN, '?', b, ZN); tmp1->sym = a;
 	tmp1 = nn(ZN, 'p', tmp1, ndx);
 	tmp1->sym = c;

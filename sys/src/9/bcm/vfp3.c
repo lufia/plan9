@@ -94,8 +94,8 @@ havefp(void)
 
 	m->havefp = 0;
 	gotfp = 1 << CpFP | 1 << CpDFP;
-	cpwrsc(0, CpCONTROL, 0, CpCPaccess, MASK(28));
-	acc = cprdsc(0, CpCONTROL, 0, CpCPaccess);
+	cpwrcpaccess(MASK(28));
+	acc = cprdcpaccess();
 	if ((acc & (MASK(2) << (2*CpFP))) == 0) {
 		gotfp &= ~(1 << CpFP);
 		print("fpon: no single FP coprocessor\n");
@@ -110,7 +110,7 @@ havefp(void)
 		return 0;
 	}
 	m->fpon = 1;			/* don't panic */
-	sid = fprd(Fpsid);
+	sid = fprdsid();
 	m->fpon = 0;
 	switch((sid >> 16) & MASK(7)){
 	case 0:				/* VFPv1 */
@@ -140,7 +140,7 @@ void
 fpoff(void)
 {
 	if (m->fpon) {
-		fpwr(Fpexc, 0);
+		fpwrexc(0);
 		m->fpon = 0;
 	}
 }
@@ -150,7 +150,7 @@ fpononly(void)
 {
 	if (!m->fpon && havefp()) {
 		/* enable fp.  must be first operation on the FPUs. */
-		fpwr(Fpexc, Fpenabled);
+		fpwrexc(Fpenabled);
 		m->fpon = 1;
 	}
 }
@@ -167,12 +167,12 @@ fpcfg(void)
 	/* VFPv2 needs software support for underflows, so force them to zero */
 	if(m->havefp == VFPv2)
 		m->fpscr |= Fz;
-	fpwr(Fpscr, m->fpscr);
+	fpwrscr(m->fpscr);
 	m->fpconfiged = 1;
 
 	if (printed)
 		return;
-	sid = fprd(Fpsid);
+	sid = fprdsid();
 	impl = sid >> 24;
 	print("fp: %s arch %s; rev %ld\n", implement(impl),
 		subarch(impl, (sid >> 16) & MASK(7)), sid & MASK(4));
@@ -194,7 +194,7 @@ fpon(void)
 	if (havefp()) {
 	 	fpononly();
 		if (m->fpconfiged)
-			fpwr(Fpscr, (fprd(Fpscr) & Allcc) | m->fpscr);
+			fpwrscr((fprdscr() & Allcc) | m->fpscr);
 		else
 			fpcfg();	/* 1st time on this fpu; configure it */
 	}
@@ -206,11 +206,11 @@ fpclear(void)
 //	ulong scr;
 
 	fpon();
-//	scr = fprd(Fpscr);
+//	scr = fprdscr();
 //	m->fpscr = scr & ~Allexc;
-//	fpwr(Fpscr, m->fpscr);
+//	fpwrscr(m->fpscr);
 
-	fpwr(Fpexc, fprd(Fpexc) & ~Fpmbc);
+	fpwrexc(fprdexc() & ~Fpmbc);
 }
 
 
@@ -273,27 +273,21 @@ fpusysrforkchild(Proc *p, Ureg *, Proc *up)
 void
 fpsave(FPsave *fps)
 {
-	int n;
-
 	fpon();
-	fps->control = fps->status = fprd(Fpscr);
+	fps->control = fps->status = fprdscr();
 	assert(m->fpnregs);
-	for (n = 0; n < m->fpnregs; n++)
-		fpsavereg(n, (uvlong *)fps->regs[n]);
+	fpsaveregs((uvlong*)fps->regs, m->fpnregs);
 	fpoff();
 }
 
 static void
 fprestore(Proc *p)
 {
-	int n;
-
 	fpon();
-	fpwr(Fpscr, p->fpsave.control);
-	m->fpscr = fprd(Fpscr) & ~Allcc;
+	fpwrscr(p->fpsave.control);
+	m->fpscr = fprdscr() & ~Allcc;
 	assert(m->fpnregs);
-	for (n = 0; n < m->fpnregs; n++)
-		fprestreg(n, *(uvlong *)p->fpsave.regs[n]);
+	fprestregs((uvlong*)p->fpsave.regs, m->fpnregs);
 }
 
 /*

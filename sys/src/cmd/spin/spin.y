@@ -143,14 +143,14 @@ proc	: inst		/* optional instantiator */
 	  body		{ ProcList *rl;
 			  if ($1 != ZN && $1->val > 0)
 			  {	int j;
-				rl = ready($3->sym, $6, $11->sq, $2->val, $10, A_PROC);
+				rl = mk_rdy($3->sym, $6, $11->sq, $2->val, $10, A_PROC);
 			  	for (j = 0; j < $1->val; j++)
 				{	runnable(rl, $9?$9->val:1, 1);
 					announce(":root:");
 				}
 				if (dumptab) $3->sym->ini = $1;
 			  } else
-			  {	rl = ready($3->sym, $6, $11->sq, $2->val, $10, P_PROC);
+			  {	rl = mk_rdy($3->sym, $6, $11->sq, $2->val, $10, P_PROC);
 			  }
 			  if (rl && has_ini == 1) /* global initializations, unsafe */
 			  {	/* printf("proctype %s has initialized data\n",
@@ -190,7 +190,7 @@ inst	: /* empty */	{ $$ = ZN; }
 init	: INIT		{ context = $1->sym; }
 	  Opt_priority
 	  body		{ ProcList *rl;
-			  rl = ready(context, ZN, $4->sq, 0, ZN, I_PROC);
+			  rl = mk_rdy(context, ZN, $4->sq, 0, ZN, I_PROC);
 			  runnable(rl, $3?$3->val:1, 1);
 			  announce(":root:");
 			  context = ZS;
@@ -217,7 +217,7 @@ claim	: CLAIM	optname	{ if ($2 != ZN)
 			  }
 			  claimproc = $1->sym->name;
 			}
-	  body		{ (void) ready($1->sym, ZN, $4->sq, 0, ZN, N_CLAIM);
+	  body		{ (void) mk_rdy($1->sym, ZN, $4->sq, 0, ZN, N_CLAIM);
         		  context = ZS;
         		}
 	;
@@ -248,9 +248,9 @@ events : TRACE		{ context = $1->sym;
 			}
 	  body		{
 			  if (strcmp($1->sym->name, ":trace:") == 0)
-			  {	(void) ready($1->sym, ZN, $3->sq, 0, ZN, E_TRACE);
+			  {	(void) mk_rdy($1->sym, ZN, $3->sq, 0, ZN, E_TRACE);
 			  } else
-			  {	(void) ready($1->sym, ZN, $3->sq, 0, ZN, N_TRACE);
+			  {	(void) mk_rdy($1->sym, ZN, $3->sq, 0, ZN, N_TRACE);
 			  }
         		  context = ZS;
 			  inEventMap--;
@@ -365,7 +365,7 @@ sequence: step			{ if ($1) add_seq($1); }
 step    : one_decl		{ $$ = ZN; }
 	| XU vref_lst		{ setxus($2, $1->val); $$ = ZN; }
 	| NAME ':' one_decl	{ fatal("label preceding declaration,", (char *)0); }
-	| NAME ':' XU		{ fatal("label predecing xr/xs claim,", 0); }
+	| NAME ':' XU		{ fatal("label preceding xr/xs claim,", 0); }
 	| stmnt			{ $$ = $1; }
 	| stmnt UNLESS		{ if ($1->ntyp == DO) { safe_break(); } }
 	  stmnt			{ if ($1->ntyp == DO) { restore_break(); }
@@ -473,6 +473,7 @@ ivar    : vardcl           	{ $$ = $1;
 				  {	Lextok *zx = nn(ZN, NAME, ZN, ZN);
 					zx->sym = $1->sym;
 					add_seq(nn(zx, ASGN, zx, $3));
+					$1->sym->ini = 0;	/* Patrick Trentlin */
 				  }
 				}
 	| vardcl ASGN ch_init	{ $1->sym->ini = $3;	/* channel declaration */
@@ -512,12 +513,13 @@ vardcl  : NAME  		{ $1->sym->nel = 1; $$ = $1; }
 					$$ = nn(ZN, CONST, ZN, ZN);
 					fprintf(stderr, "spin: %s:%d, warning: '%s' in array bound ",
 						$1->fn->name, $1->ln, $3->sym->name);
-					if ($3->sym->ini->val > 0)
+					if ($3->sym->ini
+					&&  $3->sym->ini->val > 0)
 					{	fprintf(stderr, "evaluated as %d\n", $3->sym->ini->val);
 						$$->val = $3->sym->ini->val;
 					} else
-					{	fprintf(stderr, "evaluated as 8 by default (to avoid zero)\n");
-						$$->val = 8;
+					{	fprintf(stderr, "evaluated as 1 by default (to avoid zero)\n");
+						$$->val = 1;
 					}
 					$1->sym->nel = $$->val;
 					$1->sym->isarray = 1;
@@ -775,8 +777,18 @@ const_expr:	CONST			{ $$ = $1; }
 	| const_expr '+' const_expr	{ $$ = $1; $$->val = $1->val + $3->val; }
 	| const_expr '-' const_expr	{ $$ = $1; $$->val = $1->val - $3->val; }
 	| const_expr '*' const_expr	{ $$ = $1; $$->val = $1->val * $3->val; }
-	| const_expr '/' const_expr	{ $$ = $1; $$->val = $1->val / $3->val; }
-	| const_expr '%' const_expr	{ $$ = $1; $$->val = $1->val % $3->val; }
+	| const_expr '/' const_expr	{ $$ = $1;
+					  if ($3->val == 0)
+					  { fatal("division by zero", (char *) 0);
+					  }
+					  $$->val = $1->val / $3->val;
+					}
+	| const_expr '%' const_expr	{ $$ = $1;
+					  if ($3->val == 0)
+					  { fatal("attempt to take modulo of zero", (char *) 0);
+					  }
+					  $$->val = $1->val % $3->val;
+					}
 	;
 
 expr    : l_par expr r_par		{ $$ = $2; }
@@ -1053,11 +1065,15 @@ recursive(FILE *fd, Lextok *n)
 	}
 }
 
+#ifdef __MINGW32__
+extern ssize_t getline(char **, size_t *, FILE *); /* see main.c */
+#endif
+
 static Lextok *
 ltl_to_string(Lextok *n)
 {	Lextok *m = nn(ZN, 0, ZN, ZN);
-	char *retval;
-	char ltl_formula[2048];
+	ssize_t retval;
+	char *ltl_formula = NULL;
 	FILE *tf = fopen(TMP_FILE1, "w+"); /* tmpfile() fails on Windows 7 */
 
 	/* convert the parsed ltl to a string
@@ -1076,21 +1092,23 @@ ltl_to_string(Lextok *n)
 	dont_simplify = 0;
 	(void) fseek(tf, 0L, SEEK_SET);
 
-	memset(ltl_formula, 0, sizeof(ltl_formula));
-	retval = fgets(ltl_formula, sizeof(ltl_formula), tf);
+	size_t linebuffsize = 0;
+	retval = getline(&ltl_formula, &linebuffsize, tf);
 	fclose(tf);
 
 	(void) unlink(TMP_FILE1);
 
 	if (!retval)
-	{	printf("%p\n", retval);
+	{	printf("%ld\n", (long int) retval);
 		fatal("could not translate ltl ltl_formula", 0);
 	}
 
 	if (1) printf("ltl %s: %s\n", ltl_name, ltl_formula);
 
 	m->sym = lookup(ltl_formula);
-
+#ifndef __MINGW32__
+	free(ltl_formula);
+#endif
 	return m;
 }
 

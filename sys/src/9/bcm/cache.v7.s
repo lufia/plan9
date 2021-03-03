@@ -47,6 +47,7 @@ TEXT cachedinv_sw(SB), $-4
 	/* set cache size select */
 TEXT setcachelvl(SB), $-4
 	MCR	CpSC, CpIDcssel, R0, C(CpID), C(CpIDidct), 0
+	DSB
 	ISB
 	RET
 
