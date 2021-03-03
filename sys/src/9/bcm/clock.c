@@ -99,7 +99,7 @@ localclockintr(Ureg *ureg, void *)
 {
 	if(m->machno == 0)
 		panic("cpu0: Unexpected local generic timer interrupt");
-	cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Imask|Enable);
+	cpwrtimerphysctl(Imask|Enable);
 	timerintr(ureg, 0);
 }
 
@@ -123,7 +123,7 @@ clockinit(void)
 	Armtimer *tm;
 	u32int t0, t1, tstart, tend;
 
-	if(((cprdsc(0, CpID, CpIDfeat, 1) >> 16) & 0xF) != 0) {
+	if(((cprdfeat1() >> 16) & 0xF) != 0) {
 		/* generic timer supported */
 		if(m->machno == 0){
 			/* input clock is 19.2MHz or 54MHz crystal */
@@ -131,7 +131,7 @@ clockinit(void)
 			/* divide by (2^31/Prescaler) for 1Mhz */
 			*(ulong*)(ARMLOCAL + Prescaler) = (((uvlong)SystimerFreq<<31)/soc.oscfreq)&~1UL;
 		}
-		cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Imask);
+		cpwrtimerphysctl(Imask);
 	}
 
 	tn = (Systimers*)SYSTIMERS;
@@ -171,8 +171,8 @@ timerset(uvlong next)
 	else if(period > MaxPeriod)
 		period = MaxPeriod;
 	if(m->machno > 0){
-		cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysval, period);
-		cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Enable);
+		cpwrtimerphysval(period);
+		cpwrtimerphysctl(Enable);
 	}else{
 		tn = (Systimers*)SYSTIMERS;
 		tn->c3 = tn->clo + period;

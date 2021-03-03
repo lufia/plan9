@@ -278,7 +278,7 @@ Lextok	*rem_var(Symbol *, Lextok *, Symbol *, Lextok *);
 Lextok	*tail_add(Lextok *, Lextok *);
 Lextok	*return_statement(Lextok *);
 
-ProcList *ready(Symbol *, Lextok *, Sequence *, int, Lextok *, enum btypes);
+ProcList *mk_rdy(Symbol *, Lextok *, Sequence *, int, Lextok *, enum btypes);
 
 SeqList	*seqlist(Sequence *, SeqList *);
 Sequence *close_seq(int);
@@ -291,6 +291,7 @@ Symbol	*prep_inline(Symbol *, Lextok *);
 
 char	*put_inline(FILE *, char *);
 char	*emalloc(size_t);
+char	*erealloc(void*, size_t, size_t);
 long	Rand(void);
 
 int	any_oper(Lextok *, int);
@@ -371,7 +372,7 @@ void	dump_struct(Symbol *, char *, RunList *);
 void	dumpclaims(FILE *, int, char *);
 void	dumpglobals(void);
 void	dumplabels(void);
-void	dumplocal(RunList *);
+void	dumplocal(RunList *, int);
 void	dumpsrc(int, int);
 void	fatal(char *, char *);
 void	fix_dest(Symbol *, Symbol *);

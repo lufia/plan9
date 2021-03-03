@@ -17,7 +17,7 @@ extern char	CurScope[MAXSCOPESZ];
 
 Symbol	*context = ZS;
 Ordered	*all_names = (Ordered *)0;
-int	Nid = 0;
+int	Nid_nr = 0;
 
 Mtypes_t	*Mtypes;
 Lextok		*runstmnts = ZN;
@@ -294,7 +294,7 @@ setptype(Lextok *mtype_name, Lextok *n, int t, Lextok *vis)	/* predefined types 
 		}
 
 		if (t == CHAN)
-		{	n->sym->Nid = ++Nid;
+		{	n->sym->Nid = ++Nid_nr;
 		} else
 		{	n->sym->Nid = 0;
 			if (n->sym->ini
@@ -590,7 +590,7 @@ chname(Symbol *sp)
 	printf("\t");
 }
 
-static struct X {
+static struct X_lkp {
 	int typ; char *nm;
 } xx[] = {
 	{ 'A', "exported as run parameter" },
@@ -619,11 +619,16 @@ chan_check(Symbol *sp)
 		return;
 report:
 	chname(sp);
-	for (i = d = 0; i < (int) (sizeof(xx)/sizeof(struct X)); i++)
+	for (i = d = 0; i < (int) (sizeof(xx)/sizeof(struct X_lkp)); i++)
 	{	b = 0;
 		for (a = sp->access; a; a = a->lnk)
-			if (a->typ == xx[i].typ) b++;
-		if (b == 0) continue; d++;
+		{	if (a->typ == xx[i].typ)
+			{	b++;
+		}	}
+		if (b == 0)
+		{	continue;
+		}
+		d++;
 		printf("\n\t%s by: ", xx[i].nm);
 		for (a = sp->access; a; a = a->lnk)
 		  if (a->typ == xx[i].typ)

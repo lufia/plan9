@@ -535,21 +535,6 @@ out:
 	return ret;
 }
 
-int
-Hfmt(Fmt *f)
-{
-	uchar *p, *e;
-
-	p = va_arg(f->args, uchar*);
-	e = p;
-	if(f->prec >= 0)
-		e += f->prec;
-	for(; p != e; p++)
-		if(fmtprint(f, "%.2x", *p) < 0)
-			return -1;
-	return 0;
-}
-
 void
 dumpkeydescr(Keydescr *kd)
 {
@@ -930,7 +915,8 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 		eapresp(conn, 2, id, data, datalen);
 		return;
 	case 2:
-		fprint(2, "%s: eap error: %.*s\n", argv0, datalen-1, (char*)data+1);
+		fprint(2, "%s: eap error: %.*s\n",
+			argv0, utfnlen((char*)data+1, datalen-1), (char*)data+1);
 		return;
 	case 33:	/* EAP Extensions (AVP) */
 		if(debug)
@@ -986,7 +972,7 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 			if(debug || data[0] == 4)
 				fprint(2, "%s: eap mschapv2 %s: %.*s\n", argv0,
 					data[0] == 3 ? "Success" : "Failure",
-					datalen < 4 ? 0 : datalen-4, (char*)data+4);
+					datalen < 4 ? 0 : utfnlen((char*)data+4, datalen-4), (char*)data+4);
 			*(--data) = tp;
 			eapresp(conn, 2, id, data, 2);
 			return;
@@ -1175,11 +1161,12 @@ main(int argc, char *argv[])
 	static Eapconn conn;
 	char addr[128];
 	uchar *rsne;
+	int newptk; /* gate key reinstallation */
 	int rsnelen;
 	int n, try;
 
 	quotefmtinstall();
-	fmtinstall('H', Hfmt);
+	fmtinstall('H', encodefmt);
 	fmtinstall('E', eipfmt);
 
 	rsne = nil;
@@ -1294,6 +1281,9 @@ Connect:
 		background();
 	}
 
+	genrandom(ptk, sizeof(ptk));
+	newptk = 0;
+
 	lastrepc = 0ULL;
 	for(;;){
 		uchar *p, *e, *m;
@@ -1391,6 +1381,8 @@ Connect:
 					fprint(2, "getptk: %r\n");
 				continue;
 			}
+			/* allow installation of new keys */	
+			newptk = 1;
 
 			/* ack key exchange with mic */
 			memset(kd->rsc, 0, sizeof(kd->rsc));
@@ -1477,28 +1469,31 @@ Connect:
 			}
 
 			if((flags & (Fptk|Fack)) == (Fptk|Fack)){
+				if(!newptk)	/* a retransmit, already installed PTK */
+					continue;
 				if(vers != 1)	/* in WPA2, RSC is for group key only */
 					tsc = 0LL;
 				else {
 					tsc = rsc;
 					rsc = 0LL;
 				}
-				/* install pairwise receive key */
-				if(fprint(cfd, "rxkey %.*H %s:%.*H@%llux", Eaddrlen, conn.amac,
+				/* install pairwise receive key (PTK) */
+				if(fprint(cfd, "rxkey %E %s:%.*H@%llux", conn.amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write rxkey: %r");
 
-				tsc = 0LL;
 				memset(kd->rsc, 0, sizeof(kd->rsc));
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
 				replykey(&conn, flags & ~(Fack|Fenc|Fins), kd, nil, 0);
 				sleep(100);
 
-				/* install pairwise transmit key */ 
-				if(fprint(cfd, "txkey %.*H %s:%.*H@%llux", Eaddrlen, conn.amac,
+				tsc = 0LL;
+				/* install pairwise transmit key (PTK) */ 
+				if(fprint(cfd, "txkey %E %s:%.*H@%llux", conn.amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write txkey: %r");
+				newptk = 0; /* prevent PTK re-installation on (replayed) retransmits */
 			} else
 			if((flags & (Fptk|Fsec|Fack)) == (Fsec|Fack)){
 				if(kd->type[0] == 0xFE){
@@ -1511,21 +1506,18 @@ Connect:
 					memmove(gtk, kd->data, gtklen);
 					gtkkid = (flags >> 4) & 3;
 				}
-
 				memset(kd->rsc, 0, sizeof(kd->rsc));
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
 				replykey(&conn, flags & ~(Fenc|Fack), kd, nil, 0);
 			} else
 				continue;
-
-			if(gtklen >= groupcipher->keylen && gtkkid != -1){
-				/* install group key */
-				if(fprint(cfd, "rxkey%d %.*H %s:%.*H@%llux",
-					gtkkid, Eaddrlen, conn.amac, 
+			/* install group key (GTK) */
+			if(gtklen >= groupcipher->keylen && gtkkid != -1)
+				if(fprint(cfd, "rxkey%d %E %s:%.*H@%llux",
+					gtkkid, conn.amac, 
 					groupcipher->name, groupcipher->keylen, gtk, rsc) < 0)
 					sysfatal("write rxkey%d: %r", gtkkid);
-			}
 		}
 	}
 }

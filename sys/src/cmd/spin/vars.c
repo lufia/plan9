@@ -9,15 +9,17 @@
 #include "spin.h"
 #include "y.tab.h"
 
-extern Ordered	*all_names;
-extern RunList	*X, *LastX;
-extern Symbol	*Fname;
-extern char	Buf[];
-extern int	lineno, depth, verbose, xspin, limited_vis;
+extern char	GBuf[];
 extern int	analyze, jumpsteps, nproc, nstop, columns, old_priority_rules;
-extern short	no_arrays, Have_claim;
-extern void	sr_mesg(FILE *, int, int, const char *);
+extern int	lineno, depth, verbose, xspin, limited_vis, Pid_nr;
+extern Lextok	*Xu_List;
+extern Ordered	*all_names;
+extern RunList	*X_lst, *LastX;
+extern short	no_arrays, Have_claim, terse;
+extern Symbol	*Fname;
+
 extern void	sr_buf(int, int, const char *);
+extern void	sr_mesg(FILE *, int, int, const char *);
 
 static int	getglobal(Lextok *);
 static int	setglobal(Lextok *, int);
@@ -34,19 +36,19 @@ getval(Lextok *sn)
 	if (strcmp(s->name, "_last") == 0)
 		return (LastX)?LastX->pid:0;
 	if (strcmp(s->name, "_p") == 0)
-		return (X && X->pc)?X->pc->seqno:0;
+		return (X_lst && X_lst->pc)?X_lst->pc->seqno:0;
 	if (strcmp(s->name, "_pid") == 0)
-	{	if (!X) return 0;
-		return X->pid - Have_claim;
+	{	if (!X_lst) return 0;
+		return X_lst->pid - Have_claim;
 	}
 	if (strcmp(s->name, "_priority") == 0)
-	{	if (!X) return 0;
+	{	if (!X_lst) return 0;
 
 		if (old_priority_rules)
 		{	non_fatal("cannot refer to _priority with -o6", (char *) 0);
 			return 1;
 		}
-		return X->priority;
+		return X_lst->priority;
 	}
 
 	if (strcmp(s->name, "_nr_pr") == 0)
@@ -80,11 +82,11 @@ setval(Lextok *v, int n)
 		{	non_fatal("cannot refer to _priority with -o6", (char *) 0);
 			return 1;
 		}
-		if (!X)
+		if (!X_lst)
 		{	non_fatal("no context for _priority", (char *) 0);
 			return 1;
 		}
-		X->priority = n;
+		X_lst->priority = n;
 	}
 
 	if (v->sym->context && v->sym->type)
@@ -156,7 +158,7 @@ getglobal(Lextok *sn)
 {	Symbol *s = sn->sym;
 	int i, n = eval(sn->lft);
 
-	if (s->type == 0 && X && (i = find_lab(s, X->n, 0)))	/* getglobal */
+	if (s->type == 0 && X_lst && (i = find_lab(s, X_lst->n, 0)))	/* getglobal */
 	{	printf("findlab through getglobal on %s\n", s->name);
 		return i;	/* can this happen? */
 	}
@@ -210,9 +212,7 @@ setglobal(Lextok *v, int m)
 
 void
 dumpclaims(FILE *fd, int pid, char *s)
-{	extern Lextok *Xu_List; extern int Pid;
-	extern short terse;
-	Lextok *m; int cnt = 0; int oPid = Pid;
+{	Lextok *m; int cnt = 0; int oPid = Pid_nr;
 
 	for (m = Xu_List; m; m = m->rgt)
 		if (strcmp(m->sym->name, s) == 0)
@@ -221,7 +221,7 @@ dumpclaims(FILE *fd, int pid, char *s)
 		}
 	if (cnt == 0) return;
 
-	Pid = pid;
+	Pid_nr = pid;
 	fprintf(fd, "#ifndef XUSAFE\n");
 	for (m = Xu_List; m; m = m->rgt)
 	{	if (strcmp(m->sym->name, s) != 0)
@@ -236,7 +236,7 @@ dumpclaims(FILE *fd, int pid, char *s)
 		fprintf(fd, "\"%s\");\n", s);
 	}
 	fprintf(fd, "#endif\n");
-	Pid = oPid;
+	Pid_nr = oPid;
 }
 
 void
@@ -294,12 +294,12 @@ dumpglobals(void)
 			printf("\n");
 			if (limited_vis && (sp->hidden&2))
 			{	int colpos;
-				Buf[0] = '\0';
+				GBuf[0] = '\0';
 				if (!xspin)
 				{	if (columns == 2)
-						sprintf(Buf, "~G%s = ", sp->name);
+						sprintf(GBuf, "~G%s = ", sp->name);
 					else
-						sprintf(Buf, "%s = ", sp->name);
+						sprintf(GBuf, "%s = ", sp->name);
 				}
 				sr_buf(prefetch, sp->type == MTYPE, s);
 				if (sp->colnr == 0)
@@ -308,25 +308,25 @@ dumpglobals(void)
 				}
 				colpos = nproc+sp->colnr-1;
 				if (columns == 2)
-				{	pstext(colpos, Buf);
+				{	pstext(colpos, GBuf);
 					continue;
 				}
 				if (!xspin)
-				{	printf("\t\t%s\n", Buf);
+				{	printf("\t\t%s\n", GBuf);
 					continue;
 				}
-				printf("MSC: ~G %s %s\n", sp->name, Buf);
+				printf("MSC: ~G %s %s\n", sp->name, GBuf);
 				printf("%3d:\tproc %3d (TRACK) line   1 \"var\" ",
 					depth, colpos);
 				printf("(state 0)\t[printf('MSC: globvar\\\\n')]\n");
 				printf("\t\t%s", sp->name);
 				if (sp->nel > 1 || sp->isarray) printf("[%d]", j);
-				printf(" = %s\n", Buf);
+				printf(" = %s\n", GBuf);
 	}	}	}
 }
 
 void
-dumplocal(RunList *r)
+dumplocal(RunList *r, int final)
 {	static Lextok *dummy = ZN;
 	Symbol *z, *s;
 	int i;
@@ -336,7 +336,8 @@ dumplocal(RunList *r)
 	s = r->symtab;
 
 	if (!dummy)
-		dummy = nn(ZN, NAME, nn(ZN,CONST,ZN,ZN), ZN);
+	{	dummy = nn(ZN, NAME, nn(ZN,CONST,ZN,ZN), ZN);
+	}
 
 	for (z = s; z; z = z->next)
 	{	if (z->type == STRUCT)
@@ -349,10 +350,13 @@ dumplocal(RunList *r)
 			{	doq(z, i, r);
 				continue;
 			}
+
 			if ((verbose&4) && !(verbose&64)
+			&&  !final
 			&&  (z->setat < depth
 			&&   jumpsteps != depth))
-				continue;
+			{	continue;
+			}
 
 			dummy->sym = z;
 			dummy->lft->val = i;
@@ -370,13 +374,13 @@ dumplocal(RunList *r)
 			printf("\n");
 			if (limited_vis && (z->hidden&2))
 			{	int colpos;
-				Buf[0] = '\0';
+				GBuf[0] = '\0';
 				if (!xspin)
 				{	if (columns == 2)
-					sprintf(Buf, "~G%s(%d):%s = ",
+					sprintf(GBuf, "~G%s(%d):%s = ",
 					r->n->name, r->pid, z->name);
 					else
-					sprintf(Buf, "%s(%d):%s = ",
+					sprintf(GBuf, "%s(%d):%s = ",
 					r->n->name, r->pid, z->name);
 				}
 				sr_buf(getval(dummy), z->type==MTYPE, t);
@@ -386,15 +390,15 @@ dumplocal(RunList *r)
 				}
 				colpos = nproc+z->colnr-1;
 				if (columns == 2)
-				{	pstext(colpos, Buf);
+				{	pstext(colpos, GBuf);
 					continue;
 				}
 				if (!xspin)
-				{	printf("\t\t%s\n", Buf);
+				{	printf("\t\t%s\n", GBuf);
 					continue;
 				}
 				printf("MSC: ~G %s(%d):%s %s\n",
-					r->n->name, r->pid, z->name, Buf);
+					r->n->name, r->pid, z->name, GBuf);
 
 				printf("%3d:\tproc %3d (TRACK) line   1 \"var\" ",
 					depth, colpos);
@@ -402,6 +406,6 @@ dumplocal(RunList *r)
 				printf("\t\t%s(%d):%s",
 					r->n->name, r->pid, z->name);
 				if (z->nel > 1 || z->isarray) printf("[%d]", i);
-				printf(" = %s\n", Buf);
+				printf(" = %s\n", GBuf);
 	}	}	}
 }

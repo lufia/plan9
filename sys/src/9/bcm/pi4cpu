@@ -59,7 +59,7 @@ misc
 	sdaoe	sdscsi
 	dma
 	vcore
-	vfp3	coproc
+	vfp3
 
 port
 	int cpuserver = 1;

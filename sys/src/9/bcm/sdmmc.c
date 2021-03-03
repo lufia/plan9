@@ -220,6 +220,11 @@ mmconline(SDunit *unit)
 		poperror();
 		return 1;
 	}
+	if(waserror()){
+		unit->sectors = 0;
+		poperror();
+		return 2;
+	}
 	io->cmd(GO_IDLE_STATE, 0, r);
 	hcs = 0;
 	if(!waserror()){
@@ -237,9 +242,9 @@ mmconline(SDunit *unit)
 	}
 	if(i == Inittimeout){
 		print("sdmmc: card won't power up\n");
-		poperror();
-		return 2;
+		error(Eio);
 	}
+	poperror();
 	ctl->ocr = r[0];
 	io->cmd(ALL_SEND_CID, 0, r);
 	memmove(ctl->cid, r, sizeof ctl->cid);
