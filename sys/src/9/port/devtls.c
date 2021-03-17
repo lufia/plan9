@@ -1488,6 +1488,20 @@ initAESkey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 }
 
 static void
+initAESGCMkey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
+{
+	/* https://code.9front.org/hg/plan9front/file/808eb735fc45/sys/src/9/port/devtls.c#l1510 */
+	s->enckey = smalloc(sizeof(AESGCMstate));
+	s->aead_enc = aesgcm_aead_enc;
+	s->aead_dec = aesgcm_aead_dec;
+	s->maclen = 16;
+	s->recivlen = 8;
+	memmove(s->mackey, iv, ea->ivlen);
+	prng(s->mackey + ea->ivlen, s->recivlen);
+	setupAESGCMstate(s->enckey, p, ea->keylen, iv, ea->ivlen);
+}
+
+static void
 initclearenc(Encalg *, Secret *s, uchar *, uchar *)
 {
 	s->enc = noenc;
@@ -1502,6 +1516,7 @@ static Encalg encrypttab[] =
 	{ "3des_ede_cbc", 3 * 8, 8, initDES3key },
 	{ "aes_128_cbc", 128/8, 16, initAESkey },
 	{ "aes_256_cbc", 256/8, 16, initAESkey },
+	{ "aes_128_gcm", 128/8, 4, initAESGCMkey },
 	{ 0 }
 };
 
@@ -2091,6 +2106,44 @@ aesdec(Secret *sec, uchar *buf, int n)
 {
 	aesCBCdecrypt(buf, n, sec->enckey);
 	return (*sec->unpad)(buf, n, 16);
+}
+
+static int
+aesgcm_aead_enc(Secret *sec, uchar *a, int na, uchar *reciv, uchar *buf, int n)
+{
+	uchar iv[12];
+	int i;
+
+	memmove(iv, sec->mackey, 4+8);
+	for(i = 0; i < 8; i++)
+		iv[4+i] ^= a[i];
+	memmove(reciv, iv+4, 8);
+	aesgcm_setiv(sec->enckey, iv, 12);
+	memset(iv, 0, sizeof iv);
+	aesgcm_encrypt(buf, n, a, na, buf+n, sec->enckey);
+	return n + sec->maclen;
+}
+
+static int
+aesgcm_aead_dec(Secret *sec, uchar *a, int na, uchar *reciv, uchar *buf, int n)
+{
+	uchar iv[12];
+
+	n -= sec->maclen;
+	if(n < 0)
+		return -1;
+	memmove(iv, sec->mackey, 4);
+	memmove(iv+4, reciv, 8);
+	aesgcm_setiv(sec->enckey, iv, 12);
+	memset(iv, 0, sizeof iv);
+	if(aesgcm_decrypt(buf, n, a, na, buf+n, sec->enckey) != 0)
+		return -1;
+	return n;
+}
+
+static int
+aesgcmdec(Secret *sec, uchar *buf, int n)
+{
 }
 
 static DigestState*
