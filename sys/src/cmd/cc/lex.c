@@ -26,6 +26,7 @@
  *	-s		print structure offsets (with -a or -aa)
  *	-S		print assembly
  *	-t		print type trees
+ *	-u		enable implicit conversion between type* and utype*
  *	-V		enable void* conversion warnings
  *	-v		verbose printing
  *	-w		print warnings
