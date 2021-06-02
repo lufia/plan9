@@ -10,7 +10,7 @@
 
 enum
 {
-	IP6FHDR		= 8, 		/* sizeof(Fraghdr6) */
+	IP6FHDR		= 8,		/* sizeof(Fraghdr6) */
 };
 
 #define IPV6CLASS(hdr)	(((hdr)->vcf[0]&0x0F)<<2 | ((hdr)->vcf[1]&0xF0)>>2)
@@ -111,14 +111,14 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
 		nexterror();
 	}
 
-	if(ifc->m == nil)
+	if(ifc->medium == nil)
 		goto raise;
 
 	/* If we dont need to fragment just send it */
-	medialen = ifc->maxtu - ifc->m->hsize;
+	medialen = ifc->maxtu - ifc->medium->hsize;
 	if(len <= medialen) {
 		hnputs(eh->ploadlen, len - IP6HDR);
-		ifc->m->bwrite(ifc, bp, V6, gate);
+		ifc->medium->bwrite(ifc, bp, V6, gate);
 		runlock(ifc);
 		poperror();
 		return 0;
@@ -209,7 +209,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
 				xp = xp->next;
 		}
 
-		ifc->m->bwrite(ifc, nb, V6, gate);
+		ifc->medium->bwrite(ifc, nb, V6, gate);
 		ip->stats[FragCreates]++;
 	}
 	ip->stats[FragOKs]++;
