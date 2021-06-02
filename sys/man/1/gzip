@@ -118,7 +118,7 @@ are also similar in interface to
 .I gzip
 and
 .IR gunzip ,
-but use a specific LZMA compression algorithm,
+but use a specific LZMA (Lempel-Ziv-Markov) compression algorithm,
 which often produces smaller compressed files than
 .IR bzip2 .
 The default suffix for output files is

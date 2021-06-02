@@ -61,7 +61,7 @@ TEXT loadlinked(SB), $0	/* long loadlinked(long *); */
 
 TEXT storecond(SB), $0	/* int storecond(long *, long); */
 	MOVW	ov+4(FP), R3
-	STREX(3,0,0)	/*	STREX	0(R0),R3,R4	*/
+	STREX(3,0,4)	/*	STREX	0(R0),R3,R4	*/
 	MOVW	$0, R0
 	DMB
 	RSB	$1, R4, R0

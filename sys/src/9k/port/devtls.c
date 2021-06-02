@@ -24,10 +24,10 @@ enum {
 	MaxMacLen		= SHA2_256dlen,
 
 	/* protocol versions we can accept */
-	TLS12Version		= 0x0303,
-	TLS11Version		= 0x0302,
-	TLS10Version		= 0x0301,
 	SSL3Version		= 0x0300,
+	TLS10Version		= 0x0301,
+	TLS11Version		= 0x0302,
+	TLS12Version		= 0x0303,
 	MinProtoVersion	= 0x0300,	/* limits on version we accept */
 	MaxProtoVersion	= 0x03ff,
 

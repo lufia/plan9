@@ -14,14 +14,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-#define _FILE_OFFSET_BITS 64
-
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
-
 #include "lzip.h"
 #include "encoder_base.h"
 #include "encoder.h"
@@ -82,7 +74,7 @@ LZe_get_match_pairs(LZ_encoder *e, Pair *pairs)
 	int len = 0, len0, len1, maxlen, num_pairs, len_limit, avail;
 	int pos1, min_pos, cyclic_pos, delta, count, key2, key3, key4, newpos1;
 	int32_t *ptr0, *ptr1, *newptr, *prevpos;
-	uint8_t *data;
+	uchar *data;
 	uchar *p;
 	unsigned tmp;
 
@@ -225,9 +217,9 @@ encinit(LZ_encoder *e, int reps[num_rep_distances],
 	int pos_state = Mb_data_position(&e->eb.mb) & pos_state_mask;
 	int match_price = price1(e->eb.bm_match[state][pos_state]);
 	int rep_match_price = match_price + price1(e->eb.bm_rep[state]);
-	uint8_t prev_byte = Mb_peek(&e->eb.mb, 1);
-	uint8_t cur_byte = Mb_peek(&e->eb.mb, 0);
-	uint8_t match_byte = Mb_peek(&e->eb.mb, reps[0] + 1);
+	uchar prev_byte = Mb_peek(&e->eb.mb, 1);
+	uchar cur_byte = Mb_peek(&e->eb.mb, 0);
+	uchar match_byte = Mb_peek(&e->eb.mb, reps[0] + 1);
 
 	e->trials[1].price = price0(e->eb.bm_match[state][pos_state]);
 	if (St_is_char(state))
@@ -331,7 +323,7 @@ litrep0(LZ_encoder *e, State cur_state, int cur, Trial *cur_trial,
 	int num_trials, int triable_bytes, int pos_state, int next_price)
 {
 	int len = 1, endtrials, limit, mlpl1, dis;
-	uint8_t *data = Mb_ptr_to_current_pos(&e->eb.mb);
+	uchar *data = Mb_ptr_to_current_pos(&e->eb.mb);
 
 	dis = cur_trial->reps[0] + 1;
 	mlpl1 = e->match_len_limit + 1;
@@ -363,7 +355,7 @@ repdists(LZ_encoder *e, State cur_state, int cur, Trial *cur_trial,
 
 	start_len = *stlenp;
 	for (rep = 0; rep < num_rep_distances; ++rep) {
-		uint8_t *data = Mb_ptr_to_current_pos(&e->eb.mb);
+		uchar *data = Mb_ptr_to_current_pos(&e->eb.mb);
 
 		dis = cur_trial->reps[rep] + 1;
 		if (data[0-dis] != data[0] || data[1-dis] != data[1])
@@ -429,7 +421,7 @@ trymatches(LZ_encoder *e, State cur_state, int cur, int num_trials,
 
 		/* try match + literal + rep0 */
 		if (len == e->pairs[i].len) {
-			uint8_t *data = Mb_ptr_to_current_pos(&e->eb.mb);
+			uchar *data = Mb_ptr_to_current_pos(&e->eb.mb);
 			int endtrials, mlpl2, limit;
 			int dis2 = dis + 1, len2 = len + 1;
 
@@ -513,7 +505,7 @@ LZe_sequence_optimizer(LZ_encoder *e, int reps[num_rep_distances], State state)
 		int next_price, match_price, rep_match_price;
 		int start_len = min_match_len;
 		State cur_state;
-		uint8_t prev_byte, cur_byte, match_byte;
+		uchar prev_byte, cur_byte, match_byte;
 
 		Mb_move_pos(&e->eb.mb);
 		if (++cur >= num_trials) {	/* no more initialized trials */
@@ -649,8 +641,8 @@ LZe_encode_member(LZ_encoder *e, uvlong member_size)
 		return false;			/* can be called only once */
 
 	if (!Mb_data_finished(&e->eb.mb)) {	/* encode first byte */
-		uint8_t prev_byte = 0;
-		uint8_t cur_byte = Mb_peek(&e->eb.mb, 0);
+		uchar prev_byte = 0;
+		uchar cur_byte = Mb_peek(&e->eb.mb, 0);
 
 		Re_encode_bit(&e->eb.renc, &e->eb.bm_match[state][0], 0);
 		LZeb_encode_literal(&e->eb, prev_byte, cur_byte);
@@ -690,15 +682,15 @@ LZe_encode_member(LZ_encoder *e, uvlong member_size)
 			Re_encode_bit(&e->eb.renc, &e->eb.bm_match[state][pos_state],
 				!bit);
 			if (bit) {			/* literal byte */
-				uint8_t prev_byte = Mb_peek(&e->eb.mb, ahead+1);
-				uint8_t cur_byte = Mb_peek(&e->eb.mb, ahead);
+				uchar prev_byte = Mb_peek(&e->eb.mb, ahead+1);
+				uchar cur_byte = Mb_peek(&e->eb.mb, ahead);
 
 				CRC32_update_byte(&e->eb.crc, cur_byte);
 				if (St_is_char(state))
 					LZeb_encode_literal(&e->eb, prev_byte,
 						cur_byte);
 				else {
-					uint8_t match_byte = Mb_peek(&e->eb.mb,
+					uchar match_byte = Mb_peek(&e->eb.mb,
 						ahead + reps[0] + 1);
 
 					LZeb_encode_matched(&e->eb, prev_byte,

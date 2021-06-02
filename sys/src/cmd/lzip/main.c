@@ -22,26 +22,8 @@
  * (eg, bug) which caused lzip to panic.
  */
 
-#define _FILE_OFFSET_BITS 64
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdint.h>
-#include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <utime.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-
 #define _DEFINE_INLINES
 #include "lzip.h"
-
 #include "decoder.h"
 #include "encoder_base.h"
 #include "encoder.h"
@@ -84,7 +66,7 @@ bad_version(unsigned version)
 {
 	static char buf[80];
 
-	snprintf(buf, sizeof buf, "Version %u member format not supported.",
+	snprintf(buf, sizeof buf, "Version %ud member format not supported.",
 	    version);
 	return buf;
 }
@@ -107,7 +89,7 @@ format_ds(unsigned dict_size)
 		p = prefix[i];
 		np = "";
 	}
-	snprintf( buf, bufsize, "%s%4u %sB", np, num, p );
+	snprintf( buf, bufsize, "%s%4ud %sB", np, num, p );
 	return buf;
 }
 
@@ -121,10 +103,11 @@ show_header(unsigned dict_size)
 static uvlong
 getnum(char *ptr, uvlong llimit, uvlong ulimit)
 {
+	int bad;
 	uvlong result;
 	char	*tail;
 
-	errno = 0;
+	bad = 0;
 	result = strtoull(ptr, &tail, 0);
 	if (tail == ptr) {
 		show_error( "Bad or missing numerical argument.", 0, true );
@@ -174,14 +157,12 @@ getnum(char *ptr, uvlong llimit, uvlong ulimit)
 			if (ulimit / factor >= result)
 				result *= factor;
 			else {
-				errno = ERANGE;
+				bad++;
 				break;
 			}
 		}
 	}
-	if (!errno && (result < llimit || result > ulimit))
-		errno = ERANGE;
-	if (errno) {
+	if (bad || result < llimit || result > ulimit) {
 		show_error( "Numerical argument out of limits.", 0, false );
 		exit(1);
 	}
@@ -228,32 +209,17 @@ extension_index(char *name)
 }
 
 int
-open_instream(char *name, struct stat *in_statsp, bool no_ofile, bool reg_only)
+open_instream(char *name, Dir *, bool, bool)
 {
-	int infd = open(name, O_RDONLY);
+	int infd = open(name, OREAD);
 
 	if (infd < 0)
 		show_file_error( name, "Can't open input file", errno );
-	else {
-		int i = fstat(infd, in_statsp);
-		mode_t mode = in_statsp->st_mode;
-		bool can_read = (i == 0 && !reg_only &&
-		    (S_ISBLK(mode) || S_ISCHR(mode) ||
-		    S_ISFIFO(mode)));
-		if (i != 0 || (!S_ISREG(mode) && (!can_read || !no_ofile))) {
-			if (verbosity >= 0)
-				fprintf(stderr, "%s: Input file '%s' is not a regular file%s.\n",
-				    argv0, name, (can_read && !no_ofile)?
-				    ",\n       and '--stdout' was not specified": "" );
-			close(infd);
-			infd = -1;
-		}
-	}
 	return infd;
 }
 
 static int
-open_instream2(char *name, struct stat *in_statsp, enum Mode program_mode,
+open_instream2(char *name, Dir *in_statsp, enum Mode program_mode,
 	int eindex, bool recompress, bool to_stdout)
 {
 	bool no_ofile = to_stdout;
@@ -315,34 +281,26 @@ set_d_outname(char *name, int eindex)
 }
 
 static bool
-open_outstream(bool force, bool from_stdin)
+open_outstream(bool force, bool)
 {
-	mode_t usr_rw = S_IRUSR | S_IWUSR;
-	mode_t all_rw = usr_rw | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-	mode_t outfd_mode = from_stdin ? all_rw : usr_rw;
-	int flags = O_CREAT | O_WRONLY;
+	int flags = OWRITE;
 
 	if (force)
-		flags |= O_TRUNC;
+		flags |= OTRUNC;
 	else
-		flags |= O_EXCL;
+		flags |= OEXCL;
 
-	outfd = open(output_filename, flags, outfd_mode);
+	outfd = create(output_filename, flags, 0666);
 	if (outfd >= 0)
 		delete_output_on_interrupt = true;
-	else if (verbosity >= 0) {
-		if (errno == EEXIST)
-			fprintf( stderr, "%s: Output file '%s' already exists, skipping.\n",
-			    argv0, output_filename);
-		else
-			fprintf( stderr, "%s: Can't create output file '%s': %s\n",
-			    argv0, output_filename, strerror(errno));
-	}
-	return (outfd >= 0);
+	else if (verbosity >= 0)
+		fprintf(stderr, "%s: Can't create output file '%s': %r\n",
+		    argv0, output_filename);
+	return outfd >= 0;
 }
 
 static bool
-check_tty(int infd, enum Mode program_mode)
+check_tty(int, enum Mode program_mode)
 {
 	if (program_mode == m_compress && isatty(outfd) ||
 	    program_mode == m_decompress && isatty(infd)) {
@@ -358,42 +316,29 @@ cleanup_and_fail(int retval)
 	if (delete_output_on_interrupt) {
 		delete_output_on_interrupt = false;
 		if (verbosity >= 0)
-			fprintf( stderr, "%s: Deleting output file '%s', if it exists.\n",
+			fprintf(stderr, "%s: Deleting output file '%s', if it exists.\n",
 			    argv0, output_filename);
 		if (outfd >= 0) {
 			close(outfd);
 			outfd = -1;
 		}
-		if (remove(output_filename) != 0 && errno != ENOENT)
-			show_error( "WARNING: deletion of output file (apparently) failed.", 0, false );
+		if (remove(output_filename) != 0)
+			fprintf(stderr, "%s: can't remove output file %s: %r\n",
+				argv0, output_filename);
 	}
 	exit(retval);
 }
 
 /* Set permissions, owner and times. */
 static void
-close_and_set_permissions(struct stat *in_statsp)
+close_and_set_permissions(Dir *)
 {
-	bool warning = false;
-
-	if (in_statsp && chmod(output_filename, in_statsp->st_mode) < 0)
-		warning = true;
 	if (close(outfd) != 0) {
 		show_error( "Error closing output file", errno, false );
 		cleanup_and_fail(1);
 	}
 	outfd = -1;
 	delete_output_on_interrupt = false;
-	if (in_statsp) {
-		struct utimbuf t;
-
-		t.actime = in_statsp->st_atime;
-		t.modtime = in_statsp->st_mtime;
-		if (utime(output_filename, &t) != 0)
-			warning = true;
-	}
-	if (warning && verbosity >= 1)
-		show_error( "Can't change output file attributes.", 0, false );
 }
 
 static bool
@@ -424,12 +369,11 @@ struct Poly_encoder {
 static int
 compress(uvlong member_size, uvlong volume_size,
 	int infd, Lzma_options *encoder_options, Pretty_print *pp,
-	struct stat *in_statsp, bool zero)
+	Dir *in_statsp, bool zero)
 {
 	int retval = 0;
 	uvlong in_size = 0, out_size = 0, partial_volume_size = 0;
-	uvlong cfile_size =
-	    (in_statsp && S_ISREG(in_statsp->st_mode))? in_statsp->st_size / 100: 0;
+	uvlong cfile_size = in_statsp? in_statsp->length / 100: 0;
 	Poly_encoder encoder = { 0, 0, 0 }; /* polymorphic encoder */
 	bool error = false;
 
@@ -507,17 +451,19 @@ compress(uvlong member_size, uvlong volume_size,
 			LZe_reset(encoder.e);
 	}
 
-	if (retval == 0 && verbosity >= 1) {
+	if (retval == 0 && verbosity >= 1)
 		if (in_size == 0 || out_size == 0)
 			fputs( " no data compressed.\n", stderr );
-		else
-			fprintf(stderr, "%6.3f:1, %6.3f bits/byte, "
-			    "%5.2f%% saved, %llu in, %llu out.\n",
-			    (double)in_size / out_size,
-			    (8.0 * out_size) / in_size,
-			    100.0 * (1.0 - (double)out_size / in_size),
-			    in_size, out_size);
-	}
+		else {
+			if (0)
+				fprintf(stderr,
+				    "%6.3f:1, %6.3f bits/byte, %5.2f%% saved, ",
+				    (double)in_size / out_size,
+				    (8.0 * out_size) / in_size,
+				    100.0 * (1.0 - (double)out_size/in_size));
+			fprintf(stderr, "%llud in, %llud out.\n",
+				in_size, out_size);
+		}
 	LZeb_free(encoder.eb);
 	if (zero)
 		free(encoder.fe);
@@ -526,7 +472,7 @@ compress(uvlong member_size, uvlong volume_size,
 	return retval;
 }
 
-static unsigned char
+static uchar
 xdigit(unsigned value)
 {
 	if (value <= 9)
@@ -537,7 +483,7 @@ xdigit(unsigned value)
 }
 
 static bool
-show_trailing_data(uint8_t *data, int size, Pretty_print *pp, bool all,
+show_trailing_data(uchar *data, int size, Pretty_print *pp, bool all,
 	bool ignore_trailing)
 {
 	if (verbosity >= 4 || !ignore_trailing) {
@@ -640,8 +586,10 @@ decompress(int infd, Pretty_print *pp, bool ignore_trailing)
 		if (result != 0) {
 			if (verbosity >= 0 && result <= 2) {
 				Pp_show_msg(pp, 0);
-				fprintf(stderr, "%s at pos %llu\n", (result == 2?
-				    "File ends unexpectedly": "Decoder error"), 					partial_file_pos);
+				fprintf(stderr, "%s: %s at pos %llud\n",
+					argv0, (result == 2?
+					"file ends unexpectedly":
+					"decoder error"), partial_file_pos);
 			}
 			retval = 2;
 			break;
@@ -660,8 +608,7 @@ decompress(int infd, Pretty_print *pp, bool ignore_trailing)
 void
 signal_handler(int sig)
 {
-	if (sig) {
-	}				/* keep compiler happy */
+	USED(sig);
 	show_error("interrupt caught, quitting.", 0, false);
 	cleanup_and_fail(1);
 }
@@ -669,24 +616,17 @@ signal_handler(int sig)
 static void
 set_signals(void)
 {
-	signal(SIGHUP, signal_handler);
-	signal(SIGINT, signal_handler);
-	signal(SIGTERM, signal_handler);
 }
 
 void
-show_error(char *msg, int errcode, bool help)
+show_error(char *msg, int, bool help)
 {
 	if (verbosity < 0)
 		return;
-	if (msg && msg[0]) {
-		fprintf( stderr, "%s: %s", argv0, msg );
-		if (errcode > 0)
-			fprintf( stderr, ": %s", strerror( errcode ) );
-		fputc('\n', stderr);
-	}
+	if (msg && msg[0])
+		fprintf(stderr, "%s: %s: %r\n", argv0, msg);
 	if (help)
-		fprintf( stderr, "Try '%s --help' for more information.\n",
+		fprintf(stderr, "Try '%s --help' for more information.\n",
 		    argv0);
 }
 
@@ -697,7 +637,7 @@ show_file_error(char *filename, char *msg, int errcode)
 		return;
 	fprintf(stderr, "%s: %s: %s", argv0, filename, msg);
 	if (errcode > 0)
-		fprintf( stderr, ": %s", strerror( errcode ) );
+		fprintf(stderr, ": %r");
 	fputc('\n', stderr);
 }
 
@@ -729,7 +669,7 @@ show_progress(uvlong partial_size, Matchfinder_base *m,
 		uvlong pos = psize + Mb_data_position(mb);
 
 		if (csize > 0)
-			fprintf( stderr, "%4llu%%", pos / csize );
+			fprintf( stderr, "%4llud%%", pos / csize );
 		fprintf( stderr, "  %.1f MB\r", pos / 1000000.0 );
 		Pp_reset(pp);
 		Pp_show_msg(pp, 0);	/* restore cursor position */
@@ -854,8 +794,8 @@ main(int argc, char *argv[])
 	for (i = 0; i < num_filenames; ++i) {
 		char *input_filename = "";
 		int tmp, eindex;
-		struct stat in_stats;
-		struct stat *in_statsp;
+		Dir in_stats;
+		Dir *in_statsp;
 
 		output_filename[0] = 0;
 		if ( !filenames[i][0] || strcmp( filenames[i], "-" ) == 0 ) {
@@ -863,9 +803,9 @@ main(int argc, char *argv[])
 				continue;
 			else
 				stdin_used = true;
-			infd = STDIN_FILENO;
+			infd = 0;
 			if (to_stdout || !default_output_filename[0])
-				outfd = STDOUT_FILENO;
+				outfd = 1;
 			else {
 				if (program_mode == m_compress)
 					set_c_outname(default_output_filename,
@@ -893,7 +833,7 @@ main(int argc, char *argv[])
 				continue;
 			}
 			if (to_stdout)
-				outfd = STDOUT_FILENO;
+				outfd = 1;
 			else {
 				if (program_mode == m_compress)
 					set_c_outname(input_filename,

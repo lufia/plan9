@@ -1,4 +1,4 @@
-#include "../port64/portfns.h"
+#include "../port/portfns.h"
 
 void	arginit(void);
 int	busprobe(ulong);

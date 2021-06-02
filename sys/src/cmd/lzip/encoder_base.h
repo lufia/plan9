@@ -31,7 +31,7 @@ Dis_slots_init(void)
 	}
 }
 
-static uint8_t
+static uchar
 get_slot(unsigned dis)
 {
 	if (dis < (1 << 10))
@@ -169,7 +169,7 @@ price_matched(Bit_model bm[], unsigned symbol, unsigned match_byte)
 
 struct Matchfinder_base {
 	uvlong partial_data_pos;
-	uint8_t * buffer;		/* input buffer */
+	uchar * buffer;		/* input buffer */
 	int32_t * prev_positions;	/* 1 + last seen position of key. else 0 */
 	int32_t * pos_array;		/* may be tree or chain */
 	int	before_size;		/* bytes to keep in buffer before dictionary */
@@ -218,7 +218,7 @@ Mb_data_finished(Matchfinder_base *mb)
 static int
 Mb_true_match_len(Matchfinder_base *mb, int index, int distance)
 {
-	uint8_t * data = mb->buffer + mb->pos;
+	uchar * data = mb->buffer + mb->pos;
 	int	i = index;
 	int len_limit = min(Mb_avail_bytes(mb), max_match_len);
 	while (i < len_limit && data[i-distance] == data[i])
@@ -244,21 +244,21 @@ typedef struct Matchfinder_base Matchfinder_base;
 typedef struct Range_encoder Range_encoder;
 
 struct Range_encoder {
-	uint64_t low;
+	uvlong low;
 	uvlong partial_member_pos;
-	uint8_t * buffer;		/* output buffer */
+	uchar * buffer;		/* output buffer */
 	int	pos;			/* current pos in buffer */
 	uint32_t range;
 	unsigned	ff_count;
 	int	outfd;			/* output file descriptor */
-	uint8_t cache;
+	uchar cache;
 	File_header header;
 };
 
 void	Re_flush_data(Range_encoder *renc);
 
 static void
-Re_put_byte(Range_encoder *renc, uint8_t b)
+Re_put_byte(Range_encoder *renc, uchar b)
 {
 	renc->buffer[renc->pos] = b;
 	if (++renc->pos >= re_buffer_size)
@@ -296,7 +296,7 @@ Re_reset(Range_encoder *renc)
 static bool
 Re_init(Range_encoder *renc, unsigned dict_size, int ofd)
 {
-	renc->buffer = (uint8_t *)malloc(re_buffer_size);
+	renc->buffer = (uchar *)malloc(re_buffer_size);
 	if (!renc->buffer)
 		return false;
 	renc->outfd = ofd;
@@ -507,27 +507,27 @@ LZeb_crc(LZ_encoder_base *eb)
 }
 
 static int
-LZeb_price_literal(LZ_encoder_base *eb, uint8_t prev_byte, uint8_t symbol)
+LZeb_price_literal(LZ_encoder_base *eb, uchar prev_byte, uchar symbol)
 {
 	return price_symbol8(eb->bm_literal[get_lit_state(prev_byte)], symbol);
 }
 
 static int
-LZeb_price_matched(LZ_encoder_base *eb, uint8_t prev_byte, uint8_t symbol, uint8_t match_byte)
+LZeb_price_matched(LZ_encoder_base *eb, uchar prev_byte, uchar symbol, uchar match_byte)
 {
 	return price_matched(eb->bm_literal[get_lit_state(prev_byte)], symbol,
 	    match_byte);
 }
 
 static void
-LZeb_encode_literal(LZ_encoder_base *eb, uint8_t prev_byte, uint8_t symbol)
+LZeb_encode_literal(LZ_encoder_base *eb, uchar prev_byte, uchar symbol)
 {
 	Re_encode_tree8(&eb->renc, eb->bm_literal[get_lit_state(prev_byte)],
 	    symbol);
 }
 
 static void
-LZeb_encode_matched(LZ_encoder_base *eb, uint8_t prev_byte, uint8_t symbol, uint8_t match_byte)
+LZeb_encode_matched(LZ_encoder_base *eb, uchar prev_byte, uchar symbol, uchar match_byte)
 {
 	Re_encode_matched(&eb->renc, eb->bm_literal[get_lit_state(prev_byte)],
 	    symbol, match_byte);

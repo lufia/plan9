@@ -1,14 +1,14 @@
 #include "u.h"
-#include "../port64/lib.h"
+#include "../port/lib.h"
 #include "mem.h"
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
-#include "../port64/error.h"
+#include "../port/error.h"
 #include "ureg.h"
 
 // archxxx.c
-#include "../port64/netif.h"
+#include "../port/netif.h"
 #include "etherif.h"
 
 int

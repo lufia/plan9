@@ -14,14 +14,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-#define _FILE_OFFSET_BITS 64
-
-#include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "lzip.h"
 #include "encoder_base.h"
 #include "fast_encoder.h"
@@ -30,7 +22,7 @@ int
 FLZe_longest_match_len(FLZ_encoder *fe, int *distance)
 {
 	enum { len_limit = 16 	};
-	uint8_t *data = Mb_ptr_to_current_pos(&fe->eb.mb);
+	uchar *data = Mb_ptr_to_current_pos(&fe->eb.mb);
 	int32_t * ptr0 = fe->eb.mb.pos_array + fe->eb.mb.cyclic_pos;
 	int pos1 = fe->eb.mb.pos + 1;
 	int maxlen = 0, newpos1, count;
@@ -93,8 +85,8 @@ FLZe_encode_member(FLZ_encoder *fe, uvlong member_size)
 		return false;			/* can be called only once */
 
 	if (!Mb_data_finished(&fe->eb.mb))	/* encode first byte */ {
-		uint8_t prev_byte = 0;
-		uint8_t cur_byte = Mb_peek(&fe->eb.mb, 0);
+		uchar prev_byte = 0;
+		uchar cur_byte = Mb_peek(&fe->eb.mb, 0);
 		Re_encode_bit(&fe->eb.renc, &fe->eb.bm_match[state][0], 0);
 		LZeb_encode_literal(&fe->eb, prev_byte, cur_byte);
 		CRC32_update_byte(&fe->eb.crc, cur_byte);
@@ -155,9 +147,9 @@ FLZe_encode_member(FLZ_encoder *fe, uvlong member_size)
 		}
 
 		{
-			uint8_t prev_byte = Mb_peek(&fe->eb.mb, 1);
-			uint8_t cur_byte = Mb_peek(&fe->eb.mb, 0);
-			uint8_t match_byte = Mb_peek(&fe->eb.mb, reps[0] + 1);
+			uchar prev_byte = Mb_peek(&fe->eb.mb, 1);
+			uchar cur_byte = Mb_peek(&fe->eb.mb, 0);
+			uchar match_byte = Mb_peek(&fe->eb.mb, reps[0] + 1);
 			Mb_move_pos(&fe->eb.mb);
 			CRC32_update_byte(&fe->eb.crc, cur_byte);
 

@@ -1,5 +1,4 @@
 #include "lib.h"
-#include <inttypes.h>
 #include <errno.h>
 #include "sys9.h"
 
@@ -10,11 +9,11 @@ extern	int	_BRK_(void*);
 char *
 brk(char *p)
 {
-	uintptr_t n;
+	unsigned long n;
 
-	n = (uintptr_t)p;
-	n += sizeof(uintptr_t) - 1;
-	n &= ~(sizeof(uintptr_t) - 1);
+	n = (unsigned long)p;
+	n += 3;
+	n &= ~3;
 	if(_BRK_((void*)n) < 0){
 		errno = ENOMEM;
 		return (char *)-1;
@@ -24,10 +23,10 @@ brk(char *p)
 }
 
 void *
-sbrk(uintptr_t n)
+sbrk(unsigned long n)
 {
-	n += sizeof(uintptr_t) - 1;
-	n &= ~(sizeof(uintptr_t) - 1);
+	n += 3;
+	n &= ~3;
 	if(_BRK_((void *)(bloc+n)) < 0){
 		errno = ENOMEM;
 		return (void *)-1;

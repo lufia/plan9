@@ -14,14 +14,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-#define _FILE_OFFSET_BITS 64
-
-#include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "lzip.h"
 #include "encoder_base.h"
 
@@ -34,6 +26,7 @@ Mb_read_block(Matchfinder_base *mb)
 	if (!mb->at_stream_end && mb->stream_pos < mb->buffer_size) {
 		int size = mb->buffer_size - mb->stream_pos;
 		int rd = readblock(mb->infd, mb->buffer + mb->stream_pos, size);
+
 		mb->stream_pos += rd;
 		if (rd != size && errno) {
 			show_error( "Read error", errno, false );
@@ -90,14 +83,14 @@ Mb_init(Matchfinder_base *mb, int before, int dict_size, int after_size, int dic
 	mb->at_stream_end = false;
 
 	mb->buffer_size = max(65536, dict_size);
-	mb->buffer = (uint8_t *)malloc(mb->buffer_size);
+	mb->buffer = (uchar *)malloc(mb->buffer_size);
 	if (!mb->buffer)
 		return false;
 	if (Mb_read_block(mb) && !mb->at_stream_end &&
 	    mb->buffer_size < buffer_size_limit) {
-		uint8_t * tmp;
+		uchar * tmp;
 		mb->buffer_size = buffer_size_limit;
-		tmp = (uint8_t *)realloc(mb->buffer, mb->buffer_size);
+		tmp = (uchar *)realloc(mb->buffer, mb->buffer_size);
 		if (!tmp) {
 			free(mb->buffer);
 			return false;

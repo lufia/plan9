@@ -396,10 +396,36 @@ looknode(Route **cur, Route *r)
 	}
 }
 
+static void
+del1route(Fs *f, Route **root, Route *rtp, int h, int dolock)
+{
+	Route **r, *p;
+
+	if(dolock)
+		wlock(&routelock);
+	r = looknode(&root[h], rtp);
+	if(r) {
+		p = *r;
+		if(--(p->ref) == 0){
+			*r = 0;
+			addqueue(&f->queue, p->left);
+			addqueue(&f->queue, p->mid);
+			addqueue(&f->queue, p->right);
+			freeroute(p);
+			while(p = f->queue) {
+				f->queue = p->mid;
+				walkadd(f, &root[h], p->left);
+				freeroute(p);
+			}
+		}
+	}
+	if(dolock)
+		wunlock(&routelock);
+}
+
 void
 v4delroute(Fs *f, uchar *a, uchar *mask, int dolock)
 {
-	Route **r, *p;
 	Route rt;
 	int h, eh;
 	ulong m;
@@ -410,28 +436,8 @@ v4delroute(Fs *f, uchar *a, uchar *mask, int dolock)
 	rt.type = Rv4;
 
 	eh = V4H(rt.v4.endaddress);
-	for(h=V4H(rt.v4.address); h<=eh; h++) {
-		if(dolock)
-			wlock(&routelock);
-		r = looknode(&f->v4root[h], &rt);
-		if(r) {
-			p = *r;
-			if(--(p->ref) == 0){
-				*r = 0;
-				addqueue(&f->queue, p->left);
-				addqueue(&f->queue, p->mid);
-				addqueue(&f->queue, p->right);
-				freeroute(p);
-				while(p = f->queue) {
-					f->queue = p->mid;
-					walkadd(f, &f->v4root[h], p->left);
-					freeroute(p);
-				}
-			}
-		}
-		if(dolock)
-			wunlock(&routelock);
-	}
+	for(h=V4H(rt.v4.address); h<=eh; h++)
+		del1route(f, f->v4root, &rt, h, dolock);
 	v4routegeneration++;
 
 	ipifcremroute(f, Rv4, a, mask);
@@ -440,7 +446,6 @@ v4delroute(Fs *f, uchar *a, uchar *mask, int dolock)
 void
 v6delroute(Fs *f, uchar *a, uchar *mask, int dolock)
 {
-	Route **r, *p;
 	Route rt;
 	int h, eh;
 	ulong x, y;
@@ -454,28 +459,8 @@ v6delroute(Fs *f, uchar *a, uchar *mask, int dolock)
 	rt.type = 0;
 
 	eh = V6H(rt.v6.endaddress);
-	for(h=V6H(rt.v6.address); h<=eh; h++) {
-		if(dolock)
-			wlock(&routelock);
-		r = looknode(&f->v6root[h], &rt);
-		if(r) {
-			p = *r;
-			if(--(p->ref) == 0){
-				*r = 0;
-				addqueue(&f->queue, p->left);
-				addqueue(&f->queue, p->mid);
-				addqueue(&f->queue, p->right);
-				freeroute(p);
-				while(p = f->queue) {
-					f->queue = p->mid;
-					walkadd(f, &f->v6root[h], p->left);
-					freeroute(p);
-				}
-			}
-		}
-		if(dolock)
-			wunlock(&routelock);
-	}
+	for(h=V6H(rt.v6.address); h<=eh; h++)
+		del1route(f, f->v6root, &rt, h, dolock);
 	v6routegeneration++;
 
 	ipifcremroute(f, 0, a, mask);
@@ -493,6 +478,7 @@ v4lookup(Fs *f, uchar *a, Conv *c)
 		return c->r;
 
 	la = nhgetl(a);
+again:
 	q = nil;
 	for(p=f->v4root[V4H(la)]; p;)
 		if(la >= p->v4.address) {
@@ -511,8 +497,14 @@ v4lookup(Fs *f, uchar *a, Conv *c)
 		} else
 			v4tov6(gate, q->v4.gate);
 		ifc = findipifc(f, gate, q->type);
-		if(ifc == nil)
+		if(ifc == nil){
+			/* find a direct attached route */
+			if(q->v4.address == 0 && q->v4.endaddress == ~0){
+				la = nhgetl(q->v4.gate);
+				goto again;
+			}
 			return nil;
+		}
 		q->ifc = ifc;
 		q->ifcid = ifc->ifcid;
 	}
@@ -817,6 +809,7 @@ routewrite(Fs *f, Chan *c, char *p, int n)
 	uchar gate[IPaddrlen];
 	IPaux *a, *na;
 	Route *q;
+	uchar type;
 
 	cb = parsecmd(p, n);
 	if(waserror()){
@@ -860,9 +853,12 @@ routewrite(Fs *f, Chan *c, char *p, int n)
 			a = c->aux;
 			tag = a->tag;
 		}
-		if(memcmp(addr, v4prefix, IPv4off) == 0)
-			v4addroute(f, tag, addr+IPv4off, mask+IPv4off, gate+IPv4off, 0);
-		else
+		if(memcmp(addr, v4prefix, IPv4off) == 0){
+			type = 0;
+			if(ipcmp(mask, IPallbits) == 0)
+				type = Rbcast;
+			v4addroute(f, tag, addr+IPv4off, mask+IPv4off, gate+IPv4off, type);
+		}else
 			v6addroute(f, tag, addr, mask, gate, 0);
 	} else if(strcmp(cb->f[0], "tag") == 0) {
 		if(cb->nf < 2)

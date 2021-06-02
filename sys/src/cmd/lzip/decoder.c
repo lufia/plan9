@@ -14,16 +14,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-#define _FILE_OFFSET_BITS 64
-
-#include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
 #include "lzip.h"
 #include "decoder.h"
 
@@ -35,55 +25,45 @@ Pp_show_msg(Pretty_print *pp, char *msg)
 			unsigned i;
 
 			pp->first_post = false;
-			fprintf( stderr, "  %s: ", pp->name );
+			fprintf(stderr, "%s: ", pp->name);
 			for (i = strlen(pp->name); i < pp->longest_name; ++i)
 				fputc(' ', stderr);
 			if (!msg)
 				fflush(stderr);
 		}
 		if (msg)
-			fprintf( stderr, "%s\n", msg );
+			fprintf(stderr, "%s\n", msg);
 	}
 }
 
 /* Returns the number of bytes really read.
-   If (returned value < size) and (errno == 0), means EOF was reached. */
+   If returned value < size and no read error, means EOF was reached.
+ */
 int
-readblock(int fd, uint8_t *buf, int size)
+readblock(int fd, uchar *buf, int size)
 {
-	int sz = 0;
+	int n, sz;
 
-	errno = 0;
-	while (sz < size) {
-		int n = read(fd, buf + sz, size - sz);
-
-		if (n > 0)
-			sz += n;
-		else if (n == 0)
-			break;				/* EOF */
-		else if (errno != EINTR)
+	for (sz = 0; sz < size; sz += n) {
+		n = read(fd, buf + sz, size - sz);
+		if (n <= 0)
 			break;
-		errno = 0;
 	}
 	return sz;
 }
 
 /* Returns the number of bytes really written.
-   If (returned value < size), it is always an error. */
+   If (returned value < size), it is always an error.
+ */
 int
-writeblock(int fd, uint8_t *buf, int size)
+writeblock(int fd, uchar *buf, int size)
 {
-	int sz = 0;
+	int n, sz;
 
-	errno = 0;
-	while (sz < size) {
-		int n = write(fd, buf + sz, size - sz);
-
-		if (n > 0)
-			sz += n;
-		else if (n < 0 && errno != EINTR)
+	for (sz = 0; sz < size; sz += n) {
+		n = write(fd, buf + sz, size - sz);
+		if (n != size - sz)
 			break;
-		errno = 0;
 	}
 	return sz;
 }
@@ -156,7 +136,7 @@ LZd_verify_trailer(LZ_decoder *d, Pretty_print *pp)
 		error = true;
 		if (verbosity >= 0) {
 			Pp_show_msg(pp, 0);
-			fprintf( stderr, "Data size mismatch; trailer says %llu, data size is %llu (0x%llX)\n",
+			fprintf( stderr, "Data size mismatch; trailer says %llud, data size is %llud (0x%lluX)\n",
 			    Ft_get_data_size(trailer), data_size, data_size);
 		}
 	}
@@ -164,17 +144,17 @@ LZd_verify_trailer(LZ_decoder *d, Pretty_print *pp)
 		error = true;
 		if (verbosity >= 0) {
 			Pp_show_msg(pp, 0);
-			fprintf( stderr, "Member size mismatch; trailer says %llu, member size is %llu (0x%llX)\n",
+			fprintf(stderr, "Member size mismatch; trailer says %llud, member size is %llud (0x%lluX)\n",
 			    Ft_get_member_size(trailer), member_size, member_size);
 		}
 	}
-	if (!error && verbosity >= 2 && data_size > 0 && member_size > 0)
-		fprintf( stderr, "%6.3f:1, %6.3f bits/byte, %5.2f%% saved.  ",
+	if (0 && !error && verbosity >= 2 && data_size > 0 && member_size > 0)
+		fprintf(stderr, "%6.3f:1, %6.3f bits/byte, %5.2f%% saved.  ",
 		    (double)data_size / member_size,
 		    (8.0 * member_size) / data_size,
-		    100.0 * (1.0 - ((double)member_size / data_size)));
+		    100.0 * (1.0 - (double)member_size / data_size));
 	if (!error && verbosity >= 4)
-		fprintf( stderr, "CRC %08X, decompressed %9llu, compressed %8llu.  ",
+		fprintf( stderr, "CRC %08X, decompressed %9llud, compressed %8llud.  ",
 		    LZd_crc(d), data_size, member_size);
 	return !error;
 }

@@ -3,8 +3,6 @@
 	vc -a t.c > acidlib
 */
 #define _POSIX_SOURCE 1
-#define _SUSV2_SOURCE
-#define _PLAN9_SOURCE
 #define _BSD_EXTENSION 1
 #define _LOCK_EXTENSION
 #include <stddef.h>
@@ -30,4 +28,4 @@
 /* #include "sys9.h" buf.c below */
 #include "_buf.c"
 #include "dir.h"
-/* #include "fcall.h" */
+#include "fcall.h"

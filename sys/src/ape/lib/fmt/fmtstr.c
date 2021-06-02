@@ -14,7 +14,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
-#include <inttypes.h>
 #include "utf.h"
 #include "fmt.h"
 #include "fmtdef.h"
@@ -23,9 +22,9 @@ static int
 fmtStrFlush(Fmt *f)
 {
 	char *s;
-	uintptr_t n;
+	int n;
 
-	n = (uintptr_t)f->farg;
+	n = (int)f->farg;
 	n += 256;
 	f->farg = (void*)n;
 	s = (char*)f->start;

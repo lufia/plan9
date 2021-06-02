@@ -1,5 +1,5 @@
 #include "u.h"
-#include "../port64/lib.h"
+#include "../port/lib.h"
 #include "mem.h"
 #include "dat.h"
 #include "fns.h"
@@ -743,7 +743,7 @@ reboot(void *entry, void *code, ulong size)
 }
 
 /*
- * stub for ../port64/devpnp.c
+ * stub for ../port/devpnp.c
  */
 int
 isaconfig(char *class, int ctlrno, ISAConf *isa)

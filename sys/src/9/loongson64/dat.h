@@ -9,7 +9,6 @@ typedef struct Label	Label;
 typedef struct Lock	Lock;
 typedef struct Mach	Mach;
 typedef struct MMU	MMU;
-typedef struct Notsave	Notsave;
 typedef struct Pcidev	Pcidev;
 typedef struct PMMU	PMMU;
 typedef struct Softtlb	Softtlb;
@@ -29,7 +28,7 @@ typedef uvlong		Tval;
 #define BOOT_MAGIC	(0x160<<16) || magic == ((0x160<<16)|3)
 
 /*
- *  machine dependent definitions used by ../port64/dat.h
+ *  machine dependent definitions used by ../port/dat.h
  */
 
 struct Lock
@@ -122,15 +121,7 @@ struct PMMU
 	int	pidonmach[MAXMACH];
 };
 
-/*
- *  things saved in the Proc structure during a notify
- */
-struct Notsave
-{
-	ulong	nonempty;
-};
-
-#include "../port64/portdat.h"
+#include "../port/portdat.h"
 
 /* First FIVE members' offsets known by l.s */
 struct Mach

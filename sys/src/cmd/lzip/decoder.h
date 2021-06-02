@@ -21,7 +21,7 @@ typedef struct Range_decoder Range_decoder;
 
 struct Range_decoder {
 	uvlong partial_member_pos;
-	uint8_t * buffer;	/* input buffer */
+	uchar * buffer;	/* input buffer */
 	int	pos;		/* current pos in buffer */
 	int	stream_pos;	/* when reached, a new block must be read */
 	uint32_t code;
@@ -36,7 +36,7 @@ static bool
 Rd_init(Range_decoder *rdec, int ifd)
 {
 	rdec->partial_member_pos = 0;
-	rdec->buffer = (uint8_t *)malloc(rd_buffer_size);
+	rdec->buffer = (uchar *)malloc(rd_buffer_size);
 	if (!rdec->buffer)
 		return false;
 	rdec->pos = 0;
@@ -73,7 +73,7 @@ Rd_reset_member_position(Range_decoder *rdec)
 	rdec->partial_member_pos -= rdec->pos;
 }
 
-static uint8_t
+static uchar
 Rd_get_byte(Range_decoder *rdec)
 {
 	/* 0xFF avoids decoder error if member is truncated at EOS marker */
@@ -82,7 +82,7 @@ Rd_get_byte(Range_decoder *rdec)
 	return rdec->buffer[rdec->pos++];
 }
 
-static int Rd_read_data(Range_decoder *rdec, uint8_t *outbuf, int size)
+static int Rd_read_data(Range_decoder *rdec, uchar *outbuf, int size)
 {
 	int sz = 0;
 
@@ -248,7 +248,7 @@ struct LZ_decoder {
 	uvlong	partial_data_pos;
 	struct Range_decoder *rdec;
 	unsigned dict_size;
-	uint8_t * buffer;		/* output buffer */
+	uchar * buffer;		/* output buffer */
 	unsigned pos;			/* current pos in buffer */
 	unsigned stream_pos;		/* first byte not yet written to file */
 	uint32_t crc;
@@ -258,7 +258,7 @@ struct LZ_decoder {
 
 void	LZd_flush_data(LZ_decoder *d);
 
-static uint8_t
+static uchar
 LZd_peek_prev(LZ_decoder *d)
 {
 	if (d->pos > 0)
@@ -268,7 +268,7 @@ LZd_peek_prev(LZ_decoder *d)
 	return 0;			/* prev_byte of first byte */
 }
 
-static uint8_t
+static uchar
 LZd_peek(LZ_decoder *d,
 unsigned distance)
 {
@@ -278,7 +278,7 @@ unsigned distance)
 }
 
 static void
-LZd_put_byte(LZ_decoder *d, uint8_t b)
+LZd_put_byte(LZ_decoder *d, uchar b)
 {
 	d->buffer[d->pos] = b;
 	if (++d->pos >= d->dict_size)
@@ -322,7 +322,7 @@ LZd_init(struct LZ_decoder *d, Range_decoder *rde, unsigned dict_size, int ofd)
 	d->partial_data_pos = 0;
 	d->rdec = rde;
 	d->dict_size = dict_size;
-	d->buffer = (uint8_t *)malloc(d->dict_size);
+	d->buffer = (uchar *)malloc(d->dict_size);
 	if (!d->buffer)
 		return false;
 	d->pos = 0;

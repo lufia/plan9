@@ -12,8 +12,8 @@
 typedef struct Etherhdr Etherhdr;
 struct Etherhdr
 {
-	uchar	d[6];
-	uchar	s[6];
+	uchar	d[Eaddrlen];
+	uchar	s[Eaddrlen];
 	uchar	t[2];
 };
 
@@ -44,10 +44,10 @@ static void	etherpref2addr(uchar *pref, uchar *ea);
 Medium ethermedium =
 {
 .name=		"ether",
-.hsize=		14,
-.mintu=		60,
-.maxtu=		1514,
-.maclen=	6,
+.hsize=		ETHERHDRSIZE,
+.mintu=		ETHERMINTU,
+.maxtu=		ETHERMAXTU,
+.maclen=	Eaddrlen,
 .bind=		etherbind,
 .unbind=	etherunbind,
 .bwrite=	etherbwrite,
@@ -61,10 +61,10 @@ Medium ethermedium =
 Medium gbemedium =
 {
 .name=		"gbe",
-.hsize=		14,
-.mintu=		60,
+.hsize=		ETHERHDRSIZE,
+.mintu=		ETHERMINTU,
 .maxtu=		9014,
-.maclen=	6,
+.maclen=	Eaddrlen,
 .bind=		etherbind,
 .unbind=	etherunbind,
 .bwrite=	etherbwrite,
@@ -101,18 +101,18 @@ enum
 typedef struct Etherarp Etherarp;
 struct Etherarp
 {
-	uchar	d[6];
-	uchar	s[6];
+	uchar	d[Eaddrlen];
+	uchar	s[Eaddrlen];
 	uchar	type[2];
 	uchar	hrd[2];
 	uchar	pro[2];
 	uchar	hln;
 	uchar	pln;
 	uchar	op[2];
-	uchar	sha[6];
-	uchar	spa[4];
-	uchar	tha[6];
-	uchar	tpa[4];
+	uchar	sha[Eaddrlen];
+	uchar	spa[IPv4addrlen];
+	uchar	tha[Eaddrlen];
+	uchar	tpa[IPv4addrlen];
 };
 
 static char *nbmsg = "nonblocking";
@@ -196,7 +196,7 @@ etherbind(Ipifc *ifc, int argc, char **argv)
 		ifc->mbps = 100;
 
 	/*
- 	 *  open arp conversation
+	 *  open arp conversation
 	 */
 	snprint(addr, sizeof(addr), "%s!0x806", argv[2]);	/* ETARP */
 	achan = chandial(addr, nil, nil, nil);
@@ -273,14 +273,14 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 {
 	Etherhdr *eh;
 	Arpent *a;
-	uchar mac[6];
+	uchar mac[Eaddrlen];
 	Etherrock *er = ifc->arg;
 
 	/* get mac address of destination */
 	a = arpget(er->f->arp, bp, version, ifc, ip, mac);
 	if(a){
 		/* check for broadcast or multicast */
-		bp = multicastarp(er->f, a, ifc->m, mac);
+		bp = multicastarp(er->f, a, ifc->medium, mac);
 		if(bp==nil){
 			switch(version){
 			case V4:
@@ -297,7 +297,7 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 	}
 
 	/* make it a single block with space for the ether header */
-	bp = padblock(bp, ifc->m->hsize);
+	bp = padblock(bp, ifc->medium->hsize);
 	if(bp->next)
 		bp = concatblock(bp);
 	if(BLEN(bp) < ifc->mintu)
@@ -308,16 +308,16 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 	memmove(eh->s, ifc->mac, sizeof(eh->s));
 	memmove(eh->d, mac, sizeof(eh->d));
 
- 	switch(version){
+	switch(version){
 	case V4:
-		eh->t[0] = 0x08;
-		eh->t[1] = 0x00;
 		devtab[er->mchan4->type]->bwrite(er->mchan4, bp, 0);
+		eh->t[0] = ETIP4>>8;
+		eh->t[1] = ETIP4;
 		break;
 	case V6:
-		eh->t[0] = 0x86;
-		eh->t[1] = 0xDD;
 		devtab[er->mchan6->type]->bwrite(er->mchan6, bp, 0);
+		eh->t[0] = ETIP6>>8;
+		eh->t[1] = ETIP6;
 		break;
 	default:
 		panic("etherbwrite2: version %d", version);
@@ -354,7 +354,7 @@ etherread4(void *a)
 			nexterror();
 		}
 		ifc->in++;
-		bp->rp += ifc->m->hsize;
+		bp->rp += ifc->medium->hsize;
 		if(ifc->lifc == nil)
 			freeb(bp);
 		else
@@ -393,7 +393,7 @@ etherread6(void *a)
 			nexterror();
 		}
 		ifc->in++;
-		bp->rp += ifc->m->hsize;
+		bp->rp += ifc->medium->hsize;
 		if(ifc->lifc == nil)
 			freeb(bp);
 		else
@@ -406,7 +406,7 @@ etherread6(void *a)
 static void
 etheraddmulti(Ipifc *ifc, uchar *a, uchar *)
 {
-	uchar mac[6];
+	uchar mac[Eaddrlen];
 	char buf[64];
 	Etherrock *er = ifc->arg;
 	int version;
@@ -428,7 +428,7 @@ etheraddmulti(Ipifc *ifc, uchar *a, uchar *)
 static void
 etherremmulti(Ipifc *ifc, uchar *a, uchar *)
 {
-	uchar mac[6];
+	uchar mac[Eaddrlen];
 	char buf[64];
 	Etherrock *er = ifc->arg;
 	int version;
@@ -553,8 +553,8 @@ sendgarp(Ipifc *ifc, uchar *ip)
 		return;
 
 	n = sizeof(Etherarp);
-	if(n < ifc->m->mintu)
-		n = ifc->m->mintu;
+	if(n < ifc->medium->mintu)
+		n = ifc->medium->mintu;
 	bp = allocb(n);
 	memset(bp->rp, 0, n);
 	e = (Etherarp*)bp->rp;
@@ -701,14 +701,14 @@ multicastea(uchar *ea, uchar *ip)
 		ea[4] = ip[14];
 		ea[5] = ip[15];
 		break;
- 	case V6:
- 		ea[0] = 0x33;
- 		ea[1] = 0x33;
- 		ea[2] = ip[12];
+	case V6:
+		ea[0] = 0x33;
+		ea[1] = 0x33;
+		ea[2] = ip[12];
 		ea[3] = ip[13];
- 		ea[4] = ip[14];
- 		ea[5] = ip[15];
- 		break;
+		ea[4] = ip[14];
+		ea[5] = ip[15];
+		break;
 	}
 	return x;
 }

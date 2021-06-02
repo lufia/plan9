@@ -39,7 +39,7 @@ authentication(int cpuflag)
 		av[ac++] = "-a";
 		av[ac++] = authaddr;
 	}
-	av[ac] = 0;
+	av[ac] = nil;
 	switch(fork()){
 	case -1:
 		fatal("starting factotum");
@@ -49,7 +49,7 @@ authentication(int cpuflag)
 	}
 
 	/* wait for agent to really be there */
-	while(access("/mnt/factotum", 0) < 0)
+	while(access("/mnt/factotum", AEXIST) < 0)
 		sleep(250);
 }
 

@@ -64,12 +64,7 @@
 /spim64/lib
 /spim64/mbr
 /spim64/pbs*
-/lib/audio/icon
-/mail/fs
-/mnt
-/rc/bin/postscript
 /sys/doc/*.pdf
 /sys/doc/*.ps
 /sys/doc/**/*.pdf
 /sys/doc/**/*.ps
-/tmp

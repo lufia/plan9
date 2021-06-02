@@ -419,19 +419,21 @@ attach(Ether* edev)
 
 	ctlr = edev->ctlr;
 	lock(ctlr);
-	if(!ctlr->attached){
-		ctlr->attached = 1;
-
-		/* ready to go */
-		outb(ctlr->port+Qstatus, inb(ctlr->port+Qstatus) | Sdriverok);
-
-		/* start kprocs */
-		snprint(name, sizeof name, "#l%drx", edev->ctlrno);
-		kproc(name, rxproc, edev);
-		snprint(name, sizeof name, "#l%dtx", edev->ctlrno);
-		kproc(name, txproc, edev);
+	if(ctlr->attached){
+		unlock(ctlr);
+		return;
 	}
+	ctlr->attached = 1;
 	unlock(ctlr);
+
+	/* ready to go */
+	outb(ctlr->port+Qstatus, inb(ctlr->port+Qstatus) | Sdriverok);
+
+	/* start kprocs */
+	snprint(name, sizeof name, "#l%drx", edev->ctlrno);
+	kproc(name, rxproc, edev);
+	snprint(name, sizeof name, "#l%dtx", edev->ctlrno);
+	kproc(name, txproc, edev);
 }
 
 static long
@@ -470,6 +472,7 @@ shutdown(Ether* edev)
 {
 	Ctlr *ctlr = edev->ctlr;
 	outb(ctlr->port+Qstatus, 0);
+	pciclrbme(ctlr->pcidev);
 }
 
 static void
@@ -560,6 +563,9 @@ pciprobe(int typ)
 		/* non-transitional devices will have a revision > 0 */
 		if(p->rid != 0)
 			continue;
+		/* first membar needs to be I/O */
+		if((p->mem[0].bar & 1) == 0)
+			continue;
 		/* non-transitional device will have typ+0x40 */
 		if(pcicfgr16(p, 0x2E) != typ)
 			continue;
@@ -567,8 +573,7 @@ pciprobe(int typ)
 			print("ethervirtio: no memory for Ctlr\n");
 			break;
 		}
-
-		c->port = p->mem[0].bar & ~0x1;
+		c->port = p->mem[0].bar & ~3;
 		if(ioalloc(c->port, p->mem[0].size, 0, "ethervirtio") < 0){
 			print("ethervirtio: port %ux in use\n", c->port);
 			free(c);
@@ -591,12 +596,20 @@ pciprobe(int typ)
 		for(i=0; i<nelem(c->queue); i++){
 			outs(c->port+Qselect, i);
 			n = ins(c->port+Qsize);
-			if(n == 0 || (n & (n-1)) != 0)
+			if(n == 0 || (n & (n-1)) != 0){
+				if(i < 2)
+					print("ethervirtio: queue %d has invalid size %d\n", i, n);
 				break;
+			}
 			if(initqueue(&c->queue[i], n) < 0)
 				break;
 			coherence();
 			outl(c->port+Qaddr, PADDR(c->queue[i].desc)/VBY2PG);
+		}
+		if(i < 2){
+			print("ethervirtio: no queues\n");
+			free(c);
+			continue;
 		}
 		c->nqueue = i;		
 	
@@ -618,9 +631,8 @@ reset(Ether* edev)
 	Ctlr *ctlr;
 	int i;
 
-	if(ctlrhead == nil) {
+	if(ctlrhead == nil)
 		ctlrhead = pciprobe(1);
-	}
 
 	for(ctlr = ctlrhead; ctlr != nil; ctlr = ctlr->next){
 		if(ctlr->active)
@@ -653,13 +665,15 @@ reset(Ether* edev)
 
 	edev->attach = attach;
 	edev->shutdown = shutdown;
-	edev->interrupt = interrupt;
 	edev->ifstat = ifstat;
 
 	if((ctlr->feat & (Fctrlvq|Fctrlrx)) == (Fctrlvq|Fctrlrx)){
 		edev->multicast = multicast;
 		edev->promiscuous = promiscuous;
 	}
+
+	pcisetbme(ctlr->pcidev);
+	intrenable(edev->irq, interrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }
