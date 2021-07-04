@@ -235,5 +235,6 @@ extern Proto pass;			/* pass.c */
 extern Proto rsa;			/* rsa.c */
 extern Proto wep;			/* wep.c */
 /* extern Proto srs;			/* srs.c */
+extern Proto totp;			/* totp.c */
 extern Proto httpdigest;		/* httpdigest.c */
 extern Proto wpapsk;			/* wpapsk.c */

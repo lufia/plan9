@@ -12,6 +12,7 @@ PROTO=\
 	p9sk1.$O\
 	pass.$O\
 	rsa.$O\
+	totp.$O\
 	wep.$O\
 	wpapsk.$O\
 
