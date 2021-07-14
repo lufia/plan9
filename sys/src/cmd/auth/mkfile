@@ -43,6 +43,7 @@ DIRS=lib\
 OTHEROFILES=\
 	challenge.$O\
 	convbio.$O\
+	mfa.$O\
 	respond.$O\
 	rsa2any.$O\
 	secureidcheck.$O\
