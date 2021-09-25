@@ -50,7 +50,7 @@ base32d(uchar *dest, int ndest, char *src, int nsrc)
 	tab = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 	while(nsrc>=8){
 		for(i = 0; i < 8; i++){
-			s = strchr(tab, src[i]);
+			s = strchr(tab, toupper(src[i]));
 			if(s == nil)
 				return -1;
 			u[i] = s-tab;
