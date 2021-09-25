@@ -44,4 +44,3 @@ int _IO_setvbuf(FILE *);
 FILE *_IO_sopenr(const char*);
 FILE *_IO_sopenw(void);
 char *_IO_sclose(FILE *);
-FILE *_IO_newfile(void);

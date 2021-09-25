@@ -8,7 +8,9 @@
 #define NULL ((void*)0)
 #endif
 #endif
+#ifndef offsetof
 #define offsetof(ty,mem) ((size_t) &(((ty *)0)->mem))
+#endif
 
 #include "_apetypes.h"
 

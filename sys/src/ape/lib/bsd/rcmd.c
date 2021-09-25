@@ -6,7 +6,6 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <sys/stat.h>
 
 /* socket extensions */
 #include <sys/socket.h>
@@ -24,7 +23,6 @@ ding(int)
 {
 }
 
-/* no ip6 and i don't care */
 int
 rcmd(char **dst, int port, char *luser, char *ruser, char *cmd, int *fd2p)
 {
@@ -94,8 +92,6 @@ rcmd(char **dst, int port, char *luser, char *ruser, char *cmd, int *fd2p)
 	if(write(fd, luser, strlen(luser)+1) < 0
 	|| write(fd, ruser, strlen(ruser)+1) < 0
 	|| write(fd, cmd, strlen(cmd)+1) < 0){
-		if(fd2p)
-			close(lfd);
 		fprintf(stderr, pbotch);
 		return -1;
 	}
@@ -120,8 +116,10 @@ rcmd(char **dst, int port, char *luser, char *ruser, char *cmd, int *fd2p)
 
 	/* get reply */
 	if(read(fd, &c, 1) != 1){
-		if(fd2p)
+		if(fd2p){
 			close(fd2);
+			*fd2p = -1;
+		}
 		fprintf(stderr, pbotch);
 		return -1;
 	}

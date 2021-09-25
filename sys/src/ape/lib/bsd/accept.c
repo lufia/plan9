@@ -21,6 +21,7 @@ accept(int fd, void *a, int *alen)
 {
 	int n, nfd, cfd;
 	Rock *r, *nr;
+	struct sockaddr_in *ip;
 	char name[Ctlsize];
 	char file[8+Ctlsize+1];
 	char *net;
@@ -33,16 +34,15 @@ accept(int fd, void *a, int *alen)
 
 	switch(r->domain){
 	case PF_INET:
-	case PF_INET6:
 		switch(r->stype){
-		default:
-			errno = EPROTONOSUPPORT;
-			return -1;
 		case SOCK_DGRAM:
 			net = "udp";
 			break;
 		case SOCK_STREAM:
 			net = "tcp";
+			break;
+		default:
+			net = "gok";
 			break;
 		}
 
@@ -72,10 +72,11 @@ accept(int fd, void *a, int *alen)
 		}
 
 		/* get remote address */
-		_sock_ingetaddr(nr, &nr->raddr, &n, "remote");
-		if(a != nil){
-			memmove(a, &nr->raddr, n);
-			*alen = n;
+		ip = (struct sockaddr_in*)&nr->raddr;
+		_sock_ingetaddr(nr, ip, &n, "remote");
+		if(a){
+			memmove(a, ip, sizeof(struct sockaddr_in));
+			*alen = sizeof(struct sockaddr_in);
 		}
 
 		return nfd;

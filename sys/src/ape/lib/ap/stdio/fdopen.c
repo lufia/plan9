@@ -14,8 +14,10 @@
  */
 FILE *fdopen(const int fd, const char *mode){
 	FILE *f;
-
-	if((f = _IO_newfile()) == NULL)
+	for(f=_IO_stream;f!=&_IO_stream[FOPEN_MAX];f++)
+		if(f->state==CLOSED)
+			break;
+	if(f==&_IO_stream[FOPEN_MAX])
 		return NULL;
 	f->fd=fd;
 	if(mode[0]=='a')

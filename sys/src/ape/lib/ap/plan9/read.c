@@ -1,5 +1,4 @@
 #include <errno.h>
-#include <inttypes.h>
 #include <unistd.h>
 #include <string.h>
 #include "lib.h"
@@ -8,12 +7,12 @@
 #include <stdio.h>
 
 ssize_t
-pread(int fd, void *buf, size_t nbytes, off_t offset)
+read(int d, void *buf, size_t nbytes)
 {
 	int n, noblock, isbuf;
 	Fdinfo *f;
 
-	if(fd<0 || fd>=OPEN_MAX || !((f = &_fdinfo[fd])->flags&FD_ISOPEN)){
+	if(d<0 || d>=OPEN_MAX || !(_fdinfo[d].flags&FD_ISOPEN)){
 		errno = EBADF;
 		return -1;
 	}
@@ -23,6 +22,7 @@ pread(int fd, void *buf, size_t nbytes, off_t offset)
 		errno = EFAULT;
 		return -1;
 	}
+	f = &_fdinfo[d];
 	noblock = f->oflags&O_NONBLOCK;
 	isbuf = f->flags&(FD_BUFFERED|FD_BUFFEREDX);
 	if(noblock || isbuf){
@@ -31,22 +31,16 @@ pread(int fd, void *buf, size_t nbytes, off_t offset)
 			return -1;
 		}
 		if(!isbuf) {
-			if(_startbuf(fd) != 0) {
+			if(_startbuf(d) != 0) {
 				errno = EIO;
 				return -1;
 			}
 		}
-		n = _readbuf(fd, buf, nbytes, noblock);
+		n = _readbuf(d, buf, nbytes, noblock);
 	}else{
-		n = _PREAD(fd,  buf, nbytes, offset);
+		n = _READ(d,  buf, nbytes);
 		if(n < 0)
 			_syserrno();
 	}
 	return n;
-}
-
-ssize_t
-read(int fd, void *buf, size_t nbytes)
-{
-	return pread(fd, buf, nbytes, -1ll);
 }

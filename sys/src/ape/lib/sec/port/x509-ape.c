@@ -2379,13 +2379,13 @@ mkutc(long t)
 {
 	Elem e;
 	char utc[50];
-	struct tm *tm = gmtime(&t);
+	Tm *tm = gmtime(t);
 
 	e.tag.class = Universal;
 	e.tag.num = UTCTime;
 	e.val.tag = VString;
 	snprint(utc, 50, "%.2d%.2d%.2d%.2d%.2d%.2dZ",
-		tm->tm_year % 100, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+		tm->year % 100, tm->mon+1, tm->mday, tm->hour, tm->min, tm->sec);
 	e.val.u.stringval = estrdup(utc);
 	return e;
 }

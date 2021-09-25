@@ -80,7 +80,7 @@ __fmtinstall(int c, Fmts f)
 {
 	Convfmt *p, *ep;
 
-	if(c<=0 || c>Runemax)
+	if(c<=0 || c>=65536)
 		return -1;
 	if(!f)
 		f = __badfmt;

@@ -19,8 +19,7 @@ int _IO_putc(int c, FILE *f){
 	case CLOSED:
 		return EOF;
 	case OPEN:
-		if(_IO_setvbuf(f)!=0)
-			return EOF;
+		_IO_setvbuf(f);
 		/* fall through */
 	case RDWR:
 	case END:

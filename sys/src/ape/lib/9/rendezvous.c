@@ -1,9 +1,9 @@
 #include <lib9.h>
 
-extern	void*	_RENDEZVOUS(void*, void*);
+extern	unsigned long	_RENDEZVOUS(unsigned long, unsigned long);
 
-void*
-rendezvous(void* tag, void* value)
+unsigned long
+rendezvous(unsigned long tag, unsigned long value)
 {
 	return _RENDEZVOUS(tag, value);
 }

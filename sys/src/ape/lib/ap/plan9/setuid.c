@@ -7,9 +7,8 @@
  */
 
 int
-setuid(uid_t uid)
+setuid(uid_t)
 {
-	USED(uid);
 	errno = EPERM;
 	return -1;
 }
