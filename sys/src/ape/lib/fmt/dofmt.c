@@ -13,7 +13,6 @@
  */
 #include <stdarg.h>
 #include <string.h>
-#include <inttypes.h>
 #include "utf.h"
 #include "fmt.h"
 #include "fmtdef.h"
@@ -349,7 +348,7 @@ __ifmt(Fmt *f)
 		break;
 	}
 	if(f->r == 'p'){
-		u = (uintptr_t)va_arg(f->args, void*);
+		u = (ulong)va_arg(f->args, void*);
 		f->r = 'x';
 		fl |= FmtUnsigned;
 	}else if(fl & FmtVLong){

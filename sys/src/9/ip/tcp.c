@@ -27,7 +27,7 @@ enum
 	TcptimerOFF	= 0,
 	TcptimerON	= 1,
 	TcptimerDONE	= 2,
-	MAX_TIME 	= (1<<20),	/* Forever */
+	MAX_TIME	= (1<<20),	/* Forever */
 	TCP_ACK		= 50,		/* Timed ack sequence in ms */
 	MAXBACKMS	= 9*60*1000,	/* longest backoff time (ms) before hangup */
 
@@ -93,9 +93,9 @@ enum
 /* Must correspond to the enumeration above */
 char *tcpstates[] =
 {
-	"Closed", 	"Listen", 	"Syn_sent", "Syn_received",
-	"Established", 	"Finwait1",	"Finwait2", "Close_wait",
-	"Closing", 	"Last_ack", 	"Time_wait"
+	"Closed",	"Listen",	"Syn_sent", "Syn_received",
+	"Established",	"Finwait1",	"Finwait2", "Close_wait",
+	"Closing",	"Last_ack",	"Time_wait"
 };
 
 typedef struct Tcptimer Tcptimer;
@@ -383,7 +383,7 @@ typedef struct Tcppriv Tcppriv;
 struct Tcppriv
 {
 	/* List of active timers */
-	QLock 	tl;
+	QLock	tl;
 	Tcptimer *timers;
 
 	/* hash table for matching conversations */
@@ -539,6 +539,44 @@ tcpannounce(Conv *c, char **argv, int argc)
 	return nil;
 }
 
+static void
+tcpclosestate(Conv *c, Tcpctl *tcb, int state)
+{
+	tcb->flgcnt++;
+	tcb->snd.nxt++;
+	tcpsetstate(c, state);
+	tcpoutput(c);
+}
+
+/* close the output half of a tcp connection */
+static char *
+tcpxmitclose(Conv *c)
+{
+	Tcpctl *tcb;
+
+	qhangup(c->wq, nil);
+
+	tcb = (Tcpctl*)c->ptcl;
+	switch(tcb->state) {
+	case Listen:
+		/*
+		 *  reset any incoming calls to this listener
+		 */
+		Fsconnected(c, "Hangup");
+		/* fall through */
+	case Closed:
+	case Syn_sent:
+		localclose(c, nil);
+		break;
+	case Syn_received:
+	case Established:
+	case Close_wait:
+		tcpclosestate(c, tcb, tcb->state);
+		break;
+	}
+	return nil;
+}
+
 /*
  *  tcpclose is always called with the q locked
  */
@@ -560,25 +598,17 @@ tcpclose(Conv *c)
 		 *  reset any incoming calls to this listener
 		 */
 		Fsconnected(c, "Hangup");
-
-		localclose(c, nil);
-		break;
+		/* fall through */
 	case Closed:
 	case Syn_sent:
 		localclose(c, nil);
 		break;
 	case Syn_received:
 	case Established:
-		tcb->flgcnt++;
-		tcb->snd.nxt++;
-		tcpsetstate(c, Finwait1);
-		tcpoutput(c);
+		tcpclosestate(c, tcb, Finwait1);
 		break;
 	case Close_wait:
-		tcb->flgcnt++;
-		tcb->snd.nxt++;
-		tcpsetstate(c, Last_ack);
-		tcpoutput(c);
+		tcpclosestate(c, tcb, Last_ack);
 		break;
 	}
 }
@@ -764,7 +794,7 @@ tcpackproc(void *a)
 			if(loop++ > 10000)
 				panic("tcpackproc1");
 			tp = t->next;
- 			if(t->state == TcptimerON) {
+			if(t->state == TcptimerON) {
 				t->count--;
 				if(t->count == 0) {
 					timerstate(priv, t, TcptimerDONE);
@@ -861,12 +891,12 @@ tcpmtu(Proto *tcp, uchar *addr, int version, uint *scale)
 	case V4:
 		mtu = DEF_MSS;
 		if(ifc != nil)
-			mtu = ifc->maxtu - ifc->m->hsize - (TCP4_PKT + TCP4_HDRSIZE);
+			mtu = ifc->maxtu - ifc->medium->hsize - (TCP4_PKT + TCP4_HDRSIZE);
 		break;
 	case V6:
 		mtu = DEF_MSS6;
 		if(ifc != nil)
-			mtu = ifc->maxtu - ifc->m->hsize - (TCP6_PKT + TCP6_HDRSIZE);
+			mtu = ifc->maxtu - ifc->medium->hsize - (TCP6_PKT + TCP6_HDRSIZE);
 		break;
 	}
 	/*
@@ -1729,7 +1759,7 @@ tcpincoming(Conv *s, Tcp *segp, uchar *src, uchar *dst, uchar version)
 			src, segp->source, lp->raddr, lp->rport,
 			dst, segp->dest, lp->laddr, lp->lport,
 			version, lp->version
- 		);
+		);
 
 		if(lp->lport != segp->dest || lp->rport != segp->source || lp->version != version)
 			continue;
@@ -3303,6 +3333,8 @@ tcpctl(Conv* c, char** f, int n)
 		return tcpclose2(c);
 	if(n == 1 && strcmp(f[0], "hangup") == 0)
 		return tcphangup(c);
+	if(n == 1 && strcmp(f[0], "hangupxmit") == 0)
+		return tcpxmitclose(c);
 	if(n >= 1 && strcmp(f[0], "keepalive") == 0)
 		return tcpstartka(c, f, n);
 	if(n >= 1 && strcmp(f[0], "checksum") == 0)

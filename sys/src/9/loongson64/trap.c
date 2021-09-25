@@ -1,12 +1,12 @@
 #include	"u.h"
-#include	"../port64/lib.h"
+#include	"../port/lib.h"
 #include	"mem.h"
 #include	"dat.h"
 #include	"fns.h"
 #include	"ureg.h"
 #include	"io.h"
 #include	<tos.h>
-#include	"../port64/error.h"
+#include	"../port/error.h"
 
 #define setstatus(v)	/* experiment: delete this to enable recursive traps */
 
@@ -845,7 +845,7 @@ noted(Ureg *kur, Ureg **urp, ulong arg0)
 	}
 }
 
-#include "../port64/systab.h"
+#include "../port/systab.h"
 
 static Ref goodsyscall;
 static Ref totalsyscall;
