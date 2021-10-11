@@ -236,6 +236,7 @@ enum {
 	TLS_DHE_DSS_WITH_AES_256_CBC_SHA	= 0X0038,
 	TLS_DHE_RSA_WITH_AES_256_CBC_SHA	= 0X0039,
 	TLS_DH_anon_WITH_AES_256_CBC_SHA	= 0X003A,
+	TLS_RSA_WITH_AES_128_GCM_SHA256     = 0X009C,
 	CipherMax
 };
 
@@ -251,6 +252,7 @@ static Algs cipherAlgs[] = {
 	{"3des_ede_cbc", "sha1", 2*(4*8+SHA1dlen), TLS_RSA_WITH_3DES_EDE_CBC_SHA},
 	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_RSA_WITH_AES_128_CBC_SHA},
 	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_RSA_WITH_AES_256_CBC_SHA}
+	{"aes_128_gcm", "sha256", 2*(16+12+SHA2_256dlen), TLS_RSA_WITH_AES_128_GCM_SHA256},
 };
 
 static uchar compressors[] = {

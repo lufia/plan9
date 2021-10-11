@@ -21,6 +21,7 @@ typedef struct AESstate AESstate;
 struct AESstate
 {
 	ulong	setup;
+	ulong	offset;
 	int	rounds;
 	int	keybytes;
 	uint	ctrsz;
@@ -38,11 +39,27 @@ void	aes_decrypt(ulong rk[], int Nr, uchar ct[16], uchar pt[16]);
 void	setupAESstate(AESstate *s, uchar key[], int keybytes, uchar *ivec);
 void	aesCBCencrypt(uchar *p, int len, AESstate *s);
 void	aesCBCdecrypt(uchar *p, int len, AESstate *s);
+void	aesCFBencrypt(uchar *p, int len, AESstate *s);
+void	aesCFBdecrypt(uchar *p, int len, AESstate *s);
 void	aesCTRdecrypt(uchar *p, int len, AESstate *s);
 void	aesCTRencrypt(uchar *p, int len, AESstate *s);
 
 void	setupAESXCBCstate(AESstate *s);
 uchar*	aesXCBCmac(uchar *p, int len, AESstate *s);
+
+typedef struct AESGCMstate AESGCMstate;
+struct AESGCMstate
+{
+	AESstate;
+
+	ulong	H[4];
+	ulong	M[16][256][4];
+};
+
+void	setupAESGCMstate(AESGCMstate *s, uchar *key, int keylen, uchar *iv, int ivlen);
+void	aesgcm_setiv(AESGCMstate *s, uchar *iv, int ivlen);
+void	aesgcm_encrypt(uchar *p, ulong n, uchar *a, ulong na, uchar tag[16], AESGCMstate *s);
+int	aesgcm_decrypt(uchar *p, ulong n, uchar *a, ulong na, uchar tag[16], AESGCMstate *s);
 
 /*
  * Blowfish Definitions
@@ -442,3 +459,20 @@ PEMChain*readcertchain(char *filename);
 /* password-based key derivation function 2 (rfc2898) */
 void pbkdf2_x(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen);
+
+/*
+ * Diffie-Hellman key exchange
+ */
+
+typedef struct DHstate DHstate;
+struct DHstate
+{
+	mpint	*g;	/* base g */
+	mpint	*p;	/* large prime */
+	mpint	*q;	/* subgroup prime */
+	mpint	*x;	/* random secret */
+	mpint	*y;	/* public key y = g**x & p */
+};
+
+mpint	*dh_new(DHstate *s, mpint *p, mpint *q, mpint *g);
+mpint	*dh_finish(DHstate *s, mpint *y);
