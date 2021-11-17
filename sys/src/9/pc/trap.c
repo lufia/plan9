@@ -14,6 +14,7 @@ static int trapinited;
 void	noted(Ureg*, ulong);
 
 static void debugbpt(Ureg*, void*);
+static void faultgpf(Ureg*, void*);
 static void fault386(Ureg*, void*);
 static void doublefault(Ureg*, void*);
 static void unexpected(Ureg*, void*);
@@ -221,6 +222,7 @@ trapinit(void)
 	 */
 	trapenable(VectorBPT, debugbpt, 0, "debugpt");
 	trapenable(VectorPF, fault386, 0, "fault386");
+	trapenable(VectorGPF, faultgpf, 0, "faultgpf");
 	trapenable(Vector2F, doublefault, 0, "doublefault");
 	trapenable(Vector15, unexpected, 0, "unexpected");
 	nmienable();
@@ -608,6 +610,17 @@ unexpected(Ureg* ureg, void*)
 
 extern void checkpages(void);
 extern void checkfault(ulong, ulong);
+extern void mayberdmsr(void);
+extern void rdmsrfail(void);
+
+static void
+faultgpf(Ureg* ureg, void*)
+{
+	if(ureg->pc != (ulong)mayberdmsr)
+		panic("unhandled GPF at 0x%.8lux", ureg->pc);
+	ureg->pc = (ulong)rdmsrfail;
+}
+
 static void
 fault386(Ureg* ureg, void*)
 {
