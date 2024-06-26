@@ -89,6 +89,27 @@ auth(char *buf, int n, int ctlfd)
 }
 
 /*
+ * mount factotum after auth
+ */
+static void
+mountfactotum(int ctlfd)
+{
+	int fd;
+
+	fd = open("/srv/factotum", ORDWR);
+	if (fd < 0) {
+		syslog(0, "ssh", "can't open /srv/factotum: %r");
+		hangup(ctlfd);
+		exits("open");
+	}
+	if (mount(fd, -1, "/mnt", MREPL, "") < 0) {
+		syslog(0, "ssh", "can't mount /srv/factotum in /mnt: %r");
+		hangup(ctlfd);
+		exits("can't mount");
+	}
+}
+
+/*
  * mount tunnel if there isn't one visible.
  */
 static void
@@ -135,6 +156,7 @@ authnewns(int ctlfd, char *buf, int size, int n)
 		return 0;
 
 	auth(buf, n, ctlfd);
+	mountfactotum(ctlfd);
 
 	p = strchr(buf, '@');
 	if (p == nil)
@@ -444,11 +466,30 @@ confine(char *q, char *s)
 	return q;
 }
 
+static long
+exitstatus(char *s)
+{
+	long n;
+	char *p;
+
+	if(s == nil || *s == '\0')
+		return 0;
+	s = strchr(s, ':');
+	if(s == nil)
+		return 1;
+	n = strtol(s+1, &p, 10);
+	if(p == s+1)
+		return 1;
+	return n;
+}
+
 void
 runcmd(int reqfd, int datafd, char *svc, char *cmd, char *arg1, char *arg2)
 {
 	char *p;
-	int fd, cmdpid, child;
+	Waitmsg *w;
+	int fd, cmdpid;
+	ulong status;
 
 	cmdpid = rfork(RFPROC|RFMEM|RFNOTEG|RFFDG|RFENVG);
 	switch (cmdpid) {
@@ -470,12 +511,12 @@ runcmd(int reqfd, int datafd, char *svc, char *cmd, char *arg1, char *arg2)
 		else
 			p = cmd;
 
+		fprint(errfd, "starting %s\n", cmd);
 		dup(datafd, 0);
 		dup(datafd, 1);
 		dup(datafd, 2);
 		close(datafd);
 		putenv("service", svc);
-		fprint(errfd, "starting %s\n", cmd);
 		execl(cmd, p, arg1, arg2, nil);
 
 		syslog(0, "ssh", "cannot exec %s: %r", cmd);
@@ -483,10 +524,18 @@ runcmd(int reqfd, int datafd, char *svc, char *cmd, char *arg1, char *arg2)
 	default:
 		close(datafd);
 		fprint(errfd, "waiting for child %d\n", cmdpid);
-		while ((child = waitpid()) != cmdpid && child != -1)
-			fprint(errfd, "child %d passed\n", child);
-		if (child == -1)
+		while ((w = wait()) != nil && w->pid != cmdpid){
+			fprint(errfd, "child %d passed\n", w->pid);
+			free(w);
+		}
+		if (w == nil)
 			fprint(errfd, "wait failed: %r\n");
+		else {
+			status = exitstatus(w->msg);
+			fprint(errfd, "child %d exits(%s) status %lud\n", w->pid, w->msg, status);
+			fprint(reqfd, "exit-status %lud", status);
+			free(w);
+		}
 
 		syslog(0, "ssh", "server closing ssh session for %s", uname);
 		fprint(errfd, "closing connection\n");

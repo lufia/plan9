@@ -71,6 +71,7 @@ link
 #	etherm10g	pci ethermii		# vast firmware
 #	ether82598	pci
 	ethervirtio	pci
+	ethervirtio10	pci
 
 	ethermedium
 	pcmciamodem
@@ -89,6 +90,7 @@ misc
 	sdmylex		pci sdscsi
 	sdiahci		pci sdscsi
 	sdvirtio	pci sdscsi
+	sdvirtio10	pci sdscsi
 
 	uarti8250
 	uartpci		pci

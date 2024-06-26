@@ -673,17 +673,11 @@ TEXT lcycles(SB),1,$0
 
 TEXT rdmsr(SB), $0				/* model-specific register */
 	MOVL	index+0(FP), CX
-TEXT mayberdmsr(SB), $0
 	RDMSR
-_rdmsrret:
 	MOVL	vlong+4(FP), CX			/* &vlong */
 	MOVL	AX, 0(CX)			/* lo */
 	MOVL	DX, 4(CX)			/* hi */
 	RET
-TEXT rdmsrfail(SB), $0
-	MOVL	$0xffffffff, AX
-	MOVL	AX, DX
-	JMP		_rdmsrret
 	
 TEXT wrmsr(SB), $0
 	MOVL	index+0(FP), CX

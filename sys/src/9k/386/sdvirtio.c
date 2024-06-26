@@ -1,3 +1,7 @@
+/*
+ * virtio ethernet driver implementing the legacy interface:
+ * http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html
+ */
 #include "u.h"
 #include "../port/lib.h"
 #include "mem.h"
@@ -620,7 +624,7 @@ viopnp(void)
 
 	id = 'F';
 	for(vd =  viopnpdevs(TypBlk); vd; vd = vd->next){
-		if(vd->nqueue != 1)
+		if(vd->nqueue == 0)
 			continue;
 
 		if((s = malloc(sizeof(*s))) == nil)

@@ -62,7 +62,7 @@ typedef struct {
 } EFI_BLOCK_IO_PROTOCOL;
 
 static EFI_GUID
-EFI_BLOCK_IO_PROTOCO_GUID = {
+EFI_BLOCK_IO_PROTOCOL_GUID = {
 	0x964e5b21, 0x6459, 0x11d2,
 	0x8e, 0x39, 0x00, 0xa0,
 	0xc9, 0x69, 0x72, 0x3b,
@@ -73,6 +73,7 @@ static EFI_BLOCK_IO_PROTOCOL *bio;
 static int
 readsect(ulong lba, void *buf)
 {
+	lba *= Sectsz/bio->Media->BlockSize;
 	return eficall(bio->ReadBlocks, bio, (UINTN)bio->Media->MediaId, (UINT64)lba, (UINTN)Sectsz, buf);
 }
 
@@ -117,22 +118,30 @@ isowalk(Extend *ex, char *path)
 	for(i=0x10; i<0x1000; i++){
 		if(readsect(i, ex->buf))
 			return -1;
-		if(*ex->buf == 1)
-			break;
+		if(memcmp(ex->buf, "\001CD001\001", 7) == 0)
+			goto Foundpvd;
 	}
+	return -1;
+Foundpvd:
 	ex->lba = *((ulong*)(ex->buf + 156 + 2));
 	ex->len = *((ulong*)(ex->buf + 156 + 10));
+	if(*path == 0)
+		return 0;
 
 	for(;;){
-		if(readn(ex, &d, Dirsz) != Dirsz)
+		if(read(ex, &d.dirlen, 1) != 1)
 			break;
 		if(d.dirlen == 0)
+			continue;	/* zero padding to next sector */
+		if(read(ex, &d.dirlen + 1, Dirsz-1) != Dirsz-1)
 			break;
-		if(readn(ex, name, d.namelen) != d.namelen)
+		if(read(ex, name, d.namelen) != d.namelen)
 			break;
 		i = d.dirlen - (Dirsz + d.namelen);
-		while(i-- > 0)
-			read(ex, &c, 1);
+		while(i-- > 0){
+			if(read(ex, &c, 1) != 1)
+				break;
+		}
 		for(i=0; i<d.namelen; i++){
 			c = name[i];
 			if(c >= 'A' && c <= 'Z'){
@@ -166,9 +175,10 @@ isowalk(Extend *ex, char *path)
 static void*
 isoopen(char *path)
 {
-	static Extend ex[1];
+	static uchar buf[sizeof(Extend)+8];
+	Extend *ex = (Extend*)((uintptr)(buf+7)&~7);
 
-	if(isowalk(ex,  path))
+	if(isowalk(ex, path))
 		return nil;
 	return ex;
 }
@@ -185,21 +195,21 @@ isoinit(void **fp)
 	Count = 0;
 	Handles = nil;
 	if(eficall(ST->BootServices->LocateHandleBuffer,
-		ByProtocol, &EFI_BLOCK_IO_PROTOCO_GUID, nil, &Count, &Handles))
+		ByProtocol, &EFI_BLOCK_IO_PROTOCOL_GUID, nil, &Count, &Handles))
 		return -1;
 
 	for(i=0; i<Count; i++){
 		bio = nil;
 		if(eficall(ST->BootServices->HandleProtocol,
-			Handles[i], &EFI_BLOCK_IO_PROTOCO_GUID, &bio))
+			Handles[i], &EFI_BLOCK_IO_PROTOCOL_GUID, &bio))
 			continue;
 	
 		media = bio->Media;
 		if(media != nil
 		&& media->MediaPresent
-		&& media->RemovableMedia
 		&& media->LogicalPartition == 0
-		&& media->BlockSize == Sectsz)
+		&& media->BlockSize != 0
+		&& isoopen("") != nil)
 			goto Found;
 	}
 	return -1;
