@@ -718,13 +718,14 @@ cacheAllocBlock(Cache *c, int type, u32int tag, u32int epoch, u32int epochLow)
 
 	qlock(&fl->lk);
 	addr = fl->last;
+	nwrap = 0;
+NotFound:
 	b = cacheLocal(c, PartLabel, addr/n, OReadOnly);
 	if(b == nil){
 		fprint(2, "%s: cacheAllocBlock: xxx %r\n", argv0);
 		qunlock(&fl->lk);
 		return nil;
 	}
-	nwrap = 0;
 	for(;;){
 		if(++addr >= fl->end){
 			addr = 0;
@@ -768,7 +769,12 @@ Found:
 		fprint(2, "%s: cacheAllocBlock: xxx3 %r\n", argv0);
 		return nil;
 	}
-assert(b->iostate == BioLabel || b->iostate == BioClean);
+	if(!(b->iostate == BioLabel || b->iostate == BioClean)){
+		if(0)fprint(2, "%s: cacheAllocBlock addr %ud iostate %s label %L\n",
+		       argv0, addr, bioStr(b->iostate), &lab);
+		blockPut(b);
+		goto NotFound;
+	}
 	fl->last = addr;
 	lab.type = type;
 	lab.tag = tag;
@@ -1203,8 +1209,10 @@ blockWrite(Block *b, int waitlock)
 			fprint(2, "%s: %d:%x:%d iostate is %d in blockWrite\n",
 				argv0, bb->part, bb->addr, bb->l.type, bb->iostate);
 			/* probably BioWriting if it happens? */
-			if(bb->iostate == BioClean)
+			if(bb->iostate == BioClean){
+				blockPut(bb);
 				goto ignblock;
+			}
 		}
 
 		blockPut(bb);
@@ -1563,7 +1571,18 @@ doRemoveLink(Cache *c, BList *p)
 	l.state |= BsClosed;
 	l.epochClose = p->epoch;
 	if(l.epochClose == l.epoch){
-		qlock(&c->fl->lk);
+		/* lock ordering: trying for c->fl->lk while holding b->lk can deadlock */
+		if(!canqlock(&c->fl->lk)){
+			blockPut(b);
+			qlock(&c->fl->lk);
+			b = cacheLocalData(c, p->addr, p->type, p->tag, OOverWrite, 0);
+			if(b == nil){
+				fprint(2, "%s: warning: lost block at end of doRemoveLink\n",
+					argv0);
+				qunlock(&c->fl->lk);
+				return;
+			}
+		}
 		if(l.epoch == c->fl->epochLow)
 			c->fl->nused--;
 		blockSetLabel(b, &l, 0);

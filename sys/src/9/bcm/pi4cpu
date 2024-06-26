@@ -10,6 +10,7 @@ dev
 	arch
 	ssl
 	tls
+	bridge	log
 	cap
 	fs
 	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum inferno
@@ -53,8 +54,10 @@ ip
 
 misc
 	armv7
+	mmu64
 	trap4
 	uartmini	gpio
+	uartpl011	gpio
 	sdmmc
 	sdaoe	sdscsi
 	dma

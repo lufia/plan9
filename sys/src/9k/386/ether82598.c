@@ -22,9 +22,14 @@ enum {
 	Descalign= 128,		/* 599 manual needs 128-byte alignment */
 
 	/* tunable parameters */
-	Nrd	= 256,		/* multiple of 8, power of 2 for NEXTPOW2 */
-	Nrb	= 1024,
-	Ntd	= 128,		/* multiple of 8, power of 2 for NEXTPOW2 */
+//	Nrd	= 128,		/* multiple of 8, power of 2 for NEXTPOW2 */
+//	Nrb	= 512,
+//	Ntd	= 64,		/* multiple of 8, power of 2 for NEXTPOW2 *
+
+	/* 9k only has 64MB for the kernel, so reduce consumption */
+	Nrd	= 32,		/* multiple of 8, power of 2 for NEXTPOW2 */
+	Nrb	= 64,
+	Ntd	= 16,		/* multiple of 8, power of 2 for NEXTPOW2 */
 	Goslow	= 0,		/* flag: go slow by throttling intrs, etc. */
 };
 
@@ -296,13 +301,8 @@ struct Ctlr {
 	Ether	*edev;
 	int	type;
 
-	/* virtual */
-	u32int	*reg;
-	u32int	*msix;			/* unused */
-
-	/* physical */
-	u32int	*physreg;
-	u32int	*physmsix;		/* unused */
+	ulong	*reg;		/* virtual  address of device registers */
+	int	physreg;	/* physical address of device registers */
 
 	uchar	flag;
 	int	nrd;
@@ -356,6 +356,8 @@ static	Lock	rblock;
 static	Block	*rbpool;
 static	int	nrbfull;  /* # of rcv Blocks with data awaiting processing */
 
+static	Block	*rballoc(void);
+
 static void
 readstats(Ctlr *ctlr)
 {
@@ -394,7 +396,7 @@ ifstat(Ether *edev, void *a, long n, ulong offset)
 	t = ctlr->speeds;
 	p = seprint(p, e, "speeds: 0:%d 1000:%d 10000:%d\n", t[0], t[1], t[2]);
 	p = seprint(p, e, "mtu: min:%d max:%d\n", edev->minmtu, edev->maxmtu);
-	p = seprint(p, e, "rdfree %d rdh %d rdt %d\n", ctlr->rdfree, ctlr->reg[Rdt],
+	p = seprint(p, e, "rdfree %d rdh %ld rdt %ld\n", ctlr->rdfree, ctlr->reg[Rdt],
 		ctlr->reg[Rdh]);
 	p = seprintmark(p, e, &ctlr->wmrb);
 	p = seprintmark(p, e, &ctlr->wmrd);
@@ -445,11 +447,78 @@ lproc(void *v)
 	}
 }
 
-static long
-ctl(Ether *, void *, long)
+static void
+spew(Ether *ether, int size, int count, int allstyle)
 {
-	error(Ebadarg);
-	return -1;
+	int n;
+	Block *bp;
+	Etherpkt *pkt;
+
+	n = 2*Eaddrlen + 2 + size;
+	while(count-- > 0) {
+		switch(allstyle){
+		case 0:
+			bp = allocb(n);
+			break;
+		default:			/* use private Block pool */
+			bp = rballoc();
+			break;
+		}
+		pkt = (Etherpkt*)bp->rp;
+		memset(pkt->d, 0, Eaddrlen);			/* random */
+		memmove(pkt->s, ether->ea, Eaddrlen);
+		memset(pkt->type, 1, sizeof pkt->type);		/* random */
+
+		bp->wp += n;
+		qbwrite(ether->oq, bp);
+		if(ether->transmit != nil)
+			ether->transmit(ether);
+	}
+}
+
+enum {
+	CMspew,
+};
+
+static Cmdtab i10gctlmsg[] = {
+	CMspew,	"spew",	3,		/* spew size count [alloc-style] */
+};
+
+static long
+ctl(Ether* edev, void* buf, long n)
+{
+	int allstyle, size, count;
+	char *p;
+	Cmdbuf *cb;
+	Cmdtab *ct;
+
+iprint("598 saw ctl msg\n");
+	cb = parsecmd(buf, n);
+	if(waserror()){
+		free(cb);
+		nexterror();
+	}
+
+	ct = lookupcmd(cb, i10gctlmsg, nelem(i10gctlmsg));
+	switch(ct->index){
+	case CMspew:
+iprint("598 saw spew ctl msg\n");
+		size = strtol(cb->f[1], &p, 0);
+		if(size < 60 || p == cb->f[1] || size > 16*1024)
+			error(Ebadarg);
+		count = strtol(cb->f[2], &p, 0);
+		if(count < 1 || p == cb->f[2])
+			error(Ebadarg);
+		allstyle = 0;
+		if (cb->nf > 3)
+			allstyle = atoi(cb->f[3]);
+		spew(edev, size, count, allstyle);
+		break;
+	}
+	free(cb);
+	poperror();
+
+	return n;
 }
 
 static Block*
@@ -1046,7 +1115,7 @@ interrupt(Ureg*, void *v)
 static void
 scan(void)
 {
-	int pciregs, pcimsix, type;
+	int type, pciregs, pcimsix;
 	ulong io, iomsi;
 	void *mem, *memmsi;
 	Ctlr *ctlr;
@@ -1106,10 +1175,9 @@ scan(void)
 		}
 		ctlr->p = p;
 		ctlr->type = type;
-		ctlr->physreg = (u32int*)io;
-		ctlr->physmsix = (u32int*)iomsi;
-		ctlr->reg = (u32int*)mem;
-		ctlr->msix = (u32int*)memmsi;	/* unused */
+		ctlr->physreg = io;
+		ctlr->reg = (ulong *)(vlong)mem;
+iprint("598 io %lux -> mem %#p reg %#p\n", io, mem, ctlr->reg);
 		ctlr->rbsz = Rbsz;
 		if(reset(ctlr)){
 			print("i82598: can't reset\n");

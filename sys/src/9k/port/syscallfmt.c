@@ -113,7 +113,7 @@ syscallfmt(int syscallno, va_list list)
 		a = va_arg(list, char*);
 		fmtuserstring(&fmt, a, "");
 		argv = va_arg(list, char**);
-		validalign(PTR2UINT(argv), sizeof(char*));
+		evenaddr(PTR2UINT(argv));
 		for(;;){
 			a = *(char**)validaddr(argv, sizeof(char**), 0);
 			if(a == nil)
@@ -231,7 +231,7 @@ syscallfmt(int syscallno, va_list list)
 		fmtprint(&fmt, "%#p %d", v, i[0]);
 		break;
 	case TSEMACQUIRE:
-		v = va_arg(list, int*);
+		v = va_arg(list, long*);
 		l = va_arg(list, ulong);
 		fmtprint(&fmt, "%#p %ld", v, l);
 		break;
@@ -299,8 +299,9 @@ syscallfmt(int syscallno, va_list list)
 		}
 		break;
 	case NSEC:
-		v = va_arg(list, vlong*);
-		fmtprint(&fmt, "%#p", v);
+		/* compilers on 32-bit systems insert &ret as only argument */
+		if (sizeof(void *) < sizeof(vlong))
+			fmtprint(&fmt, "%#p", va_arg(list, vlong*));
 		break;
 	}
 	up->syscalltrace = fmtstrflush(&fmt);
@@ -326,14 +327,17 @@ sysretfmt(int syscallno, va_list list, Ar0* ar0, uvlong start, uvlong stop)
 	default:
 		if(ar0->i == -1)
 			errstr = up->syserrstr;
-		fmtprint(&fmt, " = %d", ar0->i);
+		fmtprint(&fmt, " = %d", (int)ar0->i);
 		break;
 	case ALARM:
 	case _WRITE:
 	case PWRITE:
 		if(ar0->l == -1)
 			errstr = up->syserrstr;
-		fmtprint(&fmt, " = %ld", ar0->l);
+		fmtprint(&fmt, " = %ld", (long)ar0->l);
+		break;
+	case NSEC:
+		fmtprint(&fmt, " = %lld", ar0->vl);
 		break;
 	case EXEC:
 	case SEGBRK:
@@ -348,10 +352,10 @@ sysretfmt(int syscallno, va_list list, Ar0* ar0, uvlong start, uvlong stop)
 		l = va_arg(list, unsigned long);
 		if(ar0->i > 0){
 			fmtuserstring(&fmt, a, " ");
-			fmtprint(&fmt, "%lud = %d", l, ar0->i);
+			fmtprint(&fmt, "%lud = %d", l, (int)ar0->i);
 		}
 		else{
-			fmtprint(&fmt, "%#p/\"\" %lud = %d", a, l, ar0->i);
+			fmtprint(&fmt, "%#p/\"\" %lud = %d", a, l, (int)ar0->i);
 			errstr = up->syserrstr;
 		}
 		break;
@@ -364,10 +368,10 @@ sysretfmt(int syscallno, va_list list, Ar0* ar0, uvlong start, uvlong stop)
 			l = va_arg(list, unsigned long);
 		if(ar0->i > 0){
 			fmtuserstring(&fmt, a, " ");
-			fmtprint(&fmt, "%lud = %d", l, ar0->i);
+			fmtprint(&fmt, "%lud = %d", l, (int)ar0->i);
 		}
 		else{
-			fmtprint(&fmt, "\"\" %lud = %d", l, ar0->i);
+			fmtprint(&fmt, "\"\" %lud = %d", l, (int)ar0->i);
 			errstr = up->syserrstr;
 		}
 		break;
@@ -378,10 +382,10 @@ sysretfmt(int syscallno, va_list list, Ar0* ar0, uvlong start, uvlong stop)
 		l = va_arg(list, unsigned long);
 		if(ar0->i > 0){
 			fmtuserstring(&fmt, a, " ");
-			fmtprint(&fmt, "%lud = %d", l, ar0->i);
+			fmtprint(&fmt, "%lud = %d", l, (int)ar0->i);
 		}
 		else{
-			fmtprint(&fmt, "\"\" %lud = %d", l, ar0->i);
+			fmtprint(&fmt, "\"\" %lud = %d", l, (int)ar0->i);
 			errstr = up->syserrstr;
 		}
 		break;
@@ -404,10 +408,7 @@ sysretfmt(int syscallno, va_list list, Ar0* ar0, uvlong start, uvlong stop)
 			vl = va_arg(list, vlong);
 			fmtprint(&fmt, " %lld", vl);
 		}
-		fmtprint(&fmt, " = %d", ar0->i);
-		break;
-	case NSEC:
-		fmtprint(&fmt, " = %lld", ar0->vl);	/* FoV */
+		fmtprint(&fmt, " = %d", (int)ar0->i);
 		break;
 	}
 	fmtprint(&fmt, " %s %#llud %#llud\n", errstr, start, stop);

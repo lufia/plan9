@@ -15,7 +15,6 @@
 extern int notify(Ureg*);
 
 static void debugbpt(Ureg*, void*);
-static void faultgpf(Ureg*, void*);
 static void faultamd64(Ureg*, void*);
 static void doublefault(Ureg*, void*);
 static void unexpected(Ureg*, void*);
@@ -191,7 +190,6 @@ trapinit(void)
 	 * Syscall() is called directly without going through trap().
 	 */
 	trapenable(IdtBP, debugbpt, 0, "#BP");
-	trapenable(IdtGP, faultgpf, 0, "#GP");
 	trapenable(IdtPF, faultamd64, 0, "#PF");
 	trapenable(IdtDF, doublefault, 0, "#DF");
 	trapenable(Idt0F, unexpected, 0, "#15");
@@ -257,8 +255,6 @@ intrtime(Mach*, int vno)
 		diff = Ntimevec-1;
 	intrtimes[vno][diff]++;
 }
-
-void (*pmcupdate)(void);
 
 /* go to user space */
 void
@@ -422,6 +418,10 @@ dumpgpr(Ureg* ureg)
 void
 dumpregs(Ureg* ureg)
 {
+	if(getconf("*nodumpregs")){
+		iprint("dumpregs disabled\n");
+		return;
+	}
 	dumpgpr(ureg);
 
 	/*
@@ -459,6 +459,8 @@ dumpstackwithureg(Ureg* ureg)
 	int x;
 	char *s;
 
+	if(ureg != nil)
+		dumpregs(ureg);
 	if((s = getconf("*nodumpstack")) != nil && strcmp(s, "0") != 0){
 		iprint("dumpstack disabled\n");
 		return;
@@ -528,17 +530,6 @@ static void
 unexpected(Ureg* ureg, void*)
 {
 	iprint("unexpected trap %llud; ignoring\n", ureg->type);
-}
-
-extern void mayberdmsr(void);
-extern void rdmsrfail(void);
-
-static void
-faultgpf(Ureg* ureg, void*)
-{
-	if(ureg->ip != (u64int)mayberdmsr)
-		panic("unhandled GPF at 0x%016llux", ureg->ip);
-	ureg->ip = (u64int)rdmsrfail;
 }
 
 static void

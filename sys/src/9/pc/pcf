@@ -69,6 +69,7 @@ link
 	ethersmc	devi82365 cis
 	etherwavelan	wavelan devi82365 cis pci
 	ethervirtio		pci
+	ethervirtio10	pci
 	etheriwl	pci wifi
 	etherwpi	pci wifi
 	etherrt2860	pci wifi
@@ -92,6 +93,7 @@ misc
 	sdiahci		pci sdscsi
 	sdaoe
 	sdvirtio	pci sdscsi
+	sdvirtio10	pci sdscsi
 
 	uarti8250
 	uartpci		pci

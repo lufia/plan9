@@ -41,6 +41,7 @@ link
 	ethervt6105m	pci ethermii
 	ethersink
 	ethervirtio	pci
+	ethervirtio10	pci
 	ethermedium
 	netdevmedium
 	loopbackmedium
@@ -61,6 +62,7 @@ misc
 	sd53c8xx	pci sdscsi
 	sdmylex		pci sdscsi
 	sdvirtio	pci sdscsi
+	sdvirtio10	pci sdscsi
 
 ip
 	tcp
