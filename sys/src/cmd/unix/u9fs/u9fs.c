@@ -72,8 +72,8 @@ void*	emalloc(size_t);
 void*	erealloc(void*, size_t);
 char*	estrdup(char*);
 char*	estrpath(char*, char*, int);
-void	sysfatal(char*, ...);
 int	okuser(char*);
+int	groupchange(User*, User*, char**);
 
 void	rversion(Fcall*, Fcall*);
 void	rauth(Fcall*, Fcall*);
@@ -169,8 +169,18 @@ char isfrog[256]={
 	/*BKS*/	1, 1, 1, 1, 1, 1, 1, 1,
 	/*DLE*/	1, 1, 1, 1, 1, 1, 1, 1,
 	/*CAN*/	1, 1, 1, 1, 1, 1, 1, 1,
-	['/']	1,
-	[0x7f]	1,
+	/*' '*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'('*/	0, 0, 0, 0, 0, 0, 0, 1,	/*'/'*/
+	/*'0'*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'8'*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'@'*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'H'*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'P'*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'X'*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'`'*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'h'*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'p'*/	0, 0, 0, 0, 0, 0, 0, 0,
+	/*'x'*/	0, 0, 0, 0, 0, 0, 0, 1,	/*DEL*/
 };
 
 char*
@@ -180,7 +190,7 @@ rootpath(char *path)
 
 	if(root == nil)
 		return path;
-	snprintf(buf, sizeof buf, "%s%s", root, path);
+	snprint(buf, sizeof buf, "%s%s", root, path);
 	return buf;
 }
 
@@ -414,7 +424,7 @@ rattach(Fcall *rx, Fcall *tx)
 			seterror(tx, Eauth);
 			return;
 		}
-		if (none != nil)
+		if(none != nil)
 			rx->uname = none->name;
 	} else {
 		if((e = auth->attach(rx, tx)) != nil){
@@ -1031,6 +1041,7 @@ rwstat(Fcall *rx, Fcall *tx)
 		free(old);
 		free(dir);
 		free(opath);
+		opath = npath;
 	}
 
 	if((u64int)d.length != (u64int)~0 && truncate(opath, d.length) < 0){
@@ -1420,7 +1431,9 @@ groupchange(User *u, User *g, char **ep)
 		return -1;
 	}
 
-	setreuid(0,0);
+	if(setreuid(0, 0) < 0){
+		/* can't get super-user, other calls will fail */
+	}
 	if(setregid(-1, g->id) < 0){
 		fprint(2, "setegid(%s/%d) failed in groupchange\n", g->name, g->id);
 		*ep = strerror(errno);
@@ -1638,7 +1651,7 @@ usercreate(Fid *fid, char *elem, int omode, long perm, char **ep)
 			return -1;
 		}
 		/* race */
-		if(mkdir(npath, (perm|0400)&0777) < 0){
+		if(mkdir(npath, perm&0777) < 0){
 			*ep = strerror(errno);
 			free(npath);
 			return -1;
@@ -1787,8 +1800,11 @@ main(int argc, char **argv)
 	if(fd < 0)
 		sysfatal("cannot open log '%s'", logfile);
 
-	if(dup2(fd, 2) < 0)
-		sysfatal("cannot dup fd onto stderr");
+	if(fd != 2){
+		if(dup2(fd, 2) < 0)
+			sysfatal("cannot dup fd onto stderr");
+		close(fd);
+	}
 	fprint(2, "u9fs\nkill %d\n", (int)getpid());
 
 	fmtinstall('F', fcallconv);
