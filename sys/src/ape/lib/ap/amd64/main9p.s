@@ -27,6 +27,7 @@ TEXT	_mainp(SB), 1, $(3*8+NPRIVATES*8)
 	LEAQ	inargv+0(FP), AX
 	MOVQ	AX, 8(SP)
 	CALL	_init(SB)
+	MOVL	inargc-8(FP), RARG
 	MOVQ	environ(SB), AX
 	MOVQ	AX, 16(SP)
 	CALL	main(SB)
