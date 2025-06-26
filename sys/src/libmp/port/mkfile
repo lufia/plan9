@@ -6,12 +6,15 @@ FILES=\
 	mpfmt\
 	strtomp\
 	mptobe\
+	mptober\
 	mptole\
+	mptolel\
 	betomp\
 	letomp\
 	mpadd\
 	mpsub\
 	mpcmp\
+	mpsel\
 	mpfactorial\
 	mpmul\
 	mpleft\
@@ -20,10 +23,12 @@ FILES=\
 	mpvecsub\
 	mpvecdigmuladd\
 	mpveccmp\
+	mpvectscmp\
 	mpdigdiv\
 	mpdiv\
 	mpexp\
 	mpmod\
+	mpmodop\
 	mpextendedgcd\
 	mpinvert\
 	mprand\
@@ -33,6 +38,9 @@ FILES=\
 	mptoui\
 	mptov\
 	mptouv\
+	mpfield\
+	cnfield\
+	gmfield\
 
 ALLOFILES=${FILES:%=%.$O}
 # cull things in the per-machine directories from this list
