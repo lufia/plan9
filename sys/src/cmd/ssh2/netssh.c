@@ -1364,6 +1364,15 @@ writereqremproc(void *a)
 		}
 		add_string(p, cmd);
 		free(cmd);
+	} else if (strcmp(toks[0], "exit-status") == 0) {
+		add_byte(p, SSH_MSG_CHANNEL_REQUEST);
+		add_uint32(p, ch->otherid);
+		add_string(p, toks[0]);
+		add_byte(p, 0);
+		if(ntok > 1)
+			add_uint32(p, strtol(toks[1], nil, 10));
+		else
+			add_uint32(p, 0);
 	} else
 		respexit(c, r, buf, "bad request command");
 	n = finish_packet(p);
@@ -2875,7 +2884,6 @@ authreqpk(Packet *p, Packet *p2, Conn *c, char *user, uchar *q,
 	char *alg, char *blob, char *sig, char *service, char *me)
 {
 	int n, thisway, nblob, nsig;
-	char method[32];
 
 	sshdebug(c, "auth_req publickey for user %s", user);
 	thisway = *q == '\0';
@@ -2912,12 +2920,12 @@ authreqpk(Packet *p, Packet *p2, Conn *c, char *user, uchar *q,
 	add_byte(p2, SSH_MSG_USERAUTH_REQUEST);
 	add_string(p2, user);
 	add_string(p2, service);
-	add_string(p2, method);
+	add_string(p2, "publickey");
 	add_byte(p2, 1);
 	add_string(p2, alg);
 	add_block(p2, blob, nblob);
 	if (pkas[n]->verify(c, p2->payload, p2->rlength - 1, user, sig, nsig)
-	    == 0) {
+	    != 1) {
 		init_packet(p2);
 		p2->c = c;
 		sshlog(c, "public key login failed");

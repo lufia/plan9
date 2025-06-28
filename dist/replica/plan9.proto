@@ -43,6 +43,10 @@ power	- sys sys
 	+	- sys sys
 power64	- sys sys
 	+	- sys sys
+riscv	- sys sys
+	+	- sys sys
+riscv64	- sys sys
+	+	- sys sys
 sparc	- sys sys
 	+	- sys sys
 spim	- sys sys
@@ -109,7 +113,11 @@ sys	- sys sys
 			+	- sys sys
 		fax	- sys sys
 			+	- sys sys
+		firmware	- sys sys
+			+	- sys sys
 		ghostscript	- sys sys
+			+	- sys sys
+		git		- sys sys
 			+	- sys sys
 		kbmap	- sys sys
 			+	- sys sys

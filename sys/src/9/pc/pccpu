@@ -66,6 +66,7 @@ link
 	etherm10g	pci ethermii
 	ether82598	pci
 	ethervirtio	pci
+	ethervirtio10	pci
 
 	ethermedium
 	netdevmedium
@@ -92,6 +93,7 @@ misc
 	sdiahci		pci sdscsi
 	sdaoe		sdscsi
 	sdvirtio	pci sdscsi
+	sdvirtio10	pci sdscsi
 
 ip
 	tcp

@@ -310,14 +310,14 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 
 	switch(version){
 	case V4:
-		devtab[er->mchan4->type]->bwrite(er->mchan4, bp, 0);
 		eh->t[0] = ETIP4>>8;
 		eh->t[1] = ETIP4;
+		devtab[er->mchan4->type]->bwrite(er->mchan4, bp, 0);
 		break;
 	case V6:
-		devtab[er->mchan6->type]->bwrite(er->mchan6, bp, 0);
 		eh->t[0] = ETIP6>>8;
 		eh->t[1] = ETIP6;
+		devtab[er->mchan6->type]->bwrite(er->mchan6, bp, 0);
 		break;
 	default:
 		panic("etherbwrite2: version %d", version);

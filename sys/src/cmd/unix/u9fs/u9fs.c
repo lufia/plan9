@@ -72,8 +72,8 @@ void*	emalloc(size_t);
 void*	erealloc(void*, size_t);
 char*	estrdup(char*);
 char*	estrpath(char*, char*, int);
-void	sysfatal(char*, ...);
 int	okuser(char*);
+int	groupchange(User*, User*, char**);
 
 void	rversion(Fcall*, Fcall*);
 void	rauth(Fcall*, Fcall*);
@@ -180,7 +180,7 @@ rootpath(char *path)
 
 	if(root == nil)
 		return path;
-	snprintf(buf, sizeof buf, "%s%s", root, path);
+	snprint(buf, sizeof buf, "%s%s", root, path);
 	return buf;
 }
 
@@ -787,6 +787,8 @@ rread(Fcall *rx, Fcall *tx)
 				continue;
 			}
 			free(path);
+			if(S_ISDIR(st.st_mode))
+				st.st_size = 0;
 			stat2dir(fid->dirent->d_name, &st, &d);
 			if((n=(old9p ? convD2Mold : convD2M)(&d, p, ep-p)) <= BIT16SZ)
 				break;
@@ -1031,6 +1033,7 @@ rwstat(Fcall *rx, Fcall *tx)
 		free(old);
 		free(dir);
 		free(opath);
+		opath = npath;
 	}
 
 	if((u64int)d.length != (u64int)~0 && truncate(opath, d.length) < 0){
@@ -1518,7 +1521,7 @@ userwalk(User *u, char **path, char *elem, Qid *qid, char **ep)
 	rpath = rootpath(npath);
 	if(stat(rpath, &st) < 0){
 		free(npath);
-		*ep = strerror(errno);
+		*ep = errno == ENOENT? "file does not exist" : strerror(errno);
 		return -1;
 	}
 	*qid = stat2qid(&st);

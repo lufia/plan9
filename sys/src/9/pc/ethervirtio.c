@@ -1,3 +1,7 @@
+/*
+ * virtio ethernet driver implementing the legacy interface:
+ * http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html
+ */
 #include "u.h"
 #include "../port/lib.h"
 #include "mem.h"
@@ -7,11 +11,6 @@
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "etherif.h"
-
-/*
- * virtio ethernet driver
- * http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html
- */
 
 typedef struct Vring Vring;
 typedef struct Vdesc Vdesc;
@@ -554,13 +553,14 @@ pciprobe(int typ)
 	h = t = nil;
 
 	/* §4.1.2 PCI Device Discovery */
-	for(p = nil; p = pcimatch(p, 0, 0);){
-		if(p->vid != 0x1AF4)
-			continue;
+	for(p = nil; p = pcimatch(p, 0x1AF4, 0);){
 		/* the two possible DIDs for virtio-net */
 		if(p->did != 0x1000 && p->did != 0x1041)
 			continue;
-		/* non-transitional devices will have a revision > 0 */
+		/*
+		 * non-transitional devices will have a revision > 0,
+		 * these are handled by ethervirtio10 driver.
+		 */
 		if(p->rid != 0)
 			continue;
 		/* first membar needs to be I/O */
@@ -586,6 +586,8 @@ pciprobe(int typ)
 
 		/* §3.1.2 Legacy Device Initialization */
 		outb(c->port+Qstatus, 0);
+		while(inb(c->port+Qstatus) != 0)
+			delay(1);
 		outb(c->port+Qstatus, Sacknowledge|Sdriver);
 
 		/* negotiate feature bits */

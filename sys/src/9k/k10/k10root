@@ -39,6 +39,7 @@ link +dev
 	etherigbe	pci ethermii
 	etherm10g	pci
 	ethervirtio	pci
+	ethervirtio10	pci
 	ethermedium
 	loopbackmedium
 	netdevmedium
@@ -130,6 +131,7 @@ amd64 +dev
 	qmalloc
 	random
 	syscall
+	syscallfmt
 	trap
 	vsvm
 	physalloc

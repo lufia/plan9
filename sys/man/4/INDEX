@@ -31,9 +31,12 @@ flfmt fossil
 fossil fossil
 fs fs
 ftpfs ftpfs
+git/fs gitfs
+gitfs gitfs
 httpfile httpfile
 import import
 iostats iostats
+jtagfs jtagfs
 keyfs keyfs
 warning keyfs
 kfs kfs

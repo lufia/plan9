@@ -118,8 +118,9 @@ EFI_GUID EFI_PXE_BASE_CODE_PROTOCOL_GUID = {
 static
 EFI_PXE_BASE_CODE_PROTOCOL *pxe;
 
-static
-EFI_PXE_BASE_CODE_DHCPV4_PACKET *dhcp;
+static uchar mymac[6];
+static uchar myip[16];
+static uchar serverip[16];
 
 typedef struct Tftp Tftp;
 struct Tftp
@@ -306,28 +307,136 @@ tftpopen(Tftp *t, char *path)
 static void*
 pxeopen(char *name)
 {
-	static Tftp t[1];
+	static uchar buf[sizeof(Tftp)+8];
+	Tftp *t = (Tftp*)((uintptr)(buf+7)&~7);
 
 	memset(t, 0, sizeof(Tftp));
-
-	memmove(&t->dip, dhcp->BootpSiAddr, 4);
-	memmove(&t->sip, pxe->Mode->StationIp, 4);
-
+	memmove(&t->sip, myip, sizeof(myip));
+	memmove(&t->dip, serverip, sizeof(serverip));
 	if(tftpopen(t, name))
 		return nil;
 	return t;
 }
 
+static int
+parseipv6(uchar to[16], char *from)
+{
+	int i, dig, elipsis;
+	char *p;
+
+	elipsis = 0;
+	memset(to, 0, 16);
+	for(i = 0; i < 16; i += 2){
+		dig = 0;
+		for(p = from;; p++){
+			if(*p >= '0' && *p <= '9')
+				dig = (dig << 4) | (*p - '0');
+			else if(*p >= 'a' && *p <= 'f')
+				dig = (dig << 4) | (*p - 'a'+10);
+			else if(*p >= 'A' && *p <= 'F')
+				dig = (dig << 4) | (*p - 'A'+10);
+			else
+				break;
+			if(dig > 0xFFFF)
+				return -1;
+		}
+		to[i]   = dig>>8;
+		to[i+1] = dig;
+		if(*p == ':'){
+			if(*++p == ':'){	/* :: is elided zero short(s) */
+				if (elipsis)
+					return -1;	/* second :: */
+				elipsis = i+2;
+				p++;
+			}
+		} else if (p == from)
+			break;
+		from = p;		
+	}
+	if(i < 16){
+		memmove(&to[elipsis+16-i], &to[elipsis], i-elipsis);
+		memset(&to[elipsis], 0, 16-i);
+	}
+	return 0;
+}
+
+static void
+parsedhcp(EFI_PXE_BASE_CODE_DHCPV4_PACKET *dhcp)
+{
+	uchar *p, *e;
+	char *x;
+	int opt;
+	int len;
+	uint type;
+
+	memset(mymac, 0, sizeof(mymac));
+	memset(serverip, 0, sizeof(serverip));
+
+	/* DHCPv4 */
+	if(pxe->Mode->UsingIpv6 == 0){
+		memmove(mymac, dhcp->BootpHwAddr, 6);
+		memmove(serverip, dhcp->BootpSiAddr, 4);
+		return;
+	}
+
+	/* DHCPv6 */
+
+	/*
+	 * some UEFI implementations use random UUID based DUID instead of
+	 * ethernet address, but use ethernet derived link-local addresses.
+	 * so extract the MAC from our IPv6 address as a fallback.
+	 */
+	p = pxe->Mode->StationIp;
+	mymac[0] = p[8] ^ 2;
+	mymac[1] = p[9];
+	mymac[2] = p[10];
+	mymac[3] = p[13];
+	mymac[4] = p[14];
+	mymac[5] = p[15];
+
+	e = (uchar*)dhcp + sizeof(*dhcp);
+	p = (uchar*)dhcp + 4;
+	while(p+4 <= e){
+		opt = p[0]<<8 | p[1];
+		len = p[2]<<8 | p[3];
+		p += 4;
+		if(p + len > e)
+			break;
+		switch(opt){
+		case 1:	/* Client DUID */
+			if(len < 4+6)
+				break;
+			type = p[0]<<24 | p[1]<<16 | p[2]<<8 | p[3];
+			switch(type){
+			case 0x00010001:
+			case 0x00030001:
+				memmove(mymac, p+len-6, 6);
+				break;
+			}
+			break;
+		case 59: /* Boot File URL */
+			for(x = (char*)p; x < (char*)p+len; x++){
+				if(*x == '['){
+					parseipv6(serverip, x+1);
+					break;
+				}
+			}
+			break;
+		}
+		p += len;
+	}
+}
+
 int
 pxeinit(void **pf)
 {
+	EFI_PXE_BASE_CODE_DHCPV4_PACKET	*dhcp;
 	EFI_PXE_BASE_CODE_MODE *mode;
 	EFI_HANDLE *Handles;
 	UINTN Count;
 	int i;
 
 	pxe = nil;
-	dhcp = nil;
 	Count = 0;
 	Handles = nil;
 	if(eficall(ST->BootServices->LocateHandleBuffer,
@@ -340,7 +449,7 @@ pxeinit(void **pf)
 			Handles[i], &EFI_PXE_BASE_CODE_PROTOCOL_GUID, &pxe))
 			continue;
 		mode = pxe->Mode;
-		if(mode == nil || mode->UsingIpv6 || mode->Started == 0)
+		if(mode == nil || mode->Started == 0)
 			continue;
 		if(mode->DhcpAckReceived){
 			dhcp = (EFI_PXE_BASE_CODE_DHCPV4_PACKET*)mode->DhcpAck;
@@ -354,19 +463,20 @@ pxeinit(void **pf)
 	return -1;
 
 Found:
+	parsedhcp(dhcp);
+	memmove(myip, mode->StationIp, 16);
+
 	open = pxeopen;
 	read = pxeread;
 	close = pxeclose;
 
 	if(pf != nil){
 		char ini[24];
-		uchar *mac;
 
-		mac = dhcp->BootpHwAddr;
 		memmove(ini, "/cfg/pxe/", 9);
 		for(i=0; i<6; i++){
-			ini[9+i*2+0] = hex[mac[i] >> 4];
-			ini[9+i*2+1] = hex[mac[i] & 0xF];
+			ini[9+i*2+0] = hex[mymac[i] >> 4];
+			ini[9+i*2+1] = hex[mymac[i] & 0xF];
 		}
 		ini[9+12] = '\0';
 		if((*pf = pxeopen(ini)) == nil)
