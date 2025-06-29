@@ -24,10 +24,10 @@ enum {
 	MaxMacLen		= SHA2_256dlen,
 
 	/* protocol versions we can accept */
-	TLS12Version		= 0x0303,
-	TLS11Version		= 0x0302,
-	TLS10Version		= 0x0301,
 	SSL3Version		= 0x0300,
+	TLS10Version		= 0x0301,
+	TLS11Version		= 0x0302,
+	TLS12Version		= 0x0303,
 	MinProtoVersion	= 0x0300,	/* limits on version we accept */
 	MaxProtoVersion	= 0x03ff,
 
@@ -769,8 +769,8 @@ if(tr->debug)pprint("consumed %d header\n", RecHdrLen);
 	if(ver != tr->version && (tr->verset || ver < MinProtoVersion || ver > MaxProtoVersion))
 		rcvError(tr, EProtocolVersion, "devtls expected ver=%x%s, saw (len=%d) type=%x ver=%x '%.12s'",
 			tr->version, tr->verset?"/set":"", len, type, ver, (char*)header);
-	if(len > MaxCipherRecLen || len < 0)
-		rcvError(tr, ERecordOverflow, "record message too long %d", len);
+	if(len > MaxCipherRecLen || len <= 0)
+		rcvError(tr, ERecordOverflow, "bad record message length %d", len);
 	ensure(tr, &tr->unprocessed, len);
 	nconsumed = 0;
 	poperror();
@@ -1254,6 +1254,8 @@ tlsrecwrite(TlsRec *tr, int type, Block *b)
 if(tr->debug)pprint("send %ld\n", BLEN(b));
 if(tr->debug)pdump(BLEN(b), b->rp, "sent:");
 
+	if(type == RApplication)
+		checkstate(tr, 0, SOpen);
 
 	ok = SHandshake|SOpen|SRClose;
 	if(type == RAlert)
@@ -1371,7 +1373,6 @@ tlsbwrite(Chan *c, Block *b, ulong offset)
 		tr->handout += n;
 		break;
 	case Qdata:
-		checkstate(tr, 0, SOpen);
 		tlsrecwrite(tr, RApplication, b);
 		tr->dataout += n;
 		break;

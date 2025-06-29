@@ -3,7 +3,6 @@
 #define _RESEARCH_SOURCE
 #include <u.h>
 #include <lock.h>
-#include <inttypes.h>
 #include <qlock.h>
 #include <stdlib.h>
 #include "sys9.h"

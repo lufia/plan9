@@ -23,8 +23,8 @@ typedef struct	Arp Arp;
 typedef struct	Route	Route;
 
 typedef struct	Routerparams	Routerparams;
-typedef struct 	Hostparams	Hostparams;
-typedef struct 	v6router	v6router;
+typedef struct	Hostparams	Hostparams;
+typedef struct	v6router	v6router;
 typedef struct	v6params	v6params;
 
 #pragma incomplete Arp
@@ -52,7 +52,7 @@ enum
 	/* ip versions */
 	V4=		4,
 	V6=		6,
-	IP_VER4= 	0x40,
+	IP_VER4=	0x40,
 	IP_VER6=	0x60,
 	IP_HLEN4=	5,		/* v4: Header length in words */
 	IP_DF=		0x4000,		/* v4: Don't fragment */
@@ -105,20 +105,20 @@ struct Fragment4
 {
 	Block*	blist;
 	Fragment4*	next;
-	ulong 	src;
-	ulong 	dst;
+	ulong	src;
+	ulong	dst;
 	ushort	id;
-	ulong 	age;
+	ulong	age;
 };
 
 struct Fragment6
 {
 	Block*	blist;
 	Fragment6*	next;
-	uchar 	src[IPaddrlen];
-	uchar 	dst[IPaddrlen];
+	uchar	src[IPaddrlen];
+	uchar	dst[IPaddrlen];
 	uint	id;
-	ulong 	age;
+	ulong	age;
 };
 
 struct Ipfrag
@@ -157,7 +157,7 @@ struct Ip4hdr
 	uchar	length[2];	/* packet length */
 	uchar	id[2];		/* ip->identification */
 	uchar	frag[2];	/* Fragment information */
-	uchar	ttl;      	/* Time to live */
+	uchar	ttl;		/* Time to live */
 	uchar	proto;		/* Protocol */
 	uchar	cksum[2];	/* Header checksum */
 	uchar	src[4];		/* IP source */
@@ -227,7 +227,7 @@ struct Medium
 	int	hsize;		/* medium header size */
 	int	mintu;		/* default min mtu */
 	int	maxtu;		/* default max mtu */
-	int	maclen;		/* mac address length  */
+	int	maclen;		/* mac address length */
 	void	(*bind)(Ipifc*, int, char**);
 	void	(*unbind)(Ipifc*);
 	void	(*bwrite)(Ipifc *ifc, Block *b, int version, uchar *ip);
@@ -268,8 +268,8 @@ struct Iplifc
 	uchar	tentative;	/* =1 => v6 dup disc on, =0 => confirmed unique */
 	uchar	onlink;		/* =1 => onlink, =0 offlink. */
 	uchar	autoflag;	/* v6 autonomous flag */
-	long 	validlt;	/* v6 valid lifetime */
-	long 	preflt;		/* v6 preferred lifetime */
+	long	validlt;	/* v6 valid lifetime */
+	long	preflt;		/* v6 preferred lifetime */
 	long	origint;	/* time when addr was added */
 	Iplink	*link;		/* addresses linked to this lifc */
 	Iplifc	*next;
@@ -293,7 +293,7 @@ struct Iplink
 struct Routerparams {
 	int	mflag;		/* flag: managed address configuration */
 	int	oflag;		/* flag: other stateful configuration */
-	int 	maxraint;	/* max. router adv interval (ms) */
+	int	maxraint;	/* max. router adv interval (ms) */
 	int	minraint;	/* min. router adv interval (ms) */
 	int	linkmtu;	/* mtu options */
 	int	reachtime;	/* reachable time */
@@ -312,7 +312,7 @@ struct Ipifc
 
 	Conv	*conv;		/* link to its conversation structure */
 	char	dev[64];	/* device we're attached to */
-	Medium	*m;		/* Media pointer */
+	Medium	*medium;	/* Media pointer */
 	int	maxtu;		/* Maximum transfer unit */
 	int	mintu;		/* Minumum tranfer unit */
 	int	mbps;		/* megabits per second */
@@ -459,7 +459,7 @@ struct v6params
 	Routerparams	rp;		/* v6 params, one copy per node now */
 	Hostparams	hp;
 	v6router	v6rlist[3];	/* max 3 default routers, currently */
-	int		cdrouter;	/* uses only v6rlist[cdrouter] if   */
+	int		cdrouter;	/* uses only v6rlist[cdrouter] if */
 					/* cdrouter >= 0. */
 };
 

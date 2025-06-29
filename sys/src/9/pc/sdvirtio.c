@@ -1,3 +1,7 @@
+/*
+ * virtio ethernet driver implementing the legacy interface:
+ * http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html
+ */
 #include "u.h"
 #include "../port/lib.h"
 #include "mem.h"
@@ -203,13 +207,15 @@ viopnpdevs(int typ)
 			continue;
 		if(p->rid != 0)
 			continue;
+		//if((p->mem[0].bar & 1) == 0) /* zero on gce */
+		//	continue;
 		if(pcicfgr16(p, 0x2E) != typ)
 			continue;
 		if((vd = malloc(sizeof(*vd))) == nil){
 			print("virtio: no memory for Vdev\n");
 			break;
 		}
-		vd->port = p->mem[0].bar & ~0x1;
+		vd->port = p->mem[0].bar & ~3;
 		size = p->mem[0].size;
 		if(vd->port == 0){ /* gce */
 			vd->port = 0xc000;
@@ -331,7 +337,7 @@ vqio(Vqueue *q, int head)
 static int
 vioblkreq(Vdev *vd, int typ, void *a, long count, long secsize, uvlong lba)
 {
-	int free, head;
+	int need, free, head;
 	Vqueue *q;
 	Vdesc *d;
 
@@ -342,14 +348,18 @@ vioblkreq(Vdev *vd, int typ, void *a, long count, long secsize, uvlong lba)
 		u64int	lba;
 	} req;
 
-	status = 0;
+	need = 2;
+	if(a != nil)
+		need = 3;
+
+	status = -1;
 	req.typ = typ;
 	req.prio = 0;
 	req.lba = lba;
 
 	q = vd->queue[0];
 	ilock(q);
-	while(q->nfree < 3){
+	while(q->nfree < need){
 		iunlock(q);
 
 		if(!waserror())
@@ -366,10 +376,12 @@ vioblkreq(Vdev *vd, int typ, void *a, long count, long secsize, uvlong lba)
 	d->len = sizeof(req);
 	d->flags = Next;
 
-	d = &q->desc[free]; free = d->next;
-	d->addr = PADDR(a);
-	d->len = secsize*count;
-	d->flags = typ ? Next : (Write|Next);
+	if(a != nil){
+		d = &q->desc[free]; free = d->next;
+		d->addr = PADDR(a);
+		d->len = secsize*count;
+		d->flags = typ ? Next : (Write|Next);
+	}
 
 	d = &q->desc[free]; free = d->next;
 	d->addr = PADDR(&status);
@@ -377,7 +389,7 @@ vioblkreq(Vdev *vd, int typ, void *a, long count, long secsize, uvlong lba)
 	d->flags = Write;
 
 	q->free = free;
-	q->nfree -= 3;
+	q->nfree -= need;
 
 	/* queue io, unlock and wait for completion */
 	vqio(q, head);
@@ -580,10 +592,11 @@ vioenable(SDev *sd)
 	Vdev *vd;
 
 	vd = sd->ctlr;
+	pcisetbme(vd->pci);
 	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
 	intrenable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
 	outb(vd->port+Status, inb(vd->port+Status) | DriverOk);
-	return 0;
+	return 1;
 }
 
 static int
@@ -595,7 +608,8 @@ viodisable(SDev *sd)
 	vd = sd->ctlr;
 	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
 	intrdisable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
-	return 0;
+	pciclrbme(vd->pci);
+	return 1;
 }
 
 static SDev*

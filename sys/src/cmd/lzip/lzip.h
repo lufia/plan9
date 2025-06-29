@@ -19,11 +19,13 @@
 #define _LZIP_H
 
 #include <u.h>
-#include <lib9.h>
-#include <utf.h>
-#include <assert.h>
+#include <libc.h>
+#include <stdio.h>
+#include <ctype.h>
 
-#define nelem(a) (sizeof(a) / sizeof (a)[0])
+#define exit(n) exits((n) == 0? 0: "err")
+#define isatty(fd) 0
+#define lseek seek
 
 #ifndef max
 #define max(x,y) ((x) >= (y) ? (x) : (y))
@@ -33,6 +35,11 @@
 #endif
 
 typedef int	State;
+typedef long int32_t;
+typedef ulong uint32_t;
+typedef int bool;
+
+enum { false, true };
 
 enum { states = 12 };
 enum {
@@ -91,18 +98,20 @@ struct Pretty_print {
 	bool	first_post;
 };
 
-typedef uint32_t CRC32[256];	/* Table of CRCs of all 8-bit messages. */
+typedef ulong CRC32[256];	/* Table of CRCs of all 8-bit messages. */
 
 extern CRC32 crc32;
 
-static uint8_t magic_string[4] = { 'L', 'Z', 'I', 'P' };
+#define errno 0
 
-typedef uint8_t File_header[6];		/* 0-3 magic bytes */
+static uchar magic_string[4] = { "LZIP" };
+
+typedef uchar File_header[6];		/* 0-3 magic bytes */
 /*   4 version */
 /*   5 coded_dict_size */
 enum { Fh_size = 6 };
 
-typedef uint8_t File_trailer[20];
+typedef uchar File_trailer[20];
 /*  0-3  CRC32 of the uncompressed data */
 /*  4-11 size of the uncompressed data */
 /* 12-19 member size including header and trailer */
@@ -115,7 +124,7 @@ enum {
 	price_step = 1 << price_step_bits,
 };
 
-typedef uint8_t Dis_slots[1<<10];
+typedef uchar Dis_slots[1<<10];
 typedef short	Prob_prices[bit_model_total >> price_step_bits];
 
 extern Dis_slots dis_slots;
@@ -144,8 +153,8 @@ extern Prob_prices prob_prices;
 }
 
 /* these functions are now extern and must be defined exactly once */
-#ifdef _DEFINE_INLINES
-#define _INLINES_DEFINED
+#ifdef	_DEFINE_INLINES
+#define	_INLINES_DEFINED
 
 int
 get_len_state(int len)
@@ -160,12 +169,6 @@ get_len_state(int len)
 		return lenstm1;
 }
 
-bool
-St_is_char(State st)
-{
-	return st < 7;
-}
-
 State
 St_set_char(State st)
 {
@@ -175,26 +178,8 @@ St_set_char(State st)
 	return next[st];
 }
 
-State
-St_set_match(State st)
-{
-	return st < 7? 7: 10;
-}
-
-State
-St_set_rep(State st)
-{
-	return st < 7? 8: 11;
-}
-
-State
-St_set_short_rep(State st)
-{
-	return st < 7? 9: 11;
-}
-
 int
-get_lit_state(uint8_t prev_byte)
+get_lit_state(uchar prev_byte)
 {
 	return prev_byte >> (8 - literal_context_bits);
 }
@@ -288,13 +273,13 @@ CRC32_init(void)
 }
 
 void
-CRC32_update_byte(uint32_t *crc, uint8_t byte)
+CRC32_update_byte(uint32_t *crc, uchar byte)
 {
 	*crc = crc32[(*crc^byte)&0xFF] ^ (*crc >> 8);
 }
 
 void
-CRC32_update_buf(uint32_t *crc, uint8_t *buffer, int size)
+CRC32_update_buf(uint32_t *crc, uchar *buffer, int size)
 {
 	int	i;
 	uint32_t c = *crc;
@@ -346,7 +331,7 @@ Fh_verify_prefix(File_header data, int size)
 	return (size > 0);
 }
 
-uint8_t
+uchar
 Fh_version(File_header data)
 {
 	return data[4];
@@ -403,7 +388,7 @@ Ft_set_data_crc(File_trailer data, unsigned crc)
 {
 	int	i;
 	for (i = 0; i <= 3; ++i) {
-		data[i] = (uint8_t)crc;
+		data[i] = (uchar)crc;
 		crc >>= 8;
 	}
 }
@@ -425,7 +410,7 @@ Ft_set_data_size(File_trailer data, uvlong sz)
 {
 	int	i;
 	for (i = 4; i <= 11; ++i) {
-		data[i] = (uint8_t)sz;
+		data[i] = (uchar)sz;
 		sz >>= 8;
 	}
 }
@@ -447,7 +432,7 @@ Ft_set_member_size(File_trailer data, uvlong sz)
 {
 	int	i;
 	for (i = 12; i <= 19; ++i) {
-		data[i] = (uint8_t)sz;
+		data[i] = (uchar)sz;
 		sz >>= 8;
 	}
 }
@@ -455,15 +440,15 @@ Ft_set_member_size(File_trailer data, uvlong sz)
 void	Bm_array_init(Bit_model bm[], int size);
 void	Bm_init(Bit_model *probability);
 void	CRC32_init(void);
-void	CRC32_update_buf(uint32_t *crc, uint8_t *buffer, int size);
-void	CRC32_update_byte(uint32_t *crc, uint8_t byte);
+void	CRC32_update_buf(uint32_t *crc, uchar *buffer, int size);
+void	CRC32_update_byte(uint32_t *crc, uchar byte);
 unsigned	Fh_get_dict_size(File_header data);
 bool	Fh_set_dict_size(File_header data, unsigned sz);
 void	Fh_set_magic(File_header data);
 bool	Fh_verify_magic(File_header data);
 bool	Fh_verify_prefix(File_header data, int size);
 bool	Fh_verify_version(File_header data);
-uint8_t	Fh_version(File_header data);
+uchar	Fh_version(File_header data);
 unsigned	Ft_get_data_crc(File_trailer data);
 uvlong	Ft_get_data_size(File_trailer data);
 uvlong	Ft_get_member_size(File_trailer data);
@@ -475,34 +460,32 @@ void	Pp_init(Pretty_print *pp, char *filenames[], int num_filenames, int verbosi
 void	Pp_reset(Pretty_print *pp);
 void	Pp_set_name(Pretty_print *pp, char *filename);
 void	Pp_show_msg(Pretty_print *pp, char *msg);
-bool	St_is_char(State st);
 State	St_set_char(State st);
-State	St_set_match(State st);
-State	St_set_rep(State st);
-State	St_set_short_rep(State st);
-int	get_lit_state(uint8_t prev_byte);
+int	get_lit_state(uchar prev_byte);
 int	get_len_state(int len);
 bool	isvalid_ds(unsigned dict_size);
 int	real_bits(unsigned value);
 #endif					/* _DEFINE_INLINES */
+
+#define St_is_char(state)	((state) < 7)
+#define St_set_match(state)	((state) < 7? 7: 10)
+#define St_set_rep(state)	((state) < 7? 8: 11)
+#define St_set_short_rep(state)	((state) < 7? 9: 11)
 
 static char *bad_magic_msg = "Bad magic number (file not in lzip format).";
 static char *bad_dict_msg = "Invalid dictionary size in member header.";
 static char *trailing_msg = "Trailing data not allowed.";
 
 /* defined in decoder.c */
-int	readblock(int fd, uint8_t *buf, int size);
-int	writeblock(int fd, uint8_t *buf, int size);
-
-/* defined in list.c */
-int	list_files(char *filenames[], int num_filenames, bool ignore_trailing);
+int	readblock(int fd, uchar *buf, int size);
+int	writeblock(int fd, uchar *buf, int size);
 
 /* defined in main.c */
 extern int verbosity;
-struct stat;
+Dir;
 char	*bad_version(unsigned version);
 char	*format_ds(unsigned dict_size);
-int	open_instream(char *name, struct stat *in_statsp, bool no_ofile, bool reg_only);
+int	open_instream(char *name, Dir *in_statsp, bool no_ofile, bool reg_only);
 void	*resize_buffer(void *buf, unsigned min_size);
 void	cleanup_and_fail(int retval);
 void	show_error(char *msg, int errcode, bool help);

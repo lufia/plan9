@@ -16,6 +16,8 @@ link
 # devices are detected in the same order by bootstraps and kernels
 # and thus given the same controller numbers.
 	ethervirtio	pci
+	ethervirtio10	pci
+
 	ethermedium
 
 misc

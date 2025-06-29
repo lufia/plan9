@@ -10,7 +10,6 @@ typedef struct Label	Label;
 typedef struct Lock	Lock;
 typedef struct MMU	MMU;
 typedef struct Mach	Mach;
-typedef struct Notsave	Notsave;
 typedef struct PCArch	PCArch;
 typedef struct Pcidev	Pcidev;
 typedef struct PCMmap	PCMmap;
@@ -58,6 +57,10 @@ struct Label
 
 /*
  * FPsave.status
+ *
+ * FPinit: never used
+ * FPactive: in use, registers are live
+ * FPinactive: not in use, registers are saved
  */
 enum
 {
@@ -65,9 +68,11 @@ enum
 	FPinit=		0,
 	FPactive=	1,
 	FPinactive=	2,
+	FPnotestart = 3,
 
-	/* the following is a bit that can be or'd into the state */
-	FPillegal=	0x100,
+	/* state repeated 3 bits up for note handler */
+	FPnoteshift = 3,
+	FPnotemask = 7<<3,
 };
 
 struct	FPstate			/* x87 fpu state */
@@ -159,16 +164,6 @@ struct PMMU
 	Page*	kmaptable;		/* page table used by kmap */
 	uint	lastkmap;		/* last entry used by kmap */
 	int	nkmap;			/* number of current kmaps */
-};
-
-/*
- *  things saved in the Proc structure during a notify
- */
-struct Notsave
-{
-	ulong	svflags;
-	ulong	svcs;
-	ulong	svss;
 };
 
 #include "../port/portdat.h"

@@ -5,6 +5,7 @@ intro 0intro
 9bootpbs 9boot
 9load 9boot
 9loadusb 9boot
+pbs 9boot
 9pcon 9pcon
 aan aan
 aliasmail aliasmail
@@ -77,6 +78,7 @@ ipserv ipserv
 rexexec ipserv
 rlogind ipserv
 telnetd ipserv
+iscsisrv iscsisrv
 kfscmd kfscmd
 ksync kfscmd
 listen listen
@@ -119,6 +121,14 @@ aux/accupoint mouse
 aux/mouse mouse
 mouse mouse
 na na
+9bootfat nboot
+9boothyb nboot
+9bootiso nboot
+9bootpxe nboot
+bootia32.efi nboot
+bootx64.efi nboot
+efiboot.fat nboot
+nboot nboot
 cs ndb
 csquery ndb
 dns ndb
@@ -159,6 +169,7 @@ mbr prep
 prep prep
 qer qer
 runq qer
+realemu realemu
 reboot reboot
 applychanges replica
 applylog replica
@@ -216,8 +227,9 @@ fmtarenas venti-fmt
 fmtbloom venti-fmt
 fmtindex venti-fmt
 fmtisect venti-fmt
-syncindex venti-fmt
 venti-fmt venti-fmt
 vga vga
 watchdog watchdog
+websocket websocket
 wol wol
+wpa wpa

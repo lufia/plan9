@@ -14,6 +14,8 @@ ether ether
 flash flash
 floppy floppy
 fs fs
+gpio gpio
+i2c i2c
 i82365 i82365
 esp ip
 gre ip
@@ -35,12 +37,15 @@ mouse mouse
 pipe pipe
 pnp pnp
 proc proc
+ptrace ptrace
 root root
 rtc rtc
 sd sd
 sdahci sdahci
 sdaoe sdaoe
+sdp sdp
 segment segment
+spi spi
 srv srv
 ssl ssl
 tls tls

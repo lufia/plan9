@@ -1,12 +1,12 @@
 #include	"u.h"
-#include	"../port64/lib.h"
+#include	"../port/lib.h"
 #include	"mem.h"
 #include	"dat.h"
 #include	"fns.h"
 #include	"ureg.h"
 #include	"io.h"
 #include	<tos.h>
-#include	"../port64/error.h"
+#include	"../port/error.h"
 
 #define setstatus(v)	/* experiment: delete this to enable recursive traps */
 
@@ -845,7 +845,7 @@ noted(Ureg *kur, Ureg **urp, ulong arg0)
 	}
 }
 
-#include "../port64/systab.h"
+#include "../port/systab.h"
 
 static Ref goodsyscall;
 static Ref totalsyscall;
@@ -870,7 +870,7 @@ sctracesetup(ulong scallnr, uintptr sp, uintptr pc, vlong *startnsp)
 		if(up->syscalltrace)
 			free(up->syscalltrace);
 		up->syscalltrace = nil;
-		*startnsp = todget(nil);
+		*startnsp = todget(nil, nil);
 	}
 }
 
@@ -882,7 +882,7 @@ sctracefinish(ulong scallnr, uintptr sp, uintptr ret, vlong startns)
 	if(up->procctl == Proc_tracesyscall){
 		up->procctl = Proc_stopme;
 		sysretfmt(scallnr, (va_list)sp, ret,
-			startns, todget(nil));
+			startns, todget(nil, nil));
 		s = splhi();
 		procctl(up);
 		splx(s);

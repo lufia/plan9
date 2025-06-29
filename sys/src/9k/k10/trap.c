@@ -19,15 +19,16 @@ static void faultamd64(Ureg*, void*);
 static void doublefault(Ureg*, void*);
 static void unexpected(Ureg*, void*);
 static void dumpstackwithureg(Ureg*);
+static void dumpgpr(Ureg*);
 
 static Lock vctllock;
-static Vctl *vctl[256];
+static Vctl *vctl[IdtMAX+1];
 
 enum
 {
 	Ntimevec = 20		/* number of time buckets for each intr */
 };
-ulong intrtimes[256][Ntimevec];
+ulong intrtimes[IdtMAX+1][Ntimevec];
 
 void*
 intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
@@ -147,7 +148,7 @@ trapenable(int vno, void (*f)(Ureg*, void*), void* a, char *name)
 {
 	Vctl *v;
 
-	if(vno < 0 || vno >= 256)
+	if(vno < 0 || vno > IdtMAX)
 		panic("trapenable: vno %d", vno);
 	v = malloc(sizeof(Vctl));
 	v->type = "trap";
@@ -256,11 +257,9 @@ intrtime(Mach*, int vno)
 	intrtimes[vno][diff]++;
 }
 
-void (*pmcupdate)(void);
-
 /* go to user space */
 void
-kexit(Ureg*)
+kexit(Ureg *ureg)
 {
 	uvlong t;
 	Tos *tos;
@@ -275,6 +274,18 @@ kexit(Ureg*)
 	tos->kcycles += t - up->kentry;
 	tos->pcycles = up->pcycles;
 	tos->pid = up->pid;
+
+	/*
+	 * system calls set type == ~(uvlong)0.
+	 * If this Ureg is not from a system call, call trapreturn explicitly
+	 * to make sure we use IRET and not SYSRET.
+	 * Otherwise, if a process is interrupted by a trap and ends up
+	 * calling a note handler, the noted(NCONT) system call will use
+	 * SYSRET to return to the trap context, smashing some of the
+	 * registers that were live at the time of the trap.
+	 */
+	if(ureg->type != ~(uvlong)0)
+		trapreturn(ureg);
 }
 
 /*
@@ -420,6 +431,10 @@ dumpgpr(Ureg* ureg)
 void
 dumpregs(Ureg* ureg)
 {
+	if(getconf("*nodumpregs")){
+		iprint("dumpregs disabled\n");
+		return;
+	}
 	dumpgpr(ureg);
 
 	/*
@@ -457,6 +472,8 @@ dumpstackwithureg(Ureg* ureg)
 	int x;
 	char *s;
 
+	if(ureg != nil)
+		dumpregs(ureg);
 	if((s = getconf("*nodumpstack")) != nil && strcmp(s, "0") != 0){
 		iprint("dumpstack disabled\n");
 		return;

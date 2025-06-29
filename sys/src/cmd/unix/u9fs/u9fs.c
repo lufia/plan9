@@ -799,6 +799,8 @@ rread(Fcall *rx, Fcall *tx)
 				continue;
 			}
 			free(path);
+			if(S_ISDIR(st.st_mode))
+				st.st_size = 0;
 			stat2dir(fid->dirent->d_name, &st, &d);
 			if((n=(old9p ? convD2Mold : convD2M)(&d, p, ep-p)) <= BIT16SZ)
 				break;
@@ -1533,7 +1535,7 @@ userwalk(User *u, char **path, char *elem, Qid *qid, char **ep)
 	rpath = rootpath(npath);
 	if(stat(rpath, &st) < 0){
 		free(npath);
-		*ep = strerror(errno);
+		*ep = errno == ENOENT? "file does not exist" : strerror(errno);
 		return -1;
 	}
 	*qid = stat2qid(&st);

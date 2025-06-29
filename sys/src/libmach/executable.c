@@ -70,6 +70,8 @@ extern	Mach	marm;
 extern	Mach	mpower;
 extern	Mach	mpower64;
 extern	Mach	malpha;
+extern	Mach	mriscv;
+extern	Mach	mriscv64;
 
 ExecTable exectab[] =
 {
@@ -253,6 +255,24 @@ ExecTable exectab[] =
 		sizeof(Exec),
 		beswal,
 		common },
+	{ Z_MAGIC,			/* riscv i.out */
+		"riscv executable",
+		nil,
+		FRISCV,
+		0,
+		&mriscv,
+		sizeof(Exec),
+		beswal,
+		common },
+	{ Y_MAGIC,			/* riscv j.out */
+		"riscv64 executable",
+		nil,
+		FRISCV64,
+		0,
+		&mriscv64,
+		sizeof(Exec),
+		beswal,
+		common },
 	{ 0 },
 };
 
@@ -419,6 +439,18 @@ commonboot(Fhdr *fp)
 		fp->name = "power64 plan 9 boot image";
 		fp->dataddr = fp->txtaddr+fp->txtsz;
 		break;
+	case FRISCV:
+		fp->type = FRISCVB;
+		fp->txtaddr = mach->kbase;
+		fp->name = "riscv plan 9 boot image";
+		fp->dataddr = _round(fp->txtaddr+fp->txtsz, mach->pgsize);
+		break;
+	case FRISCV64:
+		fp->type = FRISCV64B;
+		fp->txtaddr = mach->kbase | (u32int)fp->entry;
+		fp->name = "riscv64 plan 9 boot image";
+		fp->dataddr = _round(fp->txtaddr+fp->txtsz, mach->pgsize);
+		break;
 	default:
 		return;
 	}
@@ -446,7 +478,7 @@ common(int fd, Fhdr *fp, ExecHdr *hp)
 static int
 commonllp64(int, Fhdr *fp, ExecHdr *hp)
 {
-	long pgsize;
+	long pgsize, start;
 	uvlong entry;
 
 	hswal(&hp->e, sizeof(Exec)/sizeof(long), beswal);
@@ -464,8 +496,11 @@ commonllp64(int, Fhdr *fp, ExecHdr *hp)
 	entry = beswav(hp->e.hdr[0]);
 
 	pgsize = mach->pgsize;
-	settext(fp, entry, pgsize+fp->hdrsz, hp->e.text, fp->hdrsz);
-	setdata(fp, _round(pgsize+fp->txtsz+fp->hdrsz, pgsize),
+	start = pgsize;
+	if(fp->type == FAMD64)
+		start = 0x200000;
+	settext(fp, entry, start+fp->hdrsz, hp->e.text, fp->hdrsz);
+	setdata(fp, _round(start+fp->txtsz+fp->hdrsz, pgsize),
 		hp->e.data, fp->txtsz+fp->hdrsz, hp->e.bss);
 	setsym(fp, hp->e.syms, hp->e.spsz, hp->e.pcsz, fp->datoff+fp->datsz);
 
@@ -628,6 +663,11 @@ elf64dotout(int fd, Fhdr *fp, ExecHdr *hp)
 		fp->type = FPOWER64;
 		fp->name = "power64 ELF64 executable";
 		break;
+	case RISCV:
+		mach = &mriscv64;
+		fp->type = FRISCV64;
+		fp->name = "RISC-V ELF64 executable";
+		break;
 	}
 
 	if(ep->phentsize != sizeof(P64hdr)) {
@@ -761,6 +801,11 @@ elf32dotout(int fd, Fhdr *fp, ExecHdr *hp)
 		mach = &marm;
 		fp->type = FARM;
 		fp->name = "arm ELF32 executable";
+		break;
+	case RISCV:
+		mach = &mriscv;
+		fp->type = FRISCV;
+		fp->name = "RISC-V ELF32 executable";
 		break;
 	default:
 		return 0;

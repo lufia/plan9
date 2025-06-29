@@ -2,7 +2,6 @@
 #define _LOCK_EXTENSION
 #include "lib.h"
 #include <stdlib.h>
-#include <inttypes.h>
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
@@ -349,7 +348,7 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeo
 	}
 	mux->selwait = 1;
 	unlock(&mux->lock);
-	fd = (uintptr_t)_RENDEZVOUS(&mux->selwait, 0);
+	fd = (int)_RENDEZVOUS(&mux->selwait, 0);
 	if(fd >= 0) {
 		b = _fdinfo[fd].buf;
 		if(FD_ISSET(fd, &mux->rwant)) {

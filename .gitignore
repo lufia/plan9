@@ -70,8 +70,6 @@
 /spim64/lib
 /spim64/mbr
 /spim64/pbs*
-/lib/audio/icon
-/rc/bin/postscript
 /sys/doc/*.pdf
 /sys/doc/*.ps
 /sys/doc/**/*.pdf

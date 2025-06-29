@@ -38,6 +38,7 @@ link
 	ethervt6102	pci ethermii
 	ethervt6105m	pci ethermii
 	ethervirtio	pci
+	ethervirtio10	pci
 	ethermedium
 	netdevmedium
 	loopbackmedium
@@ -50,6 +51,7 @@ misc
 	mtrr
 	sdata		pci sdscsi
 	sdvirtio	pci sdscsi
+	sdvirtio10	pci sdscsi
 
 	uarti8250
 	uartpci

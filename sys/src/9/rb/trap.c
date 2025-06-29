@@ -557,7 +557,7 @@ fpexcname(Ureg *ur, ulong fcr31, char *buf, uint size)
 	return buf;
 }
 
-#define KERNPC(x) (KTZERO <= (ulong)(x) && (ulong)(x) < (ulong)&etext)
+// #define KERNPC(x) (KTZERO <= (ulong)(x) && (ulong)(x) < (ulong)&etext)
 
 void
 kernfault(Ureg *ur, int code)
@@ -854,7 +854,7 @@ sctracesetup(ulong scallnr, ulong sp, uintptr pc, vlong *startnsp)
 		if(up->syscalltrace)
 			free(up->syscalltrace);
 		up->syscalltrace = nil;
-		*startnsp = todget(nil);
+		*startnsp = todget(nil, nil);
 	}
 }
 
@@ -866,7 +866,7 @@ sctracefinish(ulong scallnr, ulong sp, int ret, vlong startns)
 	if(up->procctl == Proc_tracesyscall){
 		up->procctl = Proc_stopme;
 		sysretfmt(scallnr, (va_list)(sp+BY2WD), ret,
-			startns, todget(nil));
+			startns, todget(nil, nil));
 		s = splhi();
 		procctl(up);
 		splx(s);

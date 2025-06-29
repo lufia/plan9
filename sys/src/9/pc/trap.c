@@ -705,12 +705,17 @@ syscall(Ureg* ureg)
 		if(up->syscalltrace)
 			free(up->syscalltrace);
 		up->syscalltrace = nil;
-		startns = todget(nil);
+		startns = todget(nil, nil);
 	}
 
-	if(scallnr == RFORK && up->fpstate == FPactive){
-		fpsave(&up->fpsave);
-		up->fpstate = FPinactive;
+ 	if(scallnr == RFORK){
+ 		if(up->fpstate == FPactive){
+ 			fpsave(&up->fpsave);
+ 			up->fpstate = FPinactive;
+ 		}else if((up->fpstate>>FPnoteshift) == FPactive){
+ 			fpsave(&up->notefpsave);
+ 			up->fpstate = (up->fpstate&~FPnotemask) | (FPinactive<<FPnoteshift);
+ 		}
 	}
 	spllo();
 
@@ -757,7 +762,7 @@ syscall(Ureg* ureg)
 	ureg->ax = ret;
 
 	if(up->procctl == Proc_tracesyscall){
-		stopns = todget(nil);
+		stopns = todget(nil, nil);
 		up->procctl = Proc_stopme;
 		sysretfmt(scallnr, (va_list)(sp+BY2WD), ret, startns, stopns);
 		s = splhi();
@@ -804,7 +809,7 @@ notify(Ureg* ureg)
 		fpsave(&up->fpsave);
 		up->fpstate = FPinactive;
 	}
-	up->fpstate |= FPillegal;
+ 	up->fpstate |= FPnotestart<<FPnoteshift;
 
 	s = spllo();
 	qlock(&up->debug);
@@ -888,7 +893,9 @@ noted(Ureg* ureg, ulong arg0)
 
 	nureg = up->ureg;	/* pointer to user returned Ureg struct */
 
-	up->fpstate &= ~FPillegal;
+	if((up->fpstate>>FPnoteshift) == FPactive)
+		fpoff();
+	up->fpstate &= ~FPnotemask;
 
 	/* sanity clause */
 	oureg = (ulong)nureg;
