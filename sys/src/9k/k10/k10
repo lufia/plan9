@@ -89,7 +89,7 @@ boot
 	local
 
 rootdir
-	bootk10f.out boot
+	bootk10.out boot
 	/amd64/bin/auth/factotum factotum
 	/amd64/bin/ip/ipconfig ipconfig
 	../root/nvram nvram
