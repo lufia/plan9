@@ -74,6 +74,7 @@
 /sys/doc/*.ps
 /sys/doc/**/*.pdf
 /sys/doc/**/*.ps
+/sys/lib/dist/bin
 /**/.gitempty
 
 *.[68]
