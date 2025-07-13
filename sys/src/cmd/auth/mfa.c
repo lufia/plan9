@@ -6,6 +6,8 @@
 #include <9p.h>
 #include <bio.h>
 
+int mainstacksize = 64 * 1024;
+
 void
 usage(void)
 {

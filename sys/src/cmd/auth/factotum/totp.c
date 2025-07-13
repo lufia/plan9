@@ -147,11 +147,16 @@ totpinit(Proto *p, Fsstate *fss)
 	if(ret != RpcOk)
 		return ret;
 	secret = _strfindattr(k->privattr, "!secret");
-	if(secret == nil)
+	if(secret == nil){
+		closekey(k);
 		return failure(fss, "key has no secret");
+	}
 	n = base32d(key, sizeof key, secret, strlen(secret));
-	if(n < 0)
+	if(n < 0){
+		closekey(k);
 		return failure(fss, "secret not base32 encoded");
+	}
+	setattrs(fss->attr, k->attr);
 	s = emalloc(sizeof *s + n);
 	s->key = k;
 	s->data = (uchar*)(p+1);
