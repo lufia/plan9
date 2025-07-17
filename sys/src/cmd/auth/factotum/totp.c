@@ -139,7 +139,7 @@ totpinit(Proto *p, Fsstate *fss)
 
 	if(iscli){
 		phase = CHaveResp;
-		ret = findkey(&k, mkkeyinfo(&ki, fss, nil), "%s", fss->proto->keyprompt);
+		ret = findkey(&k, mkkeyinfo(&ki, fss, nil), "%s", p->keyprompt);
 	}else{
 		phase = SNeedResp;
 		ret = findkey(&k, mkkeyinfo(&ki, fss, nil), nil);
@@ -159,7 +159,7 @@ totpinit(Proto *p, Fsstate *fss)
 	setattrs(fss->attr, k->attr);
 	s = emalloc(sizeof *s + n);
 	s->key = k;
-	s->data = (uchar*)(p+1);
+	s->data = (uchar*)(s+1);
 	memmove(s->data, key, n);
 	s->n = n;
 	fss->ps = s;
