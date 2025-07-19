@@ -162,7 +162,7 @@ outcode(tree *t, int eflag)
 			emitf(Xexit);
 			stuffdot(p);
 		} else
-			emits(fnstr(c0));
+			emits(fnstr(c1));
 		break;
 	case ANDAND:
 		outcode(c0, 0);
