@@ -1,6 +1,6 @@
 #!/bin/rc
 
-rfkrk en
+rfork en
 mount /srv/boot /n/boot
 file=/n/boot/boot/pxeboot.raw.new
 dd -bs 1000000 -if /dev/zero -of $file -count 4
