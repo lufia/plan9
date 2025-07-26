@@ -1,4 +1,5 @@
 </$objtype/mkfile
+path=/bin
 
 BIN=/$objtype/bin/git
 TARG=\
