@@ -621,24 +621,14 @@ userpc(Ureg* ureg)
 void
 setregisters(Ureg* ureg, char* pureg, char* uva, int n)
 {
-	u64int cs, flags, ss;
-	u16int ds, es, fs, gs;
+	u64int flags;
 
-	ss = ureg->ss;
 	flags = ureg->flags;
-	cs = ureg->cs;
-	gs = ureg->cs;
-	fs = ureg->cs;
-	es = ureg->cs;
-	ds = ureg->cs;
 	memmove(pureg, uva, n);
-	ureg->ds = ds;
-	ureg->es = es;
-	ureg->fs = fs;
-	ureg->gs = gs;
-	ureg->cs = cs;
+	ureg->cs = SSEL(SiUCS, SsTIGDT|SsRPL3);
+	ureg->ss = SSEL(SiUDS, SsTIGDT|SsRPL3);
 	ureg->flags = (ureg->flags & 0x00ff) | (flags & 0xff00);
-	ureg->ss = ss;
+	ureg->ip &= UADDRMASK;
 }
 
 /* Give enough context in the ureg to produce a kernel stack for
