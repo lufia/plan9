@@ -56,6 +56,7 @@
  */
 #define UTZERO		(0+2*MiB)		/* first address in user text */
 #define UTROUND(t)	ROUNDUP((t), 2*MiB)
+#define UADDRMASK	0x00007fffffffffffull	/* canonical address mask */
 #define USTKTOP		0x00007ffffffff000ull
 #define USTKSIZE	(16*1024*1024)		/* size of user stack */
 #define TSTKTOP		(USTKTOP-USTKSIZE)	/* end of new stack in sysexec */
