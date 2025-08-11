@@ -89,7 +89,7 @@ sipi.h:		l64sipi.$O mkfile
 	 echo '};'} > $target
 
 $CONF.rr:	../mk/mkrr $CONF ./root/$CONF.proto
-	../mk/mkrr $CONF ./root/$CONF.proto
+	rc ../mk/mkrr $CONF ./root/$CONF.proto
 
 $CONF.rr:	./root/$O.cpu
 
