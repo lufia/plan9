@@ -99,7 +99,7 @@ BEGIN{
 		s = ARGV[argc] ".root.s:D:";
 		for(i = 1; i < section["rootdir"]; i++)
 			s = s " " src[i];
-		s = s "\n\t../mk/mkrootall\\\n";
+		s = s "\n\trc ../mk/mkrootall\\\n";
 		for(i = 1; i < section["rootdir"]; i++)
 			s = s "\t\t" name[i] " " cname[i] " " src[i] "\\\n";
 		s = s "\t>$target\n";
