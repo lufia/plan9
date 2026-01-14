@@ -32,8 +32,14 @@ lst=( \
 	./acme/bin/amd64 \
 	./acme/bin/arm \
 	./acme/bin/mips \
+	./acme/bin/mips64 \
 	./acme/bin/power \
 	./acme/bin/power64 \
+	./acme/bin/riscv \
+	./acme/bin/riscv64 \
+	./acme/bin/sparc \
+	./acme/bin/spim \
+	./acme/bin/spim64 \
 	./amd64/bin \
 	./amd64/bin/ape \
 	./amd64/bin/auth \
@@ -52,6 +58,7 @@ lst=( \
 	./amd64/bin/venti \
 	./amd64/lib \
 	./amd64/lib/ape \
+	./arm/bin/ape \
 	./arm/bin/auth \
 	./arm/bin/aux \
 	./arm/bin/bitsy \
@@ -112,7 +119,7 @@ lst=( \
 	./mail/grey/tmp \
 	./mail/queue \
 	./mail/tmp \
-	./misp/bin/ape \
+	./mips/bin/ape \
 	./mips/bin/auth \
 	./mips/bin/aux \
 	./mips/bin/bitsy \
@@ -128,6 +135,22 @@ lst=( \
 	./mips/bin/usb \
 	./mips/bin/venti \
 	./mips/lib/ape \
+	./mips64/bin/ape \
+	./mips64/bin/auth \
+	./mips64/bin/aux \
+	./mips64/bin/bitsy \
+	./mips64/bin/dial \
+	./mips64/bin/disk \
+	./mips64/bin/fossil \
+	./mips64/bin/fs \
+	./mips64/bin/games \
+	./mips64/bin/ip/httpd \
+	./mips64/bin/ndb \
+	./mips64/bin/replica \
+	./mips64/bin/upas \
+	./mips64/bin/usb \
+	./mips64/bin/venti \
+	./mips64/lib/ape \
 	./mnt/acme \
 	./mnt/apeselect \
 	./mnt/apm \
@@ -226,6 +249,38 @@ lst=( \
 	./power/lib/ape \
 	./rc/bin/dial \
 	./rc/bin/postscript \
+	./riscv/bin/ape \
+	./riscv/bin/auth \
+	./riscv/bin/aux \
+	./riscv/bin/bitsy \
+	./riscv/bin/dial \
+	./riscv/bin/disk \
+	./riscv/bin/fossil \
+	./riscv/bin/fs \
+	./riscv/bin/games \
+	./riscv/bin/ip/httpd \
+	./riscv/bin/ndb \
+	./riscv/bin/replica \
+	./riscv/bin/upas \
+	./riscv/bin/usb \
+	./riscv/bin/venti \
+	./riscv/lib/ape \
+	./riscv64/bin/ape \
+	./riscv64/bin/auth \
+	./riscv64/bin/aux \
+	./riscv64/bin/bitsy \
+	./riscv64/bin/dial \
+	./riscv64/bin/disk \
+	./riscv64/bin/fossil \
+	./riscv64/bin/fs \
+	./riscv64/bin/games \
+	./riscv64/bin/ip/httpd \
+	./riscv64/bin/ndb \
+	./riscv64/bin/replica \
+	./riscv64/bin/upas \
+	./riscv64/bin/usb \
+	./riscv64/bin/venti \
+	./riscv64/lib/ape \
 	./sparc/bin/ape \
 	./sparc/bin/auth \
 	./sparc/bin/aux \
@@ -233,13 +288,47 @@ lst=( \
 	./sparc/bin/dial \
 	./sparc/bin/disk \
 	./sparc/bin/fossil \
+	./sparc/bin/fs \
 	./sparc/bin/games \
 	./sparc/bin/ip/httpd \
 	./sparc/bin/ndb \
 	./sparc/bin/replica \
 	./sparc/bin/upas \
+	./sparc/bin/usb \
 	./sparc/bin/venti \
 	./sparc/lib/ape \
+	./spim/bin/ape \
+	./spim/bin/auth \
+	./spim/bin/aux \
+	./spim/bin/bitsy \
+	./spim/bin/dial \
+	./spim/bin/disk \
+	./spim/bin/fossil \
+	./spim/bin/fs \
+	./spim/bin/games \
+	./spim/bin/ip/httpd \
+	./spim/bin/ndb \
+	./spim/bin/replica \
+	./spim/bin/upas \
+	./spim/bin/usb \
+	./spim/bin/venti \
+	./spim/lib/ape \
+	./spim64/bin/ape \
+	./spim64/bin/auth \
+	./spim64/bin/aux \
+	./spim64/bin/bitsy \
+	./spim64/bin/dial \
+	./spim64/bin/disk \
+	./spim64/bin/fossil \
+	./spim64/bin/fs \
+	./spim64/bin/games \
+	./spim64/bin/ip/httpd \
+	./spim64/bin/ndb \
+	./spim64/bin/replica \
+	./spim64/bin/upas \
+	./spim64/bin/usb \
+	./spim64/bin/venti \
+	./spim64/lib/ape \
 	./sys/games/sudoku \
 	./sys/lib/backup/set1 \
 	./sys/lib/dist/bin/386 \
