@@ -1,23 +1,21 @@
 [menu]
-menuitem=default, Plan 9 Default
-menuitem=safe, Plan 9 Safe ModeMore actions
+menuitem=1920x1080, Plan 9 1920x1080
+menuitem=1440x900, Plan 9 1440x900
+menuitem=1280x768, Plan 9 1280x768
 menuitem=text, Plan 9 Text Mode
 
-[default]
-mouseport=ps2intellimouse
-monitor=vesa
+[1920x1080]
 vgasize=1920x1080x32
 nobootprompt=tcp
 
-[safe]
-mouseport=ps2
-monitor=xga
-vgasize=1280x1024x8
-debugboot=1
+[1440x900]
+vgasize=1440x900x32
+
+[1280x768]
+vgasize=1280x768x32
 
 [text]
-mouseport=none
-monitor=none
+bootfile=ether0!/sys/src/9k/k10/9k10
 vgasize=none
 debugboot=1
 
@@ -28,7 +26,11 @@ fs=10.0.2.1
 auth=10.0.2.1
 sysname=gnot
 *nobiosload=1
-*nomp=1
 partition=new
 factotumopts=-n
 user=glenda
+console=0
+mouseport=ps2intellimouse
+monitor=vesa
+*nomp=1
+nobootprompt=tcp

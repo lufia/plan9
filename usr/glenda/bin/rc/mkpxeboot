@@ -12,6 +12,7 @@ t p1 fat32
 A p1
 w
 ' | disk/fdisk data
+# prompt=('mkbootdisk: ' '	') rc
 ramfs
 cp /386/9bootpbs /tmp/9load
 disk/format -b /386/pbslba -d -r 2 dos /tmp/9load
