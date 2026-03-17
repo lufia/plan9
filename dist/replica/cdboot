@@ -1,0 +1,24 @@
+#!/bin/rc
+
+s=/n/dist/dist/replica
+serverroot=/n/dist
+serverlog=$s/plan9.log
+serverproto=$s/plan9.proto
+fn servermount { status='' }
+fn serverupdate { status='' }
+
+if ( ! test -e /srv/boot && ! test -e /srv/kfs ) {
+	echo 'error: neither /srv/boot nor /srv/kfs present; make sure you are running on the file server'
+	exit '/srv/boot or /srv/kfs not present'
+}
+
+fn clientmount { mount -c /srv/boot /n/boot }
+c=/n/boot/dist/replica
+clientroot=/n/boot
+
+clientdb=$c/client/plan9.db
+clientexclude=(dist/replica/client)
+clientlog=$c/client/plan9.log
+clientproto=$c/plan9.proto
+
+applyopt=(-u -T$c/client/plan9.time)
