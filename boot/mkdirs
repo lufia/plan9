@@ -67,6 +67,21 @@ lst=( \
 	./arm/bin/usb \
 	./arm/bin/venti \
 	./arm/lib/ape \
+	./arm64/bin/auth \
+	./arm64/bin/aux \
+	./arm64/bin/bitsy \
+	./arm64/bin/dial \
+	./arm64/bin/disk \
+	./arm64/bin/fossil \
+	./arm64/bin/fs \
+	./arm64/bin/games \
+	./arm64/bin/ip/httpd \
+	./arm64/bin/ndb \
+	./arm64/bin/replica \
+	./arm64/bin/upas \
+	./arm64/bin/usb \
+	./arm64/bin/venti \
+	./arm64/lib/ape \
 	./dist/replica/client \
 	./env \
 	./fd \
