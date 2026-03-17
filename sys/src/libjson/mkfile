@@ -1,0 +1,26 @@
+</$objtype/mkfile
+
+PKG=libjson
+LIB=/$objtype/lib/libjson.a
+OFILES=json_print.$O json_free.$O json_map.$O json_parse.$O json_strval.$O
+HFILES=/sys/include/json.h
+
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	${LIB:/$objtype/%=/386/%}
+
+</sys/src/cmd/mksyslib
+
+install:
+	cp json.h /sys/include/json.h
+	cp libjson.man /sys/man/2/libjson
+
+pkg:V: clean 
+	tar cv `{pwd} | bzip2 > $home/pkg/$PKG.tbz
+
+dist:V: $home/pkg/$PKG.tbz
+	9fs sources; cp $home/pkg/$PKG.tbz /n/sources/contrib/$user/$PKG.tbz
+
