@@ -16,6 +16,8 @@
 #include "alpha.h"
 #elif Tarm
 #include "arm.h"
+#elif Tarm64
+#include "arm64.h"
 #elif Tamd64
 #include "amd64.h"
 #elif Triscv
