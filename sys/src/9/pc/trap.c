@@ -365,7 +365,7 @@ trap(Ureg* ureg)
 			if(ctl->irq == IrqCLOCK || ctl->irq == IrqTIMER)
 				clockintr = 1;
 
-			if(up && !clockintr)
+			if(up && !clockintr && m->ilockdepth == 0)
 				preempted();
 		}
 	}
@@ -444,7 +444,7 @@ trap(Ureg* ureg)
 	splhi();
 
 	/* delaysched set because we held a lock or because our quantum ended */
-	if(up && up->delaysched && clockintr){
+	if(up && up->delaysched && clockintr && m->ilockdepth == 0){
 		sched();
 		splhi();
 	}

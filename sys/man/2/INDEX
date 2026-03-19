@@ -1092,6 +1092,7 @@ rdproto proto
 ptrace ptrace
 pushssl pushssl
 freeThumbprints pushtls
+freecertchain pushtls
 initThumbprints pushtls
 okThumbprint pushtls
 pushtls pushtls

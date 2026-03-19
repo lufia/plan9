@@ -27546,6 +27546,7 @@ free'd	/sys/man/2/segattach
 freeb	/sys/man/9/allocb
 freeblist	/sys/man/9/allocb
 freebsd	/sys/man/8/drawterm
+freecertchain	/sys/man/2/pushtls
 freecompletion	/sys/man/2/complete
 freectlfont	/sys/man/2/control
 freectlimage	/sys/man/2/control
@@ -27636,6 +27637,7 @@ frees	/sys/man/2/mp
 frees	/sys/man/2/ndb
 frees	/sys/man/2/plumb
 frees	/sys/man/2/pool
+frees	/sys/man/2/pushtls
 frees	/sys/man/2/scsi
 frees	/sys/man/2/stat
 frees	/sys/man/2/string
