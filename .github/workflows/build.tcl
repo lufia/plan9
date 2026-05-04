@@ -1,31 +1,58 @@
 #!/usr/bin/expect
 
-set timeout 20
+set timeout 60
 spawn sh boot/qemu -ci
-#exp_internal 1
 
 # Boot up
 expect "Selection: "
-send "3\r"
+send "4\r"
 expect "bootfile: "
 send "2\r"
-expect "\\\[tcp\\\]: "
-sleep 1
-send "tcp\r"
+expect "term% "
+
+proc terminate {status} {
+	# Halt
+	expect "term% "
+	send "fshalt\r"
+	expect "done halting"
+
+	# Enter QEMU monitor
+	send "\x1d" ; # Ctrl+Alt+2
+	send "close\r"
+
+	exit $status
+}
 
 # Build sources
-expect "term% "
 send "cd /sys/src\r"
 expect "term% "
+
+set timeout [expr 10*60]
 send "objtype=386 mk libs cleanlibs\r"
-#expect "term% "
-#send "mk release clean\r"
+expect {
+	timeout {
+		puts stderr "timeout"
+		exit 1
+	}
+	-re "mk: (.+): exit status=(.+)" {
+		terminate 1
+	}
+	"term% "
+}
 
-# Halt
-expect "term% "
-send "fshalt\r"
-expect "done halting"
+set timeout [expr 2*60*60]
+send "mk release\r"
+expect {
+	timeout {
+		puts stderr "timeout"
+		exit 1
+	}
+	-re "mk: (.+): exit status=(.+)" {
+		terminate 1
+	}
+	"term% "
+}
 
-# Enter QEMU monitor
-send "\x1d" ; # Ctrl+Alt+2
-send "close\r"
+set timeout 60
+send "echo XXX:\$status\r"
+terminate 0

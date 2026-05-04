@@ -7,13 +7,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-    - run: |
+    - name: Setup qemu
+      run: |
         sudo apt update
         sudo apt -y install qemu-kvm expect
-
+    - name: Install plan9 binaries from latest release
+      run: |
         gh release download --pattern=x86.tar.gz
         tar zxf x86.tar.gz
         rm -f x86.tar.gz
-        ./.github/workflows/build.tcl
       env:
         GH_TOKEN: ${{ github.token }}
+    - name: Run tests
+      run: |
+        ./boot/mkdirs
+        ./.github/workflows/build.tcl
