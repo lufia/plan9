@@ -4483,6 +4483,7 @@ attribute	/sys/man/8/pcmcia
 attribute	/sys/man/8/plan9.ini
 attribute	/sys/man/8/prep
 attribute	/sys/man/8/rsa
+attribute	/sys/man/8/screenlock
 attribute	/sys/man/8/trampoline
 attributed	/sys/man/1/acid
 attributes	/sys/man/1/mk
@@ -4590,6 +4591,7 @@ auth	/sys/man/8/newuser
 auth	/sys/man/8/pem
 auth	/sys/man/8/plan9.ini
 auth	/sys/man/8/rsa
+auth	/sys/man/8/screenlock
 auth	/sys/man/8/secstore
 auth	/sys/man/8/securenet
 auth	/sys/man/8/wpa
@@ -4622,6 +4624,7 @@ auth_rpc	/sys/man/2/auth
 auth_tooweak	/sys/man/8/nfsserver
 auth_userpasswd	/sys/man/2/auth
 auth_userpasswd	/sys/man/4/ssh
+auth_userpasswd	/sys/man/8/screenlock
 authac	/sys/man/6/authsrv
 authaddr	/sys/man/8/drawterm
 authapop	/sys/man/6/authsrv
@@ -18064,6 +18067,7 @@ diagnostics	/sys/man/6/mpictures
 diagnostics	/sys/man/7/map
 diagnostics	/sys/man/8/aquarela
 diagnostics	/sys/man/8/drawterm
+diagnostics	/sys/man/8/screenlock
 diagnostics	/sys/man/9/allocb
 diagnostics	/sys/man/9/lock
 diagnostics	/sys/man/9/malloc
@@ -21862,6 +21866,7 @@ entry	/sys/man/8/plan9.ini
 entry	/sys/man/8/prep
 entry	/sys/man/8/qer
 entry	/sys/man/8/scanmail
+entry	/sys/man/8/screenlock
 entry	/sys/man/8/smtp
 entry	/sys/man/8/stub
 entry	/sys/man/8/trampoline
@@ -24548,6 +24553,7 @@ factotum	/sys/man/8/newuser
 factotum	/sys/man/8/plan9.ini
 factotum	/sys/man/8/ppp
 factotum	/sys/man/8/rsa
+factotum	/sys/man/8/screenlock
 factotum	/sys/man/8/smtp
 factotum	/sys/man/8/tlssrv
 factotum	/sys/man/8/wpa
@@ -27540,6 +27546,7 @@ free'd	/sys/man/2/segattach
 freeb	/sys/man/9/allocb
 freeblist	/sys/man/9/allocb
 freebsd	/sys/man/8/drawterm
+freecertchain	/sys/man/2/pushtls
 freecompletion	/sys/man/2/complete
 freectlfont	/sys/man/2/control
 freectlimage	/sys/man/2/control
@@ -27630,6 +27637,7 @@ frees	/sys/man/2/mp
 frees	/sys/man/2/ndb
 frees	/sys/man/2/plumb
 frees	/sys/man/2/pool
+frees	/sys/man/2/pushtls
 frees	/sys/man/2/scsi
 frees	/sys/man/2/stat
 frees	/sys/man/2/string
@@ -32513,7 +32521,6 @@ instant	/sys/man/1/replica
 instant	/sys/man/8/plan9.ini
 instantiated	/sys/man/2/debugger
 instantly	/sys/man/8/venti
-insted	/sys/man/1/secstore
 institute	/sys/man/1/sum
 institute's	/sys/man/7/scat
 institution	/sys/man/6/ms
@@ -40231,7 +40238,9 @@ mishandled	/sys/man/3/draw
 mishandles	/sys/man/6/htmlroff
 misinterpretation	/sys/man/1/con
 misinterpreted	/sys/man/6/plumb
+misleadingly	/sys/man/8/screenlock
 mismatch	/sys/man/2/chacha
+mismatch	/sys/man/8/screenlock
 mismatch	/sys/man/8/snoopy
 mismatches	/sys/man/2/stat
 mismatching	/sys/man/4/ssh
@@ -40280,10 +40289,12 @@ missing	/sys/man/8/mkfs
 missing	/sys/man/8/ppp
 missing	/sys/man/8/rsa
 missing	/sys/man/8/scanmail
+missing	/sys/man/8/screenlock
 missing	/sys/man/8/scuzz
 missing	/sys/man/8/timesync
 misspellings	/sys/man/1/spell
 mistake	/sys/man/3/env
+mistake	/sys/man/8/screenlock
 mistake	/sys/man/8/securenet
 mistakes	/sys/man/1/file
 mistakes	/sys/man/1/passwd
@@ -55255,6 +55266,7 @@ report	/sys/man/8/listen
 report	/sys/man/8/ping
 report	/sys/man/8/replica
 report	/sys/man/8/scanmail
+report	/sys/man/8/screenlock
 report	/sys/man/8/scuzz
 report	/sys/man/8/send
 report.xls	/sys/man/1/doc2txt
@@ -55750,6 +55762,7 @@ required	/sys/man/9/malloc
 required	/sys/man/9/qio
 required	/sys/man/9/uartp8250
 requirement	/sys/man/1/seconds
+requirement	/sys/man/8/screenlock
 requirements	/sys/man/1/spin
 requirements	/sys/man/3/spi
 requires	/sys/man/1/8c
@@ -55789,6 +55802,7 @@ requires	/sys/man/8/init
 requires	/sys/man/8/ipserv
 requires	/sys/man/8/nboot
 requires	/sys/man/8/ndb
+requires	/sys/man/8/screenlock
 requires	/sys/man/8/securenet
 requires	/sys/man/8/smtp
 requires	/sys/man/8/venti
@@ -57352,6 +57366,7 @@ role	/sys/man/2/html
 role	/sys/man/4/factotum
 role	/sys/man/4/ssh
 role	/sys/man/6/thumbprint
+role	/sys/man/8/screenlock
 roles	/sys/man/2/control
 roles	/sys/man/8/na
 rolling	/sys/man/8/stats
@@ -60174,6 +60189,7 @@ server	/sys/man/8/ppp
 server	/sys/man/8/reboot
 server	/sys/man/8/replica
 server	/sys/man/8/rsa
+server	/sys/man/8/screenlock
 server	/sys/man/8/secstore
 server	/sys/man/8/securenet
 server	/sys/man/8/smtp
@@ -72576,6 +72592,7 @@ user	/sys/man/8/pop3
 user	/sys/man/8/ppp
 user	/sys/man/8/qer
 user	/sys/man/8/scanmail
+user	/sys/man/8/screenlock
 user	/sys/man/8/secstore
 user	/sys/man/8/securenet
 user	/sys/man/8/send

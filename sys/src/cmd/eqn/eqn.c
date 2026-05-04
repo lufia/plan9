@@ -273,7 +273,7 @@ yytokname(int yyc)
 	if(yyc > 0 && yyc <= sizeof(yytoknames)/sizeof(yytoknames[0]))
 	if(yytoknames[yyc-1])
 		return yytoknames[yyc-1];
-	sprintf(x, "<%d>", yyc);
+	snprintf(x, sizeof x, "<%d>", yyc);
 	return x;
 }
 
@@ -285,7 +285,7 @@ yystatname(int yys)
 	if(yys >= 0 && yys < sizeof(yystates)/sizeof(yystates[0]))
 	if(yystates[yys])
 		return yystates[yys];
-	sprintf(x, "<%d>\n", yys);
+	snprintf(x, sizeof x, "<%d>\n", yys);
 	return x;
 }
 

@@ -60,13 +60,13 @@
 #define USTKSIZE	(16*1024*1024)		/* size of user stack */
 #define TSTKTOP		(USTKTOP-USTKSIZE)	/* end of new stack in sysexec */
 
-#define KSEG0		(0xfffffffff0000000ull)	/* 256MB - this is confused */
+#define KSEG0		(0xFFFFFFFFC0000000ull)	/* 1GB - this is confused */
 #define KSEG1		(0xffffff0000000000ull)	/* 512GB - embedded PML4 */
 #define KSEG2		(0xfffffe0000000000ull)	/* 1TB - KMAP */
 
 #define PMAPADDR	(0xffffffffffe00000ull)	/* unused as of yet (KMAP?) */
 
-#define KZERO		(0xfffffffff0000000ull)
+#define KZERO		(0xFFFFFFFFC0000000ull)
 #define KTZERO		(KZERO+1*MiB+64*KiB)
 
 /*
@@ -100,7 +100,7 @@
 #define PTLX(v, l)	(((v)>>(((l)*PTSHFT)+PGSHFT)) & ((1<<PTSHFT)-1))
 #define PGLSZ(l)	(1<<(((l)*PTSHFT)+PGSHFT))
 
-#define TMFM		((256-32)*MiB)			/* GAK kernel memory */
+#define TMFM		((512-32)*MiB)			/* GAK kernel memory */
 
 /* this can go when the arguments to mmuput change */
 #define PPN(x)		((x) & ~(PGSZ-1))		/* GAK */
