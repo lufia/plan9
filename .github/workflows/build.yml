@@ -11,7 +11,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt -y install qemu-kvm expect
-    - name: Install plan9 binaries from latest release
+    - name: Install plan9 binaries from the latest release
       run: |
         gh release download --pattern=x86.tar.gz
         tar zxf x86.tar.gz
