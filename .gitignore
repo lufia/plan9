@@ -17,9 +17,15 @@ arm/bin
 arm/init
 arm/lib
 arm/s9*
+arm64/9*
+arm64/bin
+arm64/init
+arm64/lib
+arm64/s9*
 bootdisk.img
 env
 lib/audio
+lib/tftpd/faa1159e
 pbsraw
 usr/djc
 usr/glenda/tmp
@@ -30,7 +36,7 @@ sys/lib/dist/pc/multi
 sys/lib/firmware
 sys/log
 sys/src/cmd/unix/u9fs/u9fs
-*.[68]
-[68].*
-*.a[68]
+*.[5678ijqv]
+[5678ijqv].*
+*.a[5678ijqv]
 *.o
