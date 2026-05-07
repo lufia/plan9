@@ -812,7 +812,7 @@ sleep(Rendez *r, int (*f)(void*), void *arg)
 	s = splhi();
 
 	if(up->nlocks.ref)
-		print("process %lud sleeps with %lud locks held, last lock %#p locked at pc %#lux, sleep called from %#p\n",
+		print("process %lud sleeps with %lud locks held, last lock %#p locked at pc %#p, sleep called from %#p\n",
 			up->pid, up->nlocks.ref, up->lastlock, up->lastlock->pc, getcallerpc(&r));
 	lock(r);
 	lock(&up->rlock);
@@ -941,7 +941,9 @@ wakeup(Rendez *r)
 	lock(r);
 	p = r->p;
 
-	if(p != nil){
+	if(p == nil)
+		unlock(r);
+	else{
 		lock(&p->rlock);
 		if(p->state != Wakeme || p->r != r){
 			iprint("%p %p %d\n", p->r, r, p->state);
@@ -949,10 +951,10 @@ wakeup(Rendez *r)
 		}
 		r->p = nil;
 		p->r = nil;
+		unlock(r);
 		ready(p);
 		unlock(&p->rlock);
 	}
-	unlock(r);
 
 	splx(s);
 
@@ -1005,8 +1007,13 @@ postnote(Proc *p, int dolock, char *n, int flag)
 				panic("postnote: state %d %d %d", r->p != p, p->r != r, p->state);
 			p->r = nil;
 			r->p = nil;
-			ready(p);
+			/*
+			 * The unlock must precede ready(p), in case the readied process
+			 * immediately deallocates the Rendez. This can happen with semacquire,
+			 * where the Rendez is on the stack.
+			 */
 			unlock(r);
+			ready(p);
 			break;
 		}
 
@@ -1207,6 +1214,7 @@ pexit(char *exitstr, int freemem)
 	}
 
 	if(!freemem)
+	if(getconf("*nobroken") == nil)
 		addbroken(up);
 
 	qlock(&up->seglock);
@@ -1318,7 +1326,7 @@ dumpaproc(Proc *p)
 	s = p->psstate;
 	if(s == 0)
 		s = statename[p->state];
-	print("%3lud:%10s pc %8lux dbgpc %8lux  %8s (%s) ut %ld st %ld bss %lux qpc %lux nl %lud nd %lud lpc %lux pri %lud\n",
+	print("%3lud:%10s pc %8lux dbgpc %8lux  %8s (%s) ut %ld st %ld bss %lux qpc %lux nl %lud nd %lud lpc %p pri %lud\n",
 		p->pid, p->text, p->pc, dbgpc(p),  s, statename[p->state],
 		p->time[0], p->time[1], bss, p->qpc, p->nlocks.ref, p->delaysched, p->lastlock ? p->lastlock->pc : 0, p->priority);
 }
