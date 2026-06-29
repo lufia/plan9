@@ -30,13 +30,14 @@ typedef	Rune	TRune;	/* target system type */
 #define	HISTSZ		20
 #define YYMAXDEPTH	1500
 #define	NTERM		10
-#define	MAXALIGN	7
+#define	MAXALIGN	7		/* sizeof(uvlong) - 1 */
 
-#define	SIGN(n)		((uvlong)1<<(n-1))
+#define	SIGN(n)		(1ULL<<((n)-1))
 #define	MASK(n)		(SIGN(n)|(SIGN(n)-1))
 
 #define	BITS	5
-#define	NVAR	(BITS*sizeof(ulong)*8)
+#define BI2LONG (sizeof(ulong)*8)
+#define	NVAR	(BITS*BI2LONG)
 struct	Bits
 {
 	ulong	b[BITS];
@@ -293,6 +294,7 @@ enum
 	OELEM,
 
 	OTST,		/* used in some compilers */
+	OROL,
 	OINDEX,
 	OFAS,
 	OREGPAIR,
@@ -358,14 +360,16 @@ enum
 	CEXREG,
 	NCTYPES,
 };
+/* garbage words; should match gnamesinit[] in sub.c */
 enum
 {
 	GXXX		= 0,
 	GCONSTNT	= 1<<0,
 	GVOLATILE	= 1<<1,
-	NGTYPES		= 1<<2,
+//	GNORETURN	= 1<<2,			/* future */
+	NGTYPES		= 1<<3,
 
-	GINCOMPLETE	= 1<<2,
+	GINCOMPLETE	= 1<<7,
 };
 enum
 {
@@ -436,7 +440,8 @@ EXTERN	long	firstbit;
 EXTERN	Sym*	firstarg;
 EXTERN	Type*	firstargtype;
 EXTERN	Decl*	firstdcl;
-EXTERN	int	fperror;
+// EXTERN	int	fperror;
+EXTERN	int	fpused;
 EXTERN	Sym*	hash[NHASH];
 EXTERN	int	hasdoubled;
 EXTERN	char*	hunk;
@@ -699,6 +704,7 @@ int	log2(uvlong);
 int	vlog(Node*);
 int	topbit(ulong);
 void	simplifyshift(Node*);
+void	rolor(Node*);
 long	typebitor(long, long);
 void	diag(Node*, char*, ...);
 void	warn(Node*, char*, ...);

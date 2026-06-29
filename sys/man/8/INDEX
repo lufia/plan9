@@ -8,6 +8,8 @@ intro 0intro
 pbs 9boot
 9pcon 9pcon
 aan aan
+acmed acmed
+auth/acmed acmed
 aliasmail aliasmail
 apm apm
 aquarela aquarela
@@ -178,6 +180,8 @@ replica replica
 updatedb replica
 asn12rsa rsa
 rsa rsa
+rsa2csr rsa
+rsa2jwk rsa
 rsa2pub rsa
 rsa2ssh rsa
 rsa2x509 rsa

@@ -49,6 +49,11 @@ enum
 	RENDHASH = 13,
 	Printsize = 2048,
 	NPRIV = 8,
+	/*
+	 * stack sizes are difficult to estimate; watch for a stack pointer
+	 * in yellow zone (lowest addresses of stack), indicating an overflow.
+	 */
+	Stackyellow = 64*sizeof(uintptr),
 };
 
 struct Rgrp
@@ -182,7 +187,7 @@ void	_threadflagrendez(Thread*);
 Proc*	_threadgetproc(void);
 void	_threadsetproc(Proc*);
 void	_threadinitstack(Thread*, void(*)(void*), void*);
-void*	_threadmalloc(long, int);
+void*	_threadmalloc(uintptr, int);
 void	_threadnote(void*, char*);
 void	_threadready(Thread*);
 void*	_threadrendezvous(void*, void*);

@@ -8,37 +8,57 @@
 char	*pathpfx = nil;
 int	allowwrite;
 
-int
-fmtpkt(Conn *c, char *fmt, ...)
+static void
+fail(Conn *c, char *fmt, ...)
 {
-	char pkt[Pktmax];
+	char msg[ERRMAX];
 	va_list ap;
-	int n;
 
 	va_start(ap, fmt);
-	n = vsnprint(pkt, sizeof(pkt), fmt, ap);
-	n = writepkt(c, pkt, n);
+	vsnprint(msg, sizeof(msg), fmt, ap);
 	va_end(ap);
-	return n;
+	fmtpkt(c, "ERR %s\n", msg);
+	sysfatal("%s", msg);
+}
+
+char*
+gethead(Hash *h, char *ref, int nref)
+{
+	int fd, n;
+	char *s;
+
+	if((fd = open(".git/HEAD", OREAD)) == -1)
+		return nil;
+	if((n = readn(fd, ref, nref-1)) == -1)
+		return nil;
+	ref[n] = 0;
+	strip(ref);
+	if(strncmp(ref, "ref: ", 5) != 0)
+		return nil;
+	s = ref+5;
+	if(resolveref(h, s) == -1)
+		return nil;
+	return s;
 }
 
 int
 showrefs(Conn *c)
 {
+	char **names, *s, buf[256];
 	int i, ret, nrefs;
 	Hash head, *refs;
-	char **names;
 
 	ret = -1;
 	nrefs = 0;
 	refs = nil;
 	names = nil;
-	if(resolveref(&head, "HEAD") != -1)
-		if(fmtpkt(c, "%H HEAD\n", head) == -1)
-			goto error;
 
+	if((s = gethead(&head,  buf, sizeof(buf))) == nil)
+		memset(&head, 0, sizeof(Hash));
+	if(fmtpkt(c, "%H HEAD%csymref=HEAD:%s no-thin\n", head, 0, s) == -1)
+		goto error;
 	if((nrefs = listrefs(&refs, &names)) == -1)
-		sysfatal("listrefs: %r");
+		fail(c, "listrefs: %r");
 	for(i = 0; i < nrefs; i++){
 		if(strncmp(names[i], "heads/", strlen("heads/")) != 0)
 			continue;
@@ -142,28 +162,26 @@ servpack(Conn *c)
 
 	dprint(1, "negotiating pack\n");
 	if(servnegotiate(c, &head, &nhead, &tail, &ntail) == -1)
-		sysfatal("negotiate: %r");
+		fail(c, "negotiate: %r");
 	dprint(1, "writing pack\n");
 	if(writepack(c->wfd, head, nhead, tail, ntail, &h) == -1)
-		sysfatal("send: %r");
+		fail(c, "send: %r");
 	return 0;
 }
 
 int
 validref(char *s)
 {
+	cleanname(s);
 	if(strncmp(s, "refs/", 5) != 0)
 		return 0;
-	for(; *s != '\0'; s++)
-		if(!isalnum(*s) && strchr("/-_.", *s) == nil)
-			return 0;
-	return 1;
+	return okref(s);
 }
 
 int
 recvnegotiate(Conn *c, Hash **cur, Hash **upd, char ***ref, int *nupd)
 {
-	char pkt[Pktmax], *sp[4];
+	char pkt[Pktmax], refpath[512], *sp[4];
 	Hash old, new;
 	int n, i;
 
@@ -200,6 +218,16 @@ recvnegotiate(Conn *c, Hash **cur, Hash **upd, char ***ref, int *nupd)
 		(*cur)[*nupd] = old;
 		(*upd)[*nupd] = new;
 		(*ref)[*nupd] = estrdup(sp[2]);
+		n = snprint(refpath, sizeof(refpath), ".git/%s", sp[2]);
+		if(n >= sizeof(refpath)-1){
+			fmtpkt(c, "ERR invalid ref %s\n", sp[2]);
+			goto error;
+		}
+		if(access(refpath, AWRITE) == -1
+		&& access(refpath, AEXIST) == 0){
+			fmtpkt(c, "ERR read-only ref %s\n", sp[2]);
+			goto error;
+		}
 		*nupd += 1;
 	}		
 	return 0;
@@ -290,6 +318,28 @@ mkdir(char *dir)
 	}
 	close(f);
 	return 0;
+}
+
+int
+mkpath(char *path)
+{
+	char *p;
+
+	p = path;
+	/*
+	 * we assume that the path has been
+	 * checked with validref(), so there
+	 * are no double '/' or odd characters.
+	 */
+	while(1){
+		p = strchr(p, '/');
+		if(p == nil)
+			return 0;
+		*p = 0;
+		if(mkdir(path) == -1)
+			return -1;
+		*p++ = '/';
+	}
 }
 
 int
@@ -410,6 +460,10 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 			newidx = i;
 		}
 		unref(o);
+		if(mkpath(refpath) == -1){
+			snprint(buf, sizeof(buf), "create path: %r");
+			goto error;
+		}
 		if((fd = create(refpath, OWRITE|OTRUNC, 0644)) == -1){
 			snprint(buf, sizeof(buf), "open ref: %r");
 			goto error;
@@ -439,7 +493,7 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 			snprint(buf, sizeof(buf), "open HEAD: %r");
 			goto error;
 		}
-		if(fprint(fd, "ref: %s", ref[0]) == -1){
+		if(fprint(fd, "ref: %s", ref[newidx]) == -1){
 			snprint(buf, sizeof(buf), "write HEAD ref: %r");
 			goto error;
 		}
@@ -447,7 +501,8 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 	}
 	ret = 0;
 error:
-	fmtpkt(c, "ERR %s", buf);
+	if(ret != 0)
+		fmtpkt(c, "ERR %s", buf);
 	close(lockfd);
 	werrstr(buf);
 	return ret;
@@ -460,8 +515,10 @@ recvpack(Conn *c)
 	char **ref;
 	int nupd;
 
+	if(!allowwrite)
+		fail(c, "read-only repo");
 	if(recvnegotiate(c, &cur, &upd, &ref, &nupd) == -1)
-		sysfatal("negotiate refs: %r");
+		fail(c, "negotiate refs: %r");
 	if(nupd != 0 && updatepack(c) == -1)
 		sysfatal("update pack: %r");
 	if(nupd != 0 && updaterefs(c, cur, upd, ref, nupd) == -1)
@@ -517,7 +574,6 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	gitinit();
 	interactive = 0;
 	if(rfork(RFNAMEG) == -1)
 		sysfatal("rfork: %r");
@@ -534,20 +590,17 @@ main(int argc, char **argv)
 	repo = parsecmd(buf, cmd, sizeof(cmd));
 	cleanname(repo);
 	if(strncmp(repo, "../", 3) == 0)
-		sysfatal("invalid path %s\n", repo);
-	if(bind(repo, "/", MREPL) == -1){
-		fmtpkt(&c, "ERR no repo %r\n");
-		sysfatal("enter %s: %r", repo);
-	}
+		fail(&c, "invalid path %s\n", repo);
+	if(bind(repo, "/", MREPL) == -1)
+		fail(&c, "no such repo: %s", repo);
 	if(chdir("/") == -1)
-		sysfatal("chdir: %r");
-	if(access(".git", AREAD) == -1)
-		sysfatal("no git repository");
-	if(strcmp(cmd, "git-receive-pack") == 0 && allowwrite)
+		fail(&c, "no such repo");
+	gitinit(nil, 0, nil);
+	if(strcmp(cmd, "git-receive-pack") == 0)
 		recvpack(&c);
 	else if(strcmp(cmd, "git-upload-pack") == 0)
 		servpack(&c);
 	else
-		sysfatal("unsupported command '%s'", cmd);
+		fail(&c, "unsupported command '%s'", cmd);
 	exits(nil);
 }

@@ -66,13 +66,15 @@ for(c in $commits){
 		echo diff `{basename $pp} `{basename $cp}
 		for(f in $fc){
 			a=a/$f
-			if(! test -e $a)
+			if(! test -f $a)
 				a=/dev/null
 			b=b/$f
-			if(! test -e $b)
+			if(! test -f $b)
 				b=/dev/null
-			ape/diff -urN $a $b
+			diff -ur $a $b
 		}
+		echo '-- '
+		echo '⑨'
 	} >$patchfile
 	if(~ $#patchdir 0){
 		cat $patchfile

@@ -3,7 +3,7 @@ APE=/sys/src/ape
 LIB=/$objtype/lib/ape/libap.a
 OFILES=\
 	argv0.$O\
-#	atom.$O\
+	atom.$O\
 	cycles.$O\
 	lock.$O\
 	main9.$O\

@@ -27,6 +27,7 @@ env
 lib/audio
 lib/tftpd/faa1159e
 pbsraw
+rc/bin/_*
 usr/djc
 usr/glenda/tmp
 sys/doc/**/*.pdf

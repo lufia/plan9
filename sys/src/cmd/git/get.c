@@ -5,7 +5,23 @@
 
 char *fetchbranch;
 char *upstream = "origin";
+Hash heads[64];
+int nheads;
 int listonly;
+
+/*
+ * Checks the rules for a refname at
+ * git/Documentation/protocol-common.txt
+ */
+int
+okrefname(char *s)
+{
+	if(strcmp(s, "HEAD") == 0)
+		return 1;
+	if(strncmp(s, "refs/", 5) == 0)
+		return okref(s);
+	return 0;
+}
 
 int
 resolveremote(Hash *h, char *ref)
@@ -121,44 +137,23 @@ mkoutpath(char *path)
 }
 
 int
+prefixed(char *s, char *pfx)
+{
+	return strncmp(s, pfx, strlen(pfx)) == 0;
+}
+
+int
 branchmatch(char *br, char *pat)
 {
 	char name[128];
 
-	if(strstr(pat, "refs/heads") == pat)
+	if(prefixed(pat, "refs/heads"))
 		snprint(name, sizeof(name), "%s", pat);
-	else if(strstr(pat, "heads"))
+	else if(prefixed(pat, "heads/"))
 		snprint(name, sizeof(name), "refs/%s", pat);
 	else
 		snprint(name, sizeof(name), "refs/heads/%s", pat);
 	return strcmp(br, name) == 0;
-}
-
-char *
-matchcap(char *s, char *cap, int full)
-{
-	if(strncmp(s, cap, strlen(cap)) == 0)
-		if(!full || strlen(s) == strlen(cap))
-			return s + strlen(cap);
-	return nil;
-}
-
-void
-handlecaps(char *caps)
-{
-	char *p, *n, *c, *r;
-
-	for(p = caps; p != nil; p = n){
-		n = strchr(p, ' ');
-		if(n != nil)
-			*n++ = 0;
-		if((c = matchcap(p, "symref=", 0)) != nil){
-			if((r = strchr(c, ':')) != nil){
-				*r++ = '\0';
-				print("symref %s %s\n", c, r);
-			}
-		}
-	}
 }
 
 void
@@ -177,17 +172,79 @@ fail(char *pack, char *idx, char *msg, ...)
 	exits(buf);
 }
 
+void
+enqueueparent(Objq *q, Object *o)
+{
+	Object *p;
+	int i;
+
+	if(o->type != GCommit)
+		return;
+	for(i = 0; i < o->commit->nparent; i++){
+		if((p = readobject(o->commit->parent[i])) == nil)
+			continue;
+		qput(q, p, 0);
+		unref(p);
+	}
+}
+
+void
+fmtcaps(Conn *c, char *caps, int ncaps)
+{
+	char *p, *e;
+
+	p = caps;
+	e = caps + ncaps;
+	*p = 0;
+	if(c->multiack)
+		p = seprint(p, e, " multi_ack");
+	if(c->sideband64k)
+		p = seprint(p, e, " side-band-64k");
+	else if(c->sideband)
+		p = seprint(p, e, " side-band");
+	assert(p != e);
+}
+
+int
+sbread(Conn *c, char *buf, int nbuf, char **pbuf)
+{
+	int n;
+
+	assert(nbuf >= Pktmax);
+	if(!c->sideband && !c->sideband64k){
+		*pbuf = buf;
+		return readn(c->rfd, buf, nbuf);
+	}else{
+		*pbuf = buf+1;
+		while(1){
+			n = readpkt(c, buf, nbuf);
+			if(n <= 0)
+				return n;
+			else if(buf[0] == 1 && n > 1)
+				return n - 1;
+			else if(buf[0] == 3)
+				fprint(2, "error: %s\n", buf+1);
+			else if(buf[0] < 1 || buf[0] > 3)
+				fprint(2, "unknown sideband(%c:%d) data: %s\n", buf[0], buf[0], buf+1);
+			
+		}
+	}
+}
+
 int
 fetchpack(Conn *c)
 {
-	char buf[Pktmax], *sp[3], *ep;
-	char *packtmp, *idxtmp, **ref;
+	char spinner[] = {'|', '/', '-', '\\'};
+	char buf[Pktmax], caps[512], *sp[3], *ep;
+	char *packtmp, *idxtmp, **ref, *rp;
 	Hash h, *have, *want;
-	int nref, refsz, first;
-	int i, n, l, req, pfd;
+	int nref, refsz, first, nsent;
+	int i, j, l, n, spin, req, pfd;
 	vlong packsz;
 	Objset hadobj;
 	Object *o;
+	Objq haveq;
+	Qelt e;
 
 	nref = 0;
 	refsz = 16;
@@ -201,17 +258,25 @@ fetchpack(Conn *c)
 			return -1;
 		if(n == 0)
 			break;
-		if(strncmp(buf, "ERR ", 4) == 0)
-			sysfatal("%s", buf + 4);
 
-		if(first && n > strlen(buf))
-			handlecaps(buf + strlen(buf) + 1);
+		if(first && n > strlen(buf)){
+			parsecaps(buf + strlen(buf) + 1, c);
+			if(c->symfrom[0] != 0)
+				print("symref %s %s\n", c->symfrom, c->symto);
+		}
 		first = 0;
 
-		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
+		if(getfields(buf, sp, nelem(sp), 1, " \t\n\r") < 2)
+			sysfatal("invalid ref line");
 		if(strstr(sp[1], "^{}"))
 			continue;
+		if(!okrefname(sp[1]))
+			sysfatal("remote side sent invalid ref: %s", sp[1]);
 		if(fetchbranch && !branchmatch(sp[1], fetchbranch))
+			continue;
+		else if(strcmp(sp[1], "HEAD") != 0
+		&& !prefixed(sp[1], "refs/heads/")
+		&& !prefixed(sp[1], "refs/tags/"))
 			continue;
 		if(refsz == nref + 1){
 			refsz *= 2;
@@ -234,45 +299,92 @@ fetchpack(Conn *c)
 	if(writephase(c) == -1)
 		sysfatal("write: %r");
 	req = 0;
+	fmtcaps(c, caps, sizeof(caps));
 	for(i = 0; i < nref; i++){
 		if(hasheq(&have[i], &want[i]))
-			continue;
+			goto skip;
+		for(j = 0; j < i; j++)
+			if(hasheq(&want[i], &want[j]))
+				goto skip;
 		if((o = readobject(want[i])) != nil){
 			unref(o);
 			continue;
 		}
-		n = snprint(buf, sizeof(buf), "want %H\n", want[i]);
-		if(writepkt(c, buf, n) == -1)
+		if(fmtpkt(c, "want %H%s\n", want[i], caps) == -1)
 			sysfatal("could not send want for %H", want[i]);
+		caps[0] = 0;
 		req = 1;
+skip:;
 	}
 	flushpkt(c);
+
+	nsent = 0;
+	qinit(&haveq);
 	osinit(&hadobj);
+	/*
+	 * We know we have these objects, and we want to make sure that
+	 * they end up at the front of the queue. Send the 'have lines'
+	 * first, and then enqueue their parents for a second round of
+	 * sends.
+	 */
 	for(i = 0; i < nref; i++){
 		if(hasheq(&have[i], &Zhash) || oshas(&hadobj, have[i]))
 			continue;
 		if((o = readobject(have[i])) == nil)
-			sysfatal("missing object we should have: %H", have[i]);
+			sysfatal("missing exected object: %H", have[i]);
+		if(fmtpkt(c, "have %H", o->hash) == -1)
+			sysfatal("write: %r");
+		enqueueparent(&haveq, o);
 		osadd(&hadobj, o);
-		unref(o);	
-		n = snprint(buf, sizeof(buf), "have %H\n", have[i]);
-		if(writepkt(c, buf, n + 1) == -1)
-			sysfatal("could not send have for %H", have[i]);
+		unref(o);
+		nsent++;
+	}
+	/*
+	 * The other branches we have probably make sense to send,
+	 * since often we'll be pulling a new branch with objects
+	 * that we already have; it's not entirely clear what we
+	 * want to do here.
+	 */
+	for(i = 0; i < nheads; i++){
+		if((o = readobject(heads[i])) == nil)
+			sysfatal("missing exected object: %H", have[i]);
+		if(fmtpkt(c, "have %H", o->hash) == -1)
+			sysfatal("write: %r");
+		enqueueparent(&haveq, o);
+		osadd(&hadobj, o);
+		unref(o);
+		nsent++;
+	}
+	/*
+	 * While we could short circuit this and check if upstream has
+	 * acked our objects, for the first 256 haves, this is simple
+	 * enough.
+	 *
+	 * Also, doing multiple rounds of reference discovery breaks
+	 * when using smart http.
+	 */
+	while(req && qpop(&haveq, &e) && nsent < 256){
+		if(oshas(&hadobj, e.o->hash))
+			continue;
+		if((o = readobject(e.o->hash)) == nil)
+			sysfatal("missing object we should have: %H", e.o->hash);
+		if(fmtpkt(c, "have %H", o->hash) == -1)
+			sysfatal("write: %r");
+		enqueueparent(&haveq, o);
+		osadd(&hadobj, o);
+		unref(o);
+		nsent++;
 	}
 	osclear(&hadobj);
+	qclear(&haveq);
 	if(!req)
 		flushpkt(c);
-
-	n = snprint(buf, sizeof(buf), "done\n");
-	if(writepkt(c, buf, n) == -1)
+	if(fmtpkt(c, "done\n") == -1)
 		sysfatal("write: %r");
 	if(!req)
 		goto showrefs;
 	if(readphase(c) == -1)
 		sysfatal("read: %r");
-	if((n = readpkt(c, buf, sizeof(buf))) == -1)
-		sysfatal("read: %r");
-	buf[n] = 0;
 
 	if((packtmp = smprint(".git/objects/pack/fetch.%d.pack", getpid())) == nil)
 		sysfatal("smprint: %r");
@@ -283,38 +395,60 @@ fetchpack(Conn *c)
 	if((pfd = create(packtmp, ORDWR, 0664)) == -1)
 		sysfatal("could not create %s: %r", packtmp);
 
-	fprint(2, "fetching...\n");
-	/*
-	 * Work around torvalds git bug: we get duplicate have lines
-	 * somtimes, even though the protocol is supposed to start the
-	 * pack file immediately.
-	 *
-	 * Skip ahead until we read 'PACK' off the wire
-	 */
-	while(1){
-		if(readn(c->rfd, buf, 4) != 4)
-			sysfatal("fetch packfile: short read");
-		buf[4] = 0;
-		if(strncmp(buf, "PACK", 4) == 0)
-			break;
-		l = strtol(buf, &ep, 16);
-		if(l == 0 || ep != buf + 4)
-			sysfatal("fetch packfile: junk pktline");
-		if(readn(c->rfd, buf, l) != l)
-			sysfatal("fetch packfile: short read");
+	fprint(2, "fetching...  ");
+	packsz = 0;
+	if(c->multiack){
+		for(i = 0; i < nsent; i++){
+			if(readpkt(c, buf, sizeof(buf)) == -1)
+				sysfatal("read: %r");
+			if(strncmp(buf, "NAK\n", 4) == 0)
+				break;
+			if(strncmp(buf, "ACK ", 4) == 0){
+				if(getfields(buf, sp, nelem(sp), 1, " \t") == 2)
+					break;
+				continue;
+			}
+			sysfatal("bad response: '%s'", buf);
+		}
+	} 
+	if(readpkt(c, buf, sizeof(buf)) == -1)
+		sysfatal("read: %r");
+	if(!c->sideband && !c->sideband64k && !c->multiack){
+		/*
+		 * Work around torvalds git bug: we get duplicate have lines
+		 * somtimes, even though the protocol is supposed to start the
+		 * pack file immediately.
+		 *
+		 * Skip ahead until we read 'PACK' off the wire
+		 */
+		while(1){
+			if(readn(c->rfd, buf, 4) != 4)
+				sysfatal("fetch packfile: short read");
+			if(strncmp(buf, "PACK", 4) == 0)
+				break;
+			buf[4] = 0;
+			l = strtol(buf, &ep, 16);
+			if(ep != buf + 4)
+				sysfatal("fetch packfile: junk pktline");
+			if(readn(c->rfd, buf, l-4) != l-4)
+				sysfatal("fetch packfile: short read");
+		}
+		if(write(pfd, "PACK", 4) != 4)
+			sysfatal("write pack header: %r");
+		packsz = 4;
 	}
-	if(write(pfd, "PACK", 4) != 4)
-		sysfatal("write pack header: %r");
-	packsz = 4;
+	spin = 0;
 	while(1){
-		n = read(c->rfd, buf, sizeof buf);
+		n = sbread(c, buf, sizeof buf, &rp);
 		if(n == 0)
 			break;
-		if(n == -1 || write(pfd, buf, n) != n)
+		if(n == -1 || write(pfd, rp, n) != n)
 			sysfatal("fetch packfile: %r");
+		if(interactive && spin++ % 100 == 0)
+			fprint(2, "\b%c", spinner[spin/100 % nelem(spinner)]);
 		packsz += n;
 	}
-
+	fprint(2, "\n");
 	closeconn(c);
 	if(seek(pfd, 0, 0) == -1)
 		fail(packtmp, idxtmp, "packfile seek: %r");
@@ -349,6 +483,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
+	char *s;
 	Conn c;
 
 	ARGBEGIN{
@@ -356,10 +491,18 @@ main(int argc, char **argv)
 	case 'u':	upstream=EARGF(usage());	break;
 	case 'd':	chattygit++;			break;
 	case 'l':	listonly++;			break;
-	default:	usage();			break;
+	case 'h':
+		s = EARGF(usage());
+		if(nheads < nelem(heads))
+			if(hparse(&heads[nheads], s) == 0)
+				nheads++;
+		break;
+	default:
+		usage();
+		break;
 	}ARGEND;
 
-	gitinit();
+	gitinit(nil, 0, nil);
 	if(argc != 1)
 		usage();
 

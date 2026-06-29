@@ -15,7 +15,6 @@ enum {
 		Qmsg,
 		Qparent,
 		Qtree,
-		Qcdata,
 		Qhash,
 		Qauthor,
 		Qcommitter,
@@ -71,13 +70,15 @@ char *qroot[] = {
 };
 
 #define Eperm	"permission denied"
-#define Eexist	"does not exist"
+#define Eexist	"file does not exist"
+#define Enotdir	"is not a directory"
 #define E2long	"path too long"
 #define Enodir	"not a directory"
 #define Erepo	"unable to read repo"
-#define Eobject "invalid object"
+#define Eimpl	"not implemented"
 #define Egreg	"wat"
 #define Ebadobj	"invalid object"
+#define Ename	"invalid path element"
 
 char	gitdir[512];
 char	*username;
@@ -283,7 +284,7 @@ gcommitgen(int i, Dir *d, void *p)
 
 	switch(i){
 	case 0:
-		d->mode = 0755 | DMDIR;
+		d->mode = DMDIR | gitdirmode;
 		d->name = estrdup9p("tree");
 		d->qid.type = QTDIR;
 		d->qid.path = qpath(c, i, o->id, Qtree);
@@ -305,6 +306,9 @@ gcommitgen(int i, Dir *d, void *p)
 		d->qid.path = qpath(c, i, o->id, Qauthor);
 		break;
 	default:
+		free(d->uid);
+		free(d->gid);
+		free(d->muid);
 		return -1;
 	}
 	return 0;
@@ -453,6 +457,9 @@ walklink(Gitaux *aux, char *link, int nlink, int ndotdot, int *mode)
 			break;
 	}
 	free(path);
+	for(i = 0; o != nil && i < aux->ncrumb; i++)
+		if(crumb(aux, i)->obj == o)
+			return nil;
 	return o;
 }
 
@@ -467,7 +474,11 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 	e = nil;
 	if(!o)
 		return Eexist;
-	if(o->type == GTree){
+	switch(o->type){
+	case GBlob:
+		e = Enotdir;
+		break;
+	case GTree:
 		q->type = 0;
 		for(i = 0; i < o->tree->nent; i++){
 			if(strcmp(o->tree->ent[i].name, name) != 0)
@@ -482,15 +493,16 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 			if(!w)
 				return Ebadobj;
 			q->type = (w->type == GTree) ? QTDIR : 0;
-			q->path = qpath(c, i, w->id, qdir);
+			q->path = qpath(p, i, w->id, qdir);
 			c->mode = m;
-			c->mode |= (w->type == GTree) ? DMDIR|0755 : 0644;
+			c->mode |= (w->type == GTree) ? (DMDIR|0755) : 0644;
 			c->obj = w;
 			break;
 		}
 		if(!w)
 			e = Eexist;
-	}else if(o->type == GCommit){
+		break;
+	case  GCommit:
 		q->type = 0;
 		c->mtime = o->commit->mtime;
 		c->mode = 0644;
@@ -509,15 +521,17 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 			q->type = QTDIR;
 			q->path = qpath(p, 4, o->id, Qtree);
 			unref(c->obj);
-			c->mode = DMDIR | 0755;
+			c->mode = DMDIR | gitdirmode;
 			c->obj = readobject(o->commit->tree);
 			if(c->obj == nil)
 				sysfatal("could not read object %H: %r", o->commit->tree);
 		}
 		else
 			e = Eexist;
-	}else if(o->type == GTag){
-		e = "tag walk unimplemented";
+		break;
+	case GTag:
+		e = Eimpl;
+		break;
 	}
 	return e;
 }
@@ -618,6 +632,8 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 			q->path = qpath(o, Qbranch, c->obj->id, Qcommit);
 		else
 			e = Eexist;
+		if(d != nil)
+			c->mode = d->mode & ~0222;
 		free(d);
 		break;
 	case Qobject:
@@ -625,9 +641,9 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 			e = objwalk1(q, o->obj, o, c, name, Qobject, aux);
 		}else{
 			if(hparse(&h, name) == -1)
-				return Eobject;
+				return Ebadobj;
 			if((c->obj = readobject(h)) == nil)
-				return Eobject;
+				return Ebadobj;
 			if(c->obj->type == GBlob || c->obj->type == GTag){
 				c->mode = 0644;
 				q->type = 0;
@@ -646,11 +662,13 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		e = objwalk1(q, o->obj, o, c, name, Qcommit, aux);
 		break;
 	case Qtree:
-		e = objwalk1(q, o->obj, o, c, name, Qtree, aux);
+		if(strcmp(name, ".git") == 0)
+			e = Ename;
+		else
+			e = objwalk1(q, o->obj, o, c, name, Qtree, aux);
 		break;
 	case Qparent:
 	case Qmsg:
-	case Qcdata:
 	case Qhash:
 	case Qauthor:
 	case Qcommitter:
@@ -796,7 +814,6 @@ gitread(Req *r)
 		break;
 	case Qcommit:
 	case Qtree:
-	case Qcdata:
 		objread(r, aux);
 		break;
 	default:
@@ -876,9 +893,14 @@ usage(void)
 void
 main(int argc, char **argv)
 {
+	char repo[512];
+	int nelt;
 	Dir *d;
 
-	gitinit();
+	gitinit(repo, sizeof(repo), &nelt);
+	if(chdir(repo) == -1)
+		sysfatal("chdir: %r");
+
 	ARGBEGIN{
 	case 'd':
 		chatty9p++;

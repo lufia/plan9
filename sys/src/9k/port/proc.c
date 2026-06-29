@@ -86,12 +86,16 @@ schedinit(void)		/* never returns */
 			mmurelease(up);
 			unlock(&palloc);
 
+			up->mach = nil;
 			psrelease(up);
+			up = procalloc.Lock.p = nil;
 			unlock(&procalloc);
 			break;
 		}
-		up->mach = nil;
-		up = nil;
+		if(up){
+			up->mach = nil;
+			up = nil;
+		}
 	}
 	sched();
 }
@@ -162,8 +166,10 @@ sched(void)
 	m->readied = nil;
 	up = p;
 	up->state = Running;
+	lock(runq);
 	up->mach = m;
 	m->proc = up;
+	unlock(runq);
 	mmuswitch(up);
 	gotolabel(&up->sched);
 }
@@ -462,6 +468,8 @@ rebalance(void)
 another:
 		p = rq->head;
 		if(p == nil)
+			continue;
+		if(p->mp != m)
 			continue;
 		if(pri == p->basepri)
 			continue;
@@ -1050,7 +1058,7 @@ pexit(char *exitstr, int freemem)
 	 * if not a kernel process and have a parent,
 	 * do some housekeeping.
 	 */
-	if(up->kp == 0 && up->parentpid != 0) {
+	if(up->kp == 0) {
 		p = up->parent;
 		if(p == nil) {
 			if(exitstr == nil)
@@ -1085,13 +1093,13 @@ pexit(char *exitstr, int freemem)
 			p->time[TCUser] += utime;
 			p->time[TCSys] += stime;
 			/*
-			 * If there would be more than 2000 wait records
+			 * If there would be more than 128 wait records
 			 * processes for my parent, then don't leave a wait
 			 * record behind.  This helps prevent badly written
 			 * daemon processes from accumulating lots of wait
 			 * records.
 		 	 */
-			if(p->nwait < 2000) {
+			if(p->nwait < 128) {
 				wq->next = p->waitq;
 				p->waitq = wq;
 				p->nwait++;
@@ -1262,6 +1270,8 @@ procflushseg(Segment *s)
 		}
 		for(ns = 0; ns < NSEG; ns++){
 			if(p->seg[ns] == s){
+				splhi();
+				lock(runq);
 				p->newtlb = 1;
 				for(nm = 0; nm < MACHMAX; nm++){
 					if((mp = sys->machptr[nm]) == nil || !mp->online)
@@ -1271,6 +1281,8 @@ procflushseg(Segment *s)
 						nwait++;
 					}
 				}
+				unlock(runq);
+				spllo();
 				break;
 			}
 		}

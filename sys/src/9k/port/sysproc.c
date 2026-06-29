@@ -206,7 +206,6 @@ sysrfork(Ar0* ar0, va_list list)
 		strncpy((char*)&ptarg, p->text, sizeof ptarg);
 		pt(p, SName, 0, ptarg);
 	}
-	p->color = up->color;
 	ready(p);
 	sched();
 
@@ -357,8 +356,6 @@ sysexec(Ar0* ar0, va_list list)
 	|| datalim < textlim || bsslim < datalim)
 		error(Ebadexec);
 
-	up->color = corecolor(m->machno);
-
 	/*
 	 * The new stack is created in ESEG, temporarily mapped elsewhere.
 	 * The stack contains, in descending address order:
@@ -381,7 +378,6 @@ sysexec(Ar0* ar0, va_list list)
 		nexterror();
 	}
 	up->seg[ESEG] = newseg(SG_STACK, TSTKTOP-USTKSIZE, TSTKTOP);
-	up->seg[ESEG]->color = up->color;
 
 	/*
 	 * Stack is a pointer into the temporary stack
@@ -515,6 +511,13 @@ sysexec(Ar0* ar0, va_list list)
 	poperror();				/* args */
 
 	/*
+	 * Close on exec
+	 */
+	f = up->fgrp;
+	for(i=0; i<=f->maxfd; i++)
+		fdclose(i, CCEXEC);
+
+	/*
 	 * Free old memory.
 	 * Special segments maintained across exec.
 	 */
@@ -538,21 +541,17 @@ sysexec(Ar0* ar0, va_list list)
 	/* Text.  Shared. Attaches to cache image if possible */
 	/* attachimage returns a locked cache image */
 
-	img = attachimage(SG_TEXT|SG_RONLY, chan, up->color, UTZERO, textmin);
+	img = attachimage(SG_TEXT|SG_RONLY, chan, UTZERO, textmin);
 	s = img->s;
 	up->seg[TSEG] = s;
 	s->flushme = 1;
 	s->fstart = 0;
 	s->flen = hdrsz+textsz;
-	if(img->color != up->color){
-		up->color = img->color;
-	}
 	unlock(img);
 
 	/* Data. Shared. */
 	s = newseg(SG_DATA, textlim, datalim);
 	up->seg[DSEG] = s;
-	s->color = up->color;
 
 	/* Attached by hand */
 	incref(img);
@@ -562,7 +561,6 @@ sysexec(Ar0* ar0, va_list list)
 
 	/* BSS. Zero fill on demand */
 	up->seg[BSEG] = newseg(SG_BSS, datalim, bsslim);
-	up->seg[BSEG]->color= up->color;
 
 	/*
 	 * Move the stack
@@ -595,7 +593,6 @@ sysexec(Ar0* ar0, va_list list)
 	mmuflush();
 	qlock(&up->debug);
 	up->nnote = 0;
-	up->notepending = 0;
 	up->notify = 0;
 	up->notified = 0;
 	up->privatemem = 0;
@@ -603,13 +600,6 @@ sysexec(Ar0* ar0, va_list list)
 	qunlock(&up->debug);
 	if(up->hang)
 		up->procctl = Proc_stopme;
-
-	/*
-	 * Close on exec
-	 */
-	f = up->fgrp;
-	for(i=0; i<=f->maxfd; i++)
-		fdclose(i, CCEXEC);
 
 	ar0->v = sysexecregs(entry, TSTKTOP - PTR2UINT(argv), argc);
 }
