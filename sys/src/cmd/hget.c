@@ -353,6 +353,7 @@ dohttp(URL *u, URL *px, Range *r, Out *out, long mtime)
 			TLSconn conn;
 
 			memset(&conn, 0, sizeof conn);
+			conn.serverName = u->host;
 			tfd = tlsClient(fd, &conn);
 			if(tfd < 0){
 				fprint(2, "tlsClient: %r\n");
@@ -1289,6 +1290,7 @@ readline(int fd, char *buf, int len)
 
 	for(p = buf;;){
 		if(b.rp >= b.wp){
+			b.rp = b.wp = b.buf;
 			n = read(fd, b.wp, sizeof(b.buf)/2);
 			if(n < 0)
 				return -1;

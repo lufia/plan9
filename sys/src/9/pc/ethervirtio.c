@@ -675,7 +675,7 @@ reset(Ether* edev)
 	}
 
 	pcisetbme(ctlr->pcidev);
-	intrenable(edev->irq, interrupt, edev, edev->tbdf, edev->name);
+	edev->interrupt = interrupt;
 
 	return 0;
 }

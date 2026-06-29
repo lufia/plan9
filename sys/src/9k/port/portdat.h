@@ -26,7 +26,7 @@ typedef struct Note	Note;
 typedef struct Page	Page;
 typedef struct Path	Path;
 typedef struct Palloc	Palloc;
-typedef struct Pallocpg	Pallocpg;
+typedef struct Pallocmem	Pallocmem;
 typedef struct Perf	Perf;
 typedef struct PhysUart	PhysUart;
 typedef struct Pgrp	Pgrp;
@@ -340,7 +340,6 @@ struct Image
 	Image	*hash;			/* Qid hash chains */
 	Image	*next;			/* Free list */
 	int	notext;			/* no file associated */
-	int	color;
 };
 
 struct Pte
@@ -391,15 +390,12 @@ struct Sema
 	Sema*	prev;
 };
 
-#define NOCOLOR -1
-
 struct Segment
 {
 	Ref;
 	QLock	lk;
 	ushort	steal;		/* Page stealer lock */
 	ushort	type;		/* segment type */
-	int	color;
 	uintptr	base;		/* virtual base */
 	uintptr	top;		/* virtual top */
 	usize	size;		/* size in pages */
@@ -483,23 +479,34 @@ enum
 	DELTAFD	= 20		/* incremental increase in Fgrp.fd's */
 };
 
-struct Pallocpg
+struct Pallocmem
 {
-	Page	*head;		/* most recently used */
-	Page	*tail;		/* least recently used */
-	ulong	count;		/* how many pages made */
-	ulong	freecount;	/* how many pages on free list now */
+	uintmem	base;
+	uintmem	limit;
+	int	color;
 };
 
 struct Palloc
 {
 	Lock;
-	Pallocpg	avail[32];	/* indexed by log2 of page size (Page.lgsize) */
-	ulong	user;			/* how many user pages */
+	Pallocmem mem[32];
+	Page	*head;			/* most recently used */
+	Page	*tail;			/* least recently used */
+	uintptr	freecount;		/* how many pages on free list now */
+	Page	*pages;			/* array of all pages */
+	uintptr	user;			/* how many user pages */
 	Page	*hash[PGHSIZE];
 	Lock	hashlock;
 	Rendez	r;			/* Sleep for free mem */
 	QLock	pwait;			/* Queue of procs waiting for memory */
+};
+
+extern uintptr	pgmem;		/* bytes allocated for palloc.pages */
+extern uchar	pgcarved;	/* palloc.pages carved from a memory bank? */
+
+enum {				/* allocpages() forcemalloc argument */
+	Couldmalloc,
+	Mustmalloc,
 };
 
 struct Waitq
@@ -741,7 +748,6 @@ struct Proc
 
 	void	*ureg;		/* User registers for notes */
 	void	*dbgreg;	/* User registers for devproc */
-	int	color;
 
 	Fastcall* fc;
 	int	fcount;
@@ -1001,3 +1007,4 @@ enum
 
 #pragma	varargck	type	"m"	Mreg
 #pragma	varargck	type	"P"	uintmem
+#pragma	varargck	type	"N"	uvlong

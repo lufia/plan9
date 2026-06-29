@@ -14,6 +14,7 @@ Biobuf	*out;
 char	*queryexpr;
 char	*commitid;
 int	shortlog;
+int	msgcount = -1;
 
 Objset	done;
 Objq	objq;
@@ -56,6 +57,8 @@ lookup(Pfilt *pf, Object *o)
 {
 	int i;
 
+	if(o == nil)
+		return Zhash;
 	for(i = 0; i < o->tree->nent; i++)
 		if(strcmp(o->tree->ent[i].name, pf->elt) == 0)
 			return o->tree->ent[i].h;
@@ -63,7 +66,7 @@ lookup(Pfilt *pf, Object *o)
 }
 
 int
-filtermatch1(Pfilt *pf, Object *t, Object *pt)
+matchesfilter1(Pfilt *pf, Object *t, Object *pt)
 {
 	Object *a, *b;
 	Hash ha, hb;
@@ -71,23 +74,21 @@ filtermatch1(Pfilt *pf, Object *t, Object *pt)
 
 	if(pf->show)
 		return 1;
-	if(t->type != pt->type)
-		return 1;
-	if(t->type != GTree)
-		return 0;
+	if(t != nil){
+		if(pt != nil && t->type != pt->type)
+			return 1;
+		if(t->type != GTree)
+			return 0;
+	}
 
 	for(i = 0; i < pf->nsub; i++){
 		ha = lookup(&pf->sub[i], t);
 		hb = lookup(&pf->sub[i], pt);
 		if(hasheq(&ha, &hb))
 			continue;
-		if(hasheq(&ha, &Zhash) || hasheq(&hb, &Zhash))
-			return 1;
-		if((a = readobject(ha)) == nil)
-			sysfatal("read %H: %r", ha);
-		if((b = readobject(hb)) == nil)
-			sysfatal("read %H: %r", hb);
-		r = filtermatch1(&pf->sub[i], a, b);
+		a = readobject(ha);
+		b = readobject(hb);
+		r = matchesfilter1(&pf->sub[i], a, b);
 		unref(a);
 		unref(b);
 		if(r)
@@ -97,11 +98,12 @@ filtermatch1(Pfilt *pf, Object *t, Object *pt)
 }
 
 int
-filtermatch(Object *o)
+matchesfilter(Object *o)
 {
 	Object *t, *p, *pt;
 	int i, r;
 
+	assert(o->type == GCommit);
 	if(pathfilt == nil)
 		return 1;
 	if((t = readobject(o->commit->tree)) == nil)
@@ -111,13 +113,15 @@ filtermatch(Object *o)
 			sysfatal("read %H: %r", o->commit->parent[i]);
 		if((pt = readobject(p->commit->tree)) == nil)
 			sysfatal("read %H: %r", o->commit->tree);
-		r = filtermatch1(pathfilt, t, pt);
+		r = matchesfilter1(pathfilt, t, pt);
 		unref(p);
 		unref(pt);
 		if(r)
 			return 1;
 	}
-	return o->commit->nparent == 0;
+	if(o->commit->nparent == 0)
+		return matchesfilter1(pathfilt, t, nil);
+	return 0;
 }
 
 
@@ -130,16 +134,12 @@ nextline(char *p, char *e)
 	return p;
 }
 
-static void
+static int
 show(Object *o)
 {
-	Tm tm;
 	char *p, *q, *e;
 
 	assert(o->type == GCommit);
-	if(!filtermatch(o))
-		return;
-
 	if(shortlog){
 		p = o->commit->msg;
 		e = p + o->commit->nmsg;
@@ -153,7 +153,7 @@ show(Object *o)
 		if(o->commit->committer != nil
 		&& strcmp(o->commit->author, o->commit->committer) != 0)
 			Bprint(out, "Committer:\t%s\n", o->commit->committer);
-		Bprint(out, "Date:\t%s\n", ctime(o->commit->mtime));
+		Bprint(out, "Date:\t%s", ctime(o->commit->mtime));
 		Bprint(out, "\n");
 		p = o->commit->msg;
 		e = p + o->commit->nmsg;
@@ -168,6 +168,7 @@ show(Object *o)
 		Bprint(out, "\n");
 	}
 	Bflush(out);
+	return 1;
 }
 
 static void
@@ -179,10 +180,14 @@ showquery(char *q)
 
 	if((n = resolverefs(&h, q)) == -1)
 		sysfatal("resolve: %r");
-	for(i = 0; i < n; i++){
+	for(i = 0; i < n && (msgcount == -1 || msgcount > 0); i++){
 		if((o = readobject(h[i])) == nil)
 			sysfatal("read %H: %r", h[i]);
-		show(o);
+		if(matchesfilter(o)){
+			show(o);
+			if(msgcount != -1)
+				msgcount--;
+		}
 		unref(o);
 	}
 	exits(nil);
@@ -202,11 +207,17 @@ showcommits(char *c)
 		sysfatal("resolve %s: %r", c);
 	if((o = readobject(h)) == nil)
 		sysfatal("load %H: %r", h);
+	if(o->type != GCommit)
+		sysfatal("%s: not a commit", c);
 	qinit(&objq);
 	osinit(&done);
 	qput(&objq, o, 0);
-	while(qpop(&objq, &e)){
-		show(e.o);
+	while(qpop(&objq, &e) && (msgcount == -1 || msgcount > 0)){
+		if(matchesfilter(e.o)){
+			show(e.o);
+			if(msgcount != -1)
+				msgcount--;
+		}
 		for(i = 0; i < e.o->commit->nparent; i++){
 			if(oshas(&done, e.o->commit->parent[i]))
 				continue;
@@ -230,7 +241,7 @@ void
 main(int argc, char **argv)
 {
 	char path[1024], repo[1024], *p, *r;
-	int i, nrepo;
+	int i, nrel, nrepo;
 
 	ARGBEGIN{
 	case 'e':
@@ -242,13 +253,15 @@ main(int argc, char **argv)
 	case 's':
 		shortlog++;
 		break;
+	case 'n':
+		msgcount = atoi(EARGF(usage()));
+		break;
 	default:
 		usage();
 		break;
 	}ARGEND;
 
-	if(findrepo(repo, sizeof(repo)) == -1)
-		sysfatal("find root: %r");
+	gitinit(repo, sizeof(repo), &nrel);
 	nrepo = strlen(repo);
 	if(argc != 0){
 		if(getwd(path, sizeof(path)) == nil)
@@ -272,11 +285,11 @@ main(int argc, char **argv)
 	if(chdir(repo) == -1)
 		sysfatal("chdir: %r");
 
-	gitinit();
 	out = Bfdopen(1, OWRITE);
 	if(queryexpr != nil)
 		showquery(queryexpr);
 	else
 		showcommits(commitid);
+	Bterm(out);
 	exits(nil);
 }

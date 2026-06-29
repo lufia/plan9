@@ -75,6 +75,8 @@ fidAlloc(void)
 	fid->ref = 0;
 	fid->flags = 0;
 	fid->open = FidOCreate;
+	fid->raexpect = 0;
+	fid->ramax = 0;
 	assert(fid->fsys == nil);
 	assert(fid->file == nil);
 	fid->qid = (Qid){0, 0, 0};
@@ -189,7 +191,7 @@ fidGet(Con* con, u32int fidno, int flags)
 		 */
 		if(flags & FidFCreate){
 			qunlock(&con->fidlock);
-			werrstr("%s: fid 0x%ud in use", argv0, fidno);
+			werrstr("%s: fid 0x%ux in use", argv0, fidno);
 			return nil;
 		}
 		fid->ref++;

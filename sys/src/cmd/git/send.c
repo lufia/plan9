@@ -3,14 +3,7 @@
 
 #include "git.h"
 
-typedef struct Capset	Capset;
 typedef struct Map	Map;
-
-struct Capset {
-	int	sideband;
-	int	sideband64k;
-	int	report;
-};
 
 struct Map {
 	char	*ref;
@@ -75,9 +68,11 @@ readours(Hash **tailp, char ***refp)
 			sysfatal("smprint: %r");
 		if((idx = findref(ref, nu, r)) == -1)
 			idx = nu++;
+		else
+			free(ref[idx]);
 		assert(idx < nremoved + nbranch);
 		memcpy(&tail[idx], &Zhash, sizeof(Hash));
-		free(r);
+		ref[idx] = r;
 	}
 	dprint(1, "nu: %d\n", nu);
 	for(i = 0; i < nu; i++)
@@ -85,33 +80,6 @@ readours(Hash **tailp, char ***refp)
 	*tailp = tail;
 	*refp = ref;
 	return nu;	
-}
-
-char *
-matchcap(char *s, char *cap, int full)
-{
-	if(strncmp(s, cap, strlen(cap)) == 0)
-		if(!full || strlen(s) == strlen(cap))
-			return s + strlen(cap);
-	return nil;
-}
-
-void
-parsecaps(char *caps, Capset *cs)
-{
-	char *p, *n;
-
-	for(p = caps; p != nil; p = n){
-		n = strchr(p, ' ');
-		if(n != nil)
-			*n++ = 0;
-		if(matchcap(p, "report-status", 1) != nil)
-			cs->report = 1;
-		if(matchcap(p, "side-band", 1) != nil)
-			cs->sideband = 1;
-		if(matchcap(p, "side-band-64k", 1) != nil)
-			cs->sideband64k = 1;
-	}
 }
 
 int
@@ -123,11 +91,9 @@ sendpack(Conn *c)
 	Hash h, *theirs, *ours;
 	Object *a, *b, *p, *o;
 	char **refs;
-	Capset cs;
 	Map *map, *m;
 
 	first = 1;
-	memset(&cs, 0, sizeof(Capset));
 	nours = readours(&ours, &refs);
 	theirs = nil;
 	ntheirs = 0;
@@ -145,10 +111,8 @@ sendpack(Conn *c)
 		if(n == 0)
 			break;
 		if(first && n > strlen(buf))
-			parsecaps(buf + strlen(buf) + 1, &cs);
+			parsecaps(buf + strlen(buf) + 1, c);
 		first = 0;
-		if(strncmp(buf, "ERR ", 4) == 0)
-			sysfatal("%s", buf + 4);
 
 		if(getfields(buf, sp, nelem(sp), 1, " \t\r\n") != 2)
 			sysfatal("invalid ref line %.*s", utfnlen(buf, n), buf);
@@ -184,7 +148,10 @@ sendpack(Conn *c)
 		p = nil;
 		if(a != nil && b != nil)
 			p = ancestor(a, b);
-		if(!force && !hasheq(&m->theirs, &Zhash) && (a == nil || p != a)){
+		if(!force
+		&& !hasheq(&m->theirs, &Zhash)
+		&& !hasheq(&m->ours, &Zhash)
+		&& (a == nil || p != a)){
 			fprint(2, "remote has diverged\n");
 			werrstr("remote diverged");
 			flushpkt(c);
@@ -210,7 +177,7 @@ sendpack(Conn *c)
 		 * Github doesn't advertise any capabilities, so we can't check
 		 * for compatibility. We just need to add it blindly.
 		 */
-		if(i == 0 && cs.report){
+		if(i == 0 && c->report){
 			buf[n++] = '\0';
 			n += snprint(buf + n, sizeof(buf) - n, " report-status");
 		}
@@ -226,7 +193,7 @@ sendpack(Conn *c)
 
 	if(writepack(c->wfd, ours, nours, theirs, ntheirs, &h) == -1)
 		return -1;
-	if(!cs.report)
+	if(!c->report)
 		return 0;
 
 	if(readphase(c) == -1)
@@ -237,7 +204,7 @@ sendpack(Conn *c)
 		if(chattygit)
 			fprint(2, "done sending pack, status %s\n", buf);
 		nsp = getfields(buf, sp, nelem(sp), 1, " \t\n\r");
-		if(nsp < 2) 
+		if(nsp < 2)
 			continue;
 		if(nsp < 3)
 			sp[2] = "";
@@ -246,9 +213,9 @@ sendpack(Conn *c)
 		 * surrounding scripts.
 		 */
 		if(strcmp(sp[0], "unpack") == 0 && strcmp(sp[1], "ok") != 0)
-			fprint(2, "unpack %s\n", sp[1]);
+			werrstr("unpack %s", sp[1]);
 		else if(strcmp(sp[0], "ng") == 0)
-			fprint(2, "failed update: %s\n", sp[1]);
+			werrstr("failed update: %s %s", sp[1], sp[2]);
 		else
 			continue;
 		return -1;
@@ -301,7 +268,7 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	gitinit();
+	gitinit(nil, 0, nil);
 	if(argc != 1)
 		usage();
 	if(gitconnect(&c, argv[0], "receive") == -1)

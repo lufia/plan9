@@ -49,6 +49,20 @@ void	aesCTRencrypt(uchar *p, int len, AESstate *s);
 void	setupAESXCBCstate(AESstate *s);
 uchar*	aesXCBCmac(uchar *p, int len, AESstate *s);
 
+typedef struct AESGCMstate AESGCMstate;
+struct AESGCMstate
+{
+	AESstate;
+
+	ulong	H[4];
+	ulong	M[16][256][4];
+};
+
+void	setupAESGCMstate(AESGCMstate *s, uchar *key, int keylen, uchar *iv, int ivlen);
+void	aesgcm_setiv(AESGCMstate *s, uchar *iv, int ivlen);
+void	aesgcm_encrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], AESGCMstate *s);
+int	aesgcm_decrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], AESGCMstate *s);
+
 /*
  * Blowfish Definitions
  */
@@ -150,8 +164,18 @@ enum
 	MD4dlen=	16,	/* MD4 digest length */
 	MD5dlen=	16,	/* MD5 digest length */
 	AESdlen=	16,	/* TODO: see rfc */
+	Maxdlen=	64,
 
 	Hmacblksz	= 64,	/* in bytes; from rfc2104 */
+
+	SHA1blksz=	64,	/* SHA block size */
+	SHA2_224blksz=	64,	/* SHA-224 block size */
+	SHA2_256blksz=	64,	/* SHA-256 block size */
+	SHA2_384blksz=	128,	/* SHA-384 block size */
+	SHA2_512blksz=	128,	/* SHA-512 block size */
+	MD4blksz=	64,	/* MD4 block size */
+	MD5blksz=	64,	/* MD5 block size */
+	Maxblksz		= 128,
 };
 
 typedef struct DigestState DigestState;
@@ -280,6 +304,7 @@ RSApriv*	rsaprivalloc(void);
 void		rsaprivfree(RSApriv*);
 RSApub*		rsaprivtopub(RSApriv*);
 RSApub*		X509toRSApub(uchar*, int, char*, int);
+RSApub*		X509reqtoRSApub(uchar*, int, char*, int);
 RSApriv*	asn1toRSApriv(uchar*, int);
 void		asn1dump(uchar *der, int len);
 uchar*		decodePEM(char *s, char *type, int *len, char **new_s);
@@ -372,6 +397,72 @@ DSApub*		dsaprivtopub(DSApriv*);
 DSApriv*	asn1toDSApriv(uchar*, int);
 
 /*
+ * elliptic curves
+ */
+typedef struct ECpoint{
+	int inf;
+	mpint *x;
+	mpint *y;
+	mpint *z;	/* nil when using affine coordinates */
+} ECpoint;
+
+typedef ECpoint ECpub;
+typedef struct ECpriv{
+	ECpoint;
+	mpint *d;
+} ECpriv;
+
+typedef struct ECdomain{
+	mpint *p;
+	mpint *a;
+	mpint *b;
+	ECpoint G;
+	mpint *n;
+	mpint *h;
+} ECdomain;
+
+void	ecdominit(ECdomain *, void (*init)(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h));
+void	ecdomfree(ECdomain *);
+void	ecassign(ECdomain *, ECpoint *old, ECpoint *new);
+void	ecadd(ECdomain *, ECpoint *a, ECpoint *b, ECpoint *s);
+void	ecmul(ECdomain *, ECpoint *a, mpint *k, ECpoint *s);
+ECpoint*	strtoec(ECdomain *, char *, char **, ECpoint *);
+ECpriv*	ecgen(ECdomain *, ECpriv*);
+int	ecverify(ECdomain *, ECpoint *);
+int	ecpubverify(ECdomain *, ECpub *);
+void	ecdsasign(ECdomain *, ECpriv *, uchar *, int, mpint *, mpint *);
+int	ecdsaverify(ECdomain *, ECpub *, uchar *, int, mpint *, mpint *);
+void	base58enc(uchar *, char *, int);
+int	base58dec(char *, uchar *, int);
+ECpub*	ecdecodepub(ECdomain *dom, uchar *, int);
+int	ecencodepub(ECdomain *dom, ECpub *, uchar *, int);
+void	ecpubfree(ECpub *);
+ECpub*	X509toECpub(uchar *cert, int ncert, char *name, int nname, ECdomain *dom);
+char*	X509ecdsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, ECdomain *dom, ECpub *pub);
+
+void	secp256r1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h);
+void	secp384r1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h);
+
+/* x25519 elliptic curve diffie-hellman */
+void	curve25519(uchar mypublic[32], uchar secret[32], uchar basepoint[32]);
+int	x25519(uchar out[32], uchar s[32], uchar u[32]);
+void	curve25519_dh_new(uchar x[32], uchar y[32]);
+int	curve25519_dh_finish(uchar x[32], uchar y[32], uchar z[32]);
+
+/* Diffie-Hellman key exchange */
+typedef struct DHstate DHstate;
+struct DHstate
+{
+	mpint	*g;	/* base g */
+	mpint	*p;	/* large prime */
+	mpint	*q;	/* subgroup prime */
+	mpint	*x;	/* random secret */
+	mpint	*y;	/* public key y = g**x % p */
+};
+mpint*	dh_new(DHstate *dh, mpint *p, mpint *q, mpint *g);
+mpint*	dh_finish(DHstate *dh, mpint *y);
+
+/*
  * TLS
  */
 typedef struct Thumbprint{
@@ -391,6 +482,7 @@ typedef struct TLSconn{
 	uchar	*sessionKey;
 	int	sessionKeylen;
 	char	*sessionConst;
+	char	*serverName;
 } TLSconn;
 
 /* tlshand.c */
@@ -405,5 +497,12 @@ int	okThumbprint(uchar *sha1, Thumbprint *ok);
 /* readcert.c */
 uchar	*readcert(char *filename, int *pcertlen);
 PEMChain*readcertchain(char *filename);
+
+/*
+ * HKDF
+ */
+void	hkdfExtract(uchar*, DigestState*(*)(uchar*, ulong, uchar*, DigestState*), int, uchar*, int, uchar*, int);
+int	hkdfExpand(uchar*, DigestState*(*)(uchar*, ulong, uchar*, DigestState*), int, uchar*, int, uchar*, int, int);
+int	hkdfKey(uchar*, DigestState*(*x)(uchar*, ulong, uchar*, DigestState*), int xlen, uchar*, int, uchar*, int, uchar*, int, int);
 
 #endif

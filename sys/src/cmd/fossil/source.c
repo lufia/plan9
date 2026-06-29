@@ -822,6 +822,32 @@ sourceBlock(Source *r, ulong bn, int mode)
 }
 
 void
+sourceReadAhead(Source *r, ulong bn, int n)
+{
+	Entry e;
+	Block *pb;
+	u32int addr;
+	int np, i0, k;
+
+	assert(sourceIsLocked(r));
+	if(!sourceGetEntry(r, &e))
+		return;
+	if(e.depth == 0)
+		return;
+	np = e.psize/VtScoreSize;
+	i0 = bn % np;
+	pb = _sourceBlock(r, bn, OReadOnly, 1, 0);
+	if(pb == nil)
+		return;
+	for(k = 0; k < n && i0+k < np; k++){
+		addr = globalToLocal(pb->data + (i0+k)*VtScoreSize);
+		if(addr != NilBlock)
+			cachePrefetch(r->fs->cache, addr);
+	}
+	blockPut(pb);
+}
+
+void
 sourceClose(Source *r)
 {
 	if(r == nil)
@@ -929,6 +955,30 @@ sourceLoadBlock(Source *r, int mode)
 	}
 }
 
+/*
+ * Holding the locked block b entitles us to write r->b. Under
+ * concurrent access r->b may already be set (thanks Richard Miller,
+ * who hit the original assert r->b==nil under golang test load), so
+ * wait for it to clear rather than assert or overwrite it.
+ */
+static void
+sourceSetBlock(Source *r, Block *b)
+{
+	Block *xb;
+
+	while(!casp(&r->b, nil, b)){
+		xb = r->b;
+		if(xb != nil && xb != b)
+			fprint(2, "sourceSetBlock: %x (%V) != %x (%V)\n",
+				xb->addr, xb->score, b->addr, b->score);
+		else
+			fprint(2, "sourceSetBlock: %x (%V) waiting\n",
+				b->addr, b->score);
+		if(xb != nil)
+			sleep(1000);
+	}
+}
+
 int
 sourceLock(Source *r, int mode)
 {
@@ -940,12 +990,7 @@ sourceLock(Source *r, int mode)
 	b = sourceLoadBlock(r, mode);
 	if(b == nil)
 		return 0;
-	/*
-	 * The fact that we are holding b serves as the
-	 * lock entitling us to write to r->b.
-	 */
-	assert(r->b == nil);
-	r->b = b;
+	sourceSetBlock(r, b);
 	if(r->mode == OReadWrite)
 		assert(r->epoch == r->b->l.epoch);
 	return 1;
@@ -998,8 +1043,8 @@ sourceLock2(Source *r, Source *rr, int mode)
 	 * The fact that we are holding b and bb serves
 	 * as the lock entitling us to write to r->b and rr->b.
 	 */
-	r->b = b;
-	rr->b = bb;
+	sourceSetBlock(r, b);
+	sourceSetBlock(rr, bb);
 	return 1;
 }
 
