@@ -134,7 +134,6 @@ amd64 +dev
 	syscallfmt
 	trap
 	vsvm
-	physalloc
 
 port
 	alarm
@@ -147,7 +146,6 @@ port
 	image
 	latin1
 	page
-	pager
 	parse
 	pgrp
 	portclock

@@ -4,7 +4,9 @@
 #include <flate.h>
 #include <regexp.h>
 
-typedef struct Capset	Capset;
+/* 9legacy libc lacks IOUNIT */
+#define IOUNIT 32768U
+
 typedef struct Conn	Conn;
 typedef struct Hash	Hash;
 typedef struct Delta	Delta;
@@ -21,6 +23,7 @@ typedef struct Dtab	Dtab;
 typedef struct Dblock	Dblock;
 typedef struct Objq	Objq;
 typedef struct Qelt	Qelt;
+typedef struct Idxent	Idxent;
 
 enum {
 	Pathmax		= 512,
@@ -85,6 +88,14 @@ struct Conn {
 	int type;
 	int rfd;
 	int wfd;
+
+	/* capabilities */
+	char	symfrom[256];
+	char	symto[256];
+	char	multiack;
+	char	sideband;
+	char	sideband64k;
+	char	report;
 
 	/* only used by http */
 	int cfd;
@@ -190,6 +201,13 @@ struct Delta {
 	int	len;
 };
 
+struct Idxent {
+	char	*path;
+	Qid	qid;
+	int	mode;
+	int	order;
+	char	state;
+};
 
 #define GETBE16(b)\
 		((((b)[0] & 0xFFul) <<  8) | \
@@ -246,6 +264,7 @@ extern vlong	cachemax;
 extern Hash	Zhash;
 extern int	chattygit;
 extern int	interactive;
+extern int	gitdirmode;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" int
@@ -256,7 +275,7 @@ int Tfmt(Fmt*);
 int Ofmt(Fmt*);
 int Qfmt(Fmt*);
 
-void gitinit(void);
+void gitinit(char*, int, int*);
 
 /* object io */
 int	resolverefs(Hash **, char *);
@@ -266,6 +285,7 @@ Object	*ancestor(Object *, Object *);
 int	findtwixt(Hash *, int, Hash *, int, Object ***, int *);
 Object	*readobject(Hash);
 Object	*clearedobject(Hash, int);
+int	expandprefix(Hash*, Hash, int);
 void	parseobject(Object *);
 int	indexpack(char *, char *, Hash);
 int	writepack(int, Hash*, int, Hash*, int, Hash*);
@@ -274,6 +294,7 @@ Object	*ref(Object *);
 void	unref(Object *);
 void	cache(Object *);
 Object	*emptydir(void);
+int	entcmp(void*, void*);
 
 /* object sets */
 void	osinit(Objset *);
@@ -301,8 +322,10 @@ int	hparse(Hash *, char *);
 int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
-int	findrepo(char *, int);
 int	showprogress(int, int);
+u64int	murmurhash2(void*, usize);
+Qid	parseqid(char*);
+int	charval(int);
 
 /* packing */
 void	dtinit(Dtab *, Object*);
@@ -312,12 +335,15 @@ Delta*	deltify(Object*, Dtab*, int*);
 /* proto handling */
 int	readpkt(Conn*, char*, int);
 int	writepkt(Conn*, char*, int);
+int	fmtpkt(Conn*, char*, ...);
 int	flushpkt(Conn*);
 void	initconn(Conn*, int, int);
 int	gitconnect(Conn *, char *, char *);
 int	readphase(Conn *);
 int	writephase(Conn *);
 void	closeconn(Conn *);
+void	parsecaps(char *, Conn *);
+int	okref(char*);
 
 /* queues */
 void	qinit(Objq*);

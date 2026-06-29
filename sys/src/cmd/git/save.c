@@ -10,6 +10,7 @@ struct Objbuf {
 	char *dat;
 	int ndat;
 };
+
 enum {
 	Maxparents = 16,
 };
@@ -21,6 +22,9 @@ char	*committeremail;
 char	*commitmsg;
 Hash	parents[Maxparents];
 int	nparents;
+Idxent	*idx;
+int	idxsz;
+int	nidx;
 
 int
 gitmode(Dirent *e)
@@ -31,37 +35,30 @@ gitmode(Dirent *e)
 		return 0160000;
 	else if(e->mode & DMDIR)
 		return 0040000;
-	else if(e->mode & 0111)
+	else if(e->mode & 0100)
 		return 0100755;
 	else
 		return 0100644;
 }
 
 int
-entcmp(void *pa, void *pb)
+namecmp(void *pa, void *pb)
 {
-	char abuf[256], bbuf[256], *ae, *be;
-	Dirent *a, *b;
+	return strcmp(*(char**)pa, *(char**)pb);
+}
 
-	a = pa;
-	b = pb;
-	/*
-	 * If the files have the same name, they're equal.
-	 * Otherwise, If they're trees, they sort as thoug
-	 * there was a trailing slash.
-	 *
-	 * Wat.
-	 */
-	if(strcmp(a->name, b->name) == 0)
-		return 0;
+int
+idxcmp(void *pa, void *pb)
+{
+	Idxent *a, *b;
+	int c;
 
-	ae = seprint(abuf, abuf + sizeof(abuf) - 1, a->name);
-	be = seprint(bbuf, bbuf + sizeof(bbuf) - 1, b->name);
-	if(a->mode & DMDIR)
-		*ae = '/';
-	if(b->mode & DMDIR)
-		*be = '/';
-	return strcmp(abuf, bbuf);
+	a = (Idxent*)pa;
+	b = (Idxent*)pb;
+	if((c = strcmp(a->path, b->path)) != 0)
+		return c;
+	assert(a->order != b->order);
+	return a-> order < b->order ? -1 : 1;
 }
 
 static int
@@ -184,48 +181,29 @@ blobify(Dir *d, char *path, int *mode, Hash *bh)
 int
 tracked(char *path)
 {
-	char ipath[256];
-	Dir *d;
+	int r, lo, hi, mid;
 
-	/* Explicitly removed. */
-	snprint(ipath, sizeof(ipath), ".git/index9/removed/%s", path);
-	if(strstr(cleanname(ipath), ".git/index9/removed") != ipath)
-		sysfatal("path %s leaves index", ipath);
-	d = dirstat(ipath);
-	if(d != nil && d->qid.type != QTDIR){
-		free(d);
-		return 0;
+	lo = 0;
+	hi = nidx-1;
+	while(lo <= hi){
+		mid = (hi + lo) / 2;
+		r = strcmp(path, idx[mid].path);
+		if(r < 0)
+			hi = mid-1;
+		else if(r > 0)
+			lo = mid+1;
+		else
+			return idx[mid].state != 'R';
 	}
-
-	/* Explicitly added. */
-	snprint(ipath, sizeof(ipath), ".git/index9/tracked/%s", path);
-	if(strstr(cleanname(ipath), ".git/index9/tracked") != ipath)
-		sysfatal("path %s leaves index", ipath);
-	if(access(ipath, AEXIST) == 0)
-		return 1;
-
-	return 0;
-}
-
-int
-pathelt(char *buf, int nbuf, char *p, int *isdir)
-{
-	char *b;
-
-	b = buf;
-	if(*p == '/')
-		p++;
-	while(*p && *p != '/' && b != buf + nbuf)
-		*b++ = *p++;
-	*b = '\0';
-	*isdir = (*p == '/');
-	return b - buf;
+	return 0; 
 }
 
 Dirent*
 dirent(Dirent **ent, int *nent, char *name)
 {
 	Dirent *d;
+
+	assert(strchr(name, '/') == nil);
 
 	for(d = *ent; d != *ent + *nent; d++)
 		if(d->name && strcmp(d->name, name) == 0)
@@ -241,37 +219,84 @@ dirent(Dirent **ent, int *nent, char *name)
 int
 treeify(Object *t, char **path, char **epath, int off, Hash *h)
 {
-	int r, n, ne, nsub, nent, isdir;
-	char **p, **ep;
-	char elt[256];
-	Object **sub;
+	int nent, ne, slash, isdir;
+	char *s, **p, **ep;
 	Dirent *e, *ent;
+	Object *o;
 	Dir *d;
 
-	r = -1;
-	nsub = 0;
 	nent = t->tree->nent;
 	ent = eamalloc(nent, sizeof(*ent));
-	sub = eamalloc((epath - path), sizeof(Object*));
 	memcpy(ent, t->tree->ent, nent*sizeof(*ent));
 	for(p = path; p != epath; p = ep){
-		ne = pathelt(elt, sizeof(elt), *p + off, &isdir);
-		for(ep = p; ep != epath; ep++){
-			if(strncmp(elt, *ep + off, ne) != 0)
+		s = *p;
+
+		/*
+		 * paths have been normalized already,
+		 * no leading or double-slashes allowed.
+		 */
+		assert(off <= strlen(s));
+		assert(off == 0 || s[off-1] == '/');
+		assert(s[off] != '\0' && s[off] != '/');
+
+		/* get next path element length (from off until '/' or nul) */
+		for(ne = 1; s[off+ne] != '\0' && s[off+ne] != '/'; ne++)
+			;
+
+		/* truncate at '/' or nul */
+		slash = s[off + ne];
+		s[off + ne] = '\0';
+
+		/* skip over children (having s as prefix) */
+		for(ep = p + 1; slash && ep != epath; ep++){
+			if(strncmp(s, *ep, off + ne) != 0)
 				break;
 			if((*ep)[off+ne] != '\0' && (*ep)[off+ne] != '/')
 				break;
 		}
-		e = dirent(&ent, &nent, elt);
+
+		d = dirstat(s);
+		e = dirent(&ent, &nent, s + off);
 		if(e->islink)
-			sysfatal("symlinks may not be modified: %s", *path);
+			sysfatal("symlinks may not be modified: %s", s);
 		if(e->ismod)
-			sysfatal("submodules may not be modified: %s", *path);
-		if(isdir){
+			sysfatal("submodules may not be modified: %s", s);
+
+		s[off + ne] = slash;
+
+		isdir = d != nil && (d->mode & DMDIR) != 0;
+		/*
+		 * exist? slash? dir?	track?
+		 * n      _      _      _      -> remove: file gone
+		 * y      n      n      y      -> blob: tracked non-dir
+		 * y      n      y      n      -> remove: file untracked
+		 * y      n      y      n      -> remove: file -> dir
+		 * y      n      y      y      -> remove: file -> dir
+		 * y      n      y      n      -> untracked dir, cli junk
+		 * y      y      y      n      -> recurse
+		 * y      y      y      y      -> recurse
+		 */
+		if(d == nil || !slash && isdir && tracked(s)){
+			/*
+			 * if a tracked file is removed or turned
+			 * into a dir, we want to delete it. We
+			 * only want to change files passed in, and
+			 * not ones along the way, so ignore files
+			 * that have a '/'.
+			 */
+			e->name = nil;
+			s[off + ne] = slash;
+			continue;
+		} else if(slash && isdir){
+			/*
+			 * If we have a list of entries that go into
+			 * a directory, create a tree node for this
+			 * entry, and recurse down.
+			 */
 			e->mode = DMDIR | 0755;
-			sub[nsub] = readobject(e->h);
-			if(sub[nsub] == nil || sub[nsub]->type != GTree)
-				sub[nsub] = emptydir();
+			o = readobject(e->h);
+			if(o == nil || o->type != GTree)
+				o = emptydir();
 			/*
 			 * if after processing deletions, a tree is empty,
 			 * mark it for removal from the parent.
@@ -280,29 +305,26 @@ treeify(Object *t, char **path, char **epath, int off, Hash *h)
 			 * but this is fine -- and ensures that an empty
 			 * repository will continue to work.
 			 */
-			n = treeify(sub[nsub], p, ep, off + ne + 1, &e->h);
-			if(n == 0)
+			if(treeify(o, p, ep, off + ne + 1, &e->h) == 0)
 				e->name = nil;
-			else if(n == -1)
-				goto err;
-		}else{
-			d = dirstat(*p);
-			if(d != nil && tracked(*p))
-				blobify(d, *p, &e->mode, &e->h);
+		}else if(!slash && !isdir){
+			/*
+			 * If the file was explicitly passed in and is
+			 * not a dir, we want to either remove it or
+			 * track it, depending on the state of the index.
+			 */
+			if(tracked(s) && !isdir)
+				blobify(d, s, &e->mode, &e->h);
 			else
 				e->name = nil;
-			free(d);
 		}
+		free(d);
 	}
-	if(nent == 0){
-		werrstr("%.*s: empty directory", off, *path);
-		goto err;
-	}
-
-	r = writetree(ent, nent, h);
-err:
-	free(sub);
-	return r;		
+	if(nent == 0)
+		sysfatal("%.*s: refusing to update empty directory", off, *path);
+	nent = writetree(ent, nent, h);
+	free(ent);
+	return nent;		
 }
 
 
@@ -354,13 +376,14 @@ usage(void)
 void
 main(int argc, char **argv)
 {
+	char *ln, *dstr, *parts[4], cwd[1024];
+	int i, r, line, ncwd;
 	Hash th, ch;
-	char *dstr, cwd[1024];
-	int i, r, ncwd;
 	vlong date;
+	Biobuf *f;
 	Object *t;
 
-	gitinit();
+	gitinit(nil, 0, nil);
 	if(access(".git", AEXIST) != 0)
 		sysfatal("could not find git repo: %r");
 	if(getwd(cwd, sizeof(cwd)) == nil)
@@ -423,11 +446,39 @@ main(int argc, char **argv)
 		while(*argv[i] == '/')
 			argv[i]++;
 	}
+	qsort(argv, argc, sizeof(*argv), namecmp);
 
 	t = findroot();
+	nidx = 0;
+	idxsz = 32;
+	idx = emalloc(idxsz*sizeof(Idxent));
+	if((f = Bopen(".git/INDEX9", OREAD)) == nil)
+		sysfatal("open index: %r");
+	line = 0;
+	while((ln = Brdstr(f, '\n', 1)) != nil){
+		line++;
+		if(ln[0] == 0 || ln[0] == '\n')
+			continue;
+		if(getfields(ln, parts, nelem(parts), 0, " \t") != nelem(parts))
+			sysfatal(".git/INDEX9:%d: corrupt index", line);
+		if(nidx == idxsz){
+			idxsz += idxsz/2;
+			idx = realloc(idx, idxsz*sizeof(Idxent));
+		}
+		cleanname(parts[3]);
+		idx[nidx].state = *parts[0];
+		idx[nidx].qid = parseqid(parts[1]);
+		idx[nidx].mode = strtol(parts[2], nil, 8);
+		idx[nidx].path = strdup(parts[3]);
+		idx[nidx].order = nidx;
+		nidx++;
+		free(ln);
+	}
+	Bterm(f);
+	qsort(idx, nidx, sizeof(Idxent), idxcmp);
 	r = treeify(t, argv, argv + argc, 0, &th);
 	if(r == -1)
-		sysfatal("could not commit: %r\n");
+		sysfatal("could not commit: %r");
 	mkcommit(&ch, date, th);
 	print("%H\n", ch);
 	exits(nil);

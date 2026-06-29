@@ -30,6 +30,9 @@
 static Lock vmaplock;
 static Page mach0pml4;
 
+/* kernel direct-map size, capped at VMAP-KZERO, reduced by setkernmem() */
+uintptr kernmem = KSEG0SIZE + VMAP;
+
 void
 mmuflushtlb(u64int)
 {
@@ -91,9 +94,8 @@ mmuptpfree(Proc* proc, int release)
 static Page*
 mmuptpalloc(void)
 {
+	void* va;
 	Page *page;
-	uintmem pa;
-	int color;
 
 	/*
 	 * Do not really need a whole Page structure,
@@ -105,19 +107,16 @@ mmuptpalloc(void)
 
 		return nil;
 	}
-	color = NOCOLOR;
-	if((pa = physalloc(PTSZ, &color, page)) == 0){
-		print("mmuptpalloc pa\n");
+	if((va = mallocalign(PTSZ, PTSZ, 0, 0)) == nil){
+		print("mmuptpalloc va\n");
 		free(page);
 
 		return nil;
 	}
 
-	page->va = PTR2UINT(KADDR(pa));
-	page->pa = pa;
+	page->va = PTR2UINT(va);
+	page->pa = PADDR(va);
 	page->ref = 1;
-	page->color = color;
-	memset(UINT2PTR(page->va), 0, PTSZ);
 
 	return page;
 }
@@ -164,7 +163,7 @@ mmurelease(Proc* proc)
 		next = page->next;
 		if(--page->ref)
 			panic("mmurelease: page->ref %d\n", page->ref);
-		physfree(page->pa, PTSZ);
+		free(UINT2PTR(page->va));
 		free(page);
 	}
 	if(proc->mmuptp[0] && palloc.r.p)
@@ -186,16 +185,23 @@ mmuput(uintptr va, uintmem pa, Page*)
 {
 	Mpl pl;
 	int l, x;
-	PTE *pte, *ptp;
+	PTE *pte;
 	Page *page, *prev;
 
 	pte = nil;
 	pl = splhi();
 	prev = m->pml4;
 	for(l = 3; l >= 0; l--){
-		ptp = mmuptpget(va, l);
 		x = PTLX(va, l);
-		pte = &ptp[x];
+		/*
+		 * Index the level-l table through its kernel direct-map
+		 * address (prev->va), not the per-cpu recursive self-map.
+		 * m->pml4 is rebuilt each mmuswitch, so under SMP a found
+		 * page's link can be absent in this cpu's table and a
+		 * recursive walk then faults; the direct map is present on
+		 * every cpu. The link is (re)installed below regardless.
+		 */
+		pte = &((PTE*)prev->va)[x];
 		for(page = up->mmuptp[l]; page != nil; page = page->next){
 			if(page->prev == prev && page->daddr == x)
 				break;
@@ -211,6 +217,8 @@ mmuput(uintptr va, uintmem pa, Page*)
 			page->next = up->mmuptp[l];
 			up->mmuptp[l] = page;
 			page->prev = prev;
+		}
+		if(l > 0){
 			*pte = PPN(page->pa)|PteU|PteRW|PteP;
 			if(l == 3 && x >= m->pml4->daddr)
 				m->pml4->daddr = x+1;
@@ -248,8 +256,7 @@ pdmap(uintmem pa, int attr, uintptr va, usize size)
 {
 	uintmem pae;
 	PTE *pd, *pde, *pt, *pte;
-	uintmem pdpa;
-	int pdx, pgsz, color;
+	int pdx, pgsz;
 
 	pd = (PTE*)(PDMAP+PDX(PDMAP)*4096);
 
@@ -268,16 +275,27 @@ pdmap(uintmem pa, int attr, uintptr va, usize size)
 			pgsz = PGLSZ(1);
 		}
 		else{
-			pt = (PTE*)(PDMAP+pdx*PTSZ);
 			if(*pde == 0){
-				color = NOCOLOR;
-				pdpa = physalloc(PTSZ, &color, nil);
-				if(pdpa == 0)
-					panic("pdmap");
-				*pde = pdpa|PteRW|PteP;
-				memset(pt, 0, PTSZ);
-			}
+				/*
+				 * Need a PTSZ physical allocator here.
+				 * Because space will never be given back
+				 * (see vunmap below), just malloc it so
+				 * Ron can prove a point.
+				*pde = pmalloc(PTSZ)|PteRW|PteP;
+				 */
+				void *alloc;
 
+				alloc = mallocalign(PTSZ, PTSZ, 0, 0);
+				if(alloc != nil){
+					*pde = PADDR(alloc)|PteRW|PteP;
+//print("*pde %#llux va %#p\n", *pde, va);
+					memset((PTE*)(PDMAP+pdx*4096), 0, 4096);
+
+				}
+			}
+			assert(*pde != 0);
+
+			pt = (PTE*)(PDMAP+pdx*4096);
 			pte = &pt[PTX(va)];
 			assert(!(*pte & PteP));
 			*pte = pa|attr|PteP;
@@ -364,9 +382,6 @@ vmap(uintmem pa, usize size)
 
 	DBG("vmap(%#P, %lud)\n", pa, size);
 
-	if(m->machno != 0)
-		panic("vmap");
-
 	/*
 	 * This is incomplete; the checks are not comprehensive
 	 * enough.
@@ -414,9 +429,6 @@ vunmap(void* v, usize size)
 	uintptr va;
 
 	DBG("vunmap(%#p, %lud)\n", v, size);
-
-	if(m->machno != 0)
-		panic("vunmap");
 
 	/*
 	 * See the comments above in vmap.
@@ -570,23 +582,25 @@ pte[PTLX(KSEG1PML4, 3)] = m->pml4->pa|PteRW|PteP;
 	sys->vmstart = KSEG0;
 	sys->vmunused = sys->vmstart + ROUNDUP(o, 4*KiB);
 	sys->vmunmapped = sys->vmstart + o + sz;
-	sys->vmend = sys->vmstart + TMFM;
+	sys->vmend = ROUNDUP(sys->vmstart + kernmem, PGLSZ(1));
 
 	print("mmuinit: vmstart %#p vmunused %#p vmunmapped %#p vmend %#p\n",
 		sys->vmstart, sys->vmunused, sys->vmunmapped, sys->vmend);
 
 	/*
-	 * Set up the map for PD entry access by inserting
-	 * the relevant PDP entry into the PD. It's equivalent
-	 * to PADDR(sys->pd)|PteRW|PteP.
+	 * Set up the map for PD entry access. KSEG0 spans two PDP
+	 * entries now, and PDMAP lives in the top one (PDP[511]),
+	 * which gets its own PD page sys->pd2g. Point that PDP entry
+	 * at pd2g, then self-map pd2g through PDMAP.
 	 *
 	 * Change code that uses this to use the KSEG1PML4
 	 * map below.
 	 */
-	sys->pd[PDX(PDMAP)] = sys->pdp[PDPX(PDMAP)] & ~(PteD|PteA);
-	print("sys->pd %#p %#p\n", sys->pd[PDX(PDMAP)], sys->pdp[PDPX(PDMAP)]);
+	sys->pdp[PDPX(PDMAP)] = PADDR(sys->pd2g)|PteRW|PteP;
+	sys->pd2g[PDX(PDMAP)] = sys->pdp[PDPX(PDMAP)] & ~(PteD|PteA);
+	print("sys->pd2g %#p %#p\n", sys->pd2g[PDX(PDMAP)], sys->pdp[PDPX(PDMAP)]);
 
-	assert((pdeget(PDMAP) & ~(PteD|PteA)) == (PADDR(sys->pd)|PteRW|PteP));
+	assert((pdeget(PDMAP) & ~(PteD|PteA)) == (PADDR(sys->pd2g)|PteRW|PteP));
 
 	/*
 	 * Set up the map for PTE access by inserting

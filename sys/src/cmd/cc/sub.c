@@ -251,6 +251,8 @@ simplet(long b)
 	case BVLONG|BLONG|BINT|BSIGNED:
 		return types[TVLONG];
 
+	case BVLONG|BUNSIGNED:
+	case BVLONG|BINT|BUNSIGNED:
 	case BVLONG|BLONG|BUNSIGNED:
 	case BVLONG|BLONG|BINT|BUNSIGNED:
 		return types[TUVLONG];
@@ -689,8 +691,13 @@ arith(Node *n, int f)
 			k += 2;
 		n->type = types[k];
 	}
+	if (typefd[n->type->etype]) {
+		fpused = 1;
+		// warn(n, "fp used");
+	}
 	if(n->op == OSUB)
 	if(i == TIND && j == TIND) {
+		/* pointer subtraction */
 		w = n->right->type->link->width;
 		if(w < 1) {
 			snap(n->right->type->link);
@@ -713,7 +720,7 @@ arith(Node *n, int f)
 			n->op = OCAST;
 			n->left = n1;
 			n->right = Z;
-			n->type = types[TLONG];
+			n->type = types[TVLONG];	/* not TLONG: it truncates pointer spans > 2GB */
 		}
 		if(w > 1) {
 			n1 = new1(OXXX, Z, Z);
@@ -918,6 +925,46 @@ if(debug['<'])prtree(n, "rewrite2");
 	n->left->op = o;
 }
 
+/*
+ * replace shift/or with rotate left
+ */
+void
+rolor(Node *n)
+{
+	Node *l, *r;
+
+	if(!typeu[n->type->etype])
+		return;
+
+	l = n->left;
+	r = n->right;
+	switch(l->op){
+	case OASHL:
+		if(r->op == OLSHR)
+			break;
+		return;
+	case OLSHR:
+		if(r->op == OASHL){
+			r = l;
+			l = n->right;
+			break;
+		}
+	default:
+		return;
+	}
+	if(l->right->op != OCONST || r->right->op != OCONST)
+		return;
+	if(vconst(l->right) + vconst(r->right) != ewidth[n->type->etype]*8)
+		return;
+	if(l->left->type != n->type || r->left->type != n->type)
+		return;
+	if(l->left->op != ONAME || r->left->op != ONAME || l->left->sym != r->left->sym)
+		return;
+
+	*n = *l;
+	n->op = OROL;
+}
+
 int
 side(Node *n)
 {
@@ -956,6 +1003,7 @@ loop:
 	case OLSHR:
 	case OASHL:
 	case OASHR:
+	case OROL:
 	case OAND:
 	case OOR:
 	case OXOR:
@@ -1159,7 +1207,7 @@ bitno(long b)
 {
 	int i;
 
-	for(i=0; i<32; i++)
+	for(i=0; i < BI2LONG; i++)
 		if(b & (1L<<i))
 			return i;
 	diag(Z, "bad in bitno");
@@ -1493,6 +1541,7 @@ Init	onamesinit[] =
 	OPROTO,		0,	"PROTO",
 	OREGISTER,	0,	"REGISTER",
 	ORETURN,	0,	"RETURN",
+	OROL,		0,	"ROL",
 	OSET,		0,	"SET",
 	OSIGN,		0,	"SIGN",
 	OSIZE,		0,	"SIZE",
@@ -2064,7 +2113,8 @@ castucom(Node *r)
 	Node *rl;
 
 	if(r->op == OCAST &&
-	   (rl = r->left)->op == OCOM &&
+	   ((rl = r->left)->op == OCOM ||
+	    rl->op == OXOR) &&			/* ||XOR experiment - geoff */
 	   (r->type->etype == TVLONG || r->type->etype == TUVLONG) &&
 	   typeu[rl->type->etype] && typechl[rl->type->etype])
 		return 1;

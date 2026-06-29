@@ -62,6 +62,12 @@ tcom(Node *n)
 }
 
 int
+is64bitptr(void)
+{
+	return ewidth[TIND] > ewidth[TLONG];	/* 64-bit pointers on target? */
+}
+
+int
 tcomo(Node *n, int f)
 {
 	Node *l, *r;
@@ -582,8 +588,9 @@ tcomo(Node *n, int f)
 		n->op = OCONST;
 		n->left = Z;
 		n->right = Z;
-		n->vconst = convvtox(n->type->width, TINT);
-		n->type = types[TINT];
+		o = is64bitptr();
+		n->vconst = convvtox(n->type->width, o? TVLONG: TINT);
+		n->type = types[o? TVLONG: TINT];
 		break;
 
 	case OFUNC:
@@ -1055,6 +1062,14 @@ loop:
 		break;
 
 	case OCAST:
+		if(n->type == types[TVOID] && !side(l)){
+			n->op = OCONST;
+			n->left = Z;
+			n->right = Z;
+			n->type = types[TINT];
+			n->vconst = 0;
+			break;
+		}
 		if(castucom(n))
 			warn(n, "32-bit unsigned complement zero-extended to 64 bits");
 		ccom(l);

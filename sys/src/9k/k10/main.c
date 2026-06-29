@@ -66,6 +66,31 @@ options(int argc, char* argv[])
 	vflag = dbgflg['v'];
 }
 
+enum {
+	Minmb = 128,			/* minimum sane memory in MB */
+	Kernfract = 32,			/* fraction of memory for the kernel */
+};
+
+static void
+setkernmem(void)
+{
+	uintptr pmsize;
+
+	pmsize = sys->pmend;
+	if(pmsize < Minmb*MB){
+		print("setkernmem: mem %llud, assuming %d MB\n", (uvlong)pmsize, Minmb);
+		pmsize = Minmb*MB;
+		sys->pmend = pmsize;
+	}
+	if(pmsize <= KSEG0SIZE)
+		kernmem = 200*MB;
+	if(kernmem >= pmsize/Kernfract + Minmb*MB){
+		kernmem = PGROUND(pmsize/Kernfract + Minmb*MB);
+		if(kernmem < Minmb*MB/3)
+			kernmem = Minmb*MB/3;
+	}
+}
+
 void
 squidboy(int apicno)
 {
@@ -205,15 +230,14 @@ main(u32int ax, u32int bx)
 	 * makes mappings and
 	 * flushes the TLB via m->pml4->pa.
 	 */
+	setkernmem();
 	mmuinit();
 
 	ioinit();
 	kbdinit();
 
-	meminit();
+	meminit();			/* now also calls mallocinit + allocpages */
 	archinit();
-	mallocinit();
-	umeminit();
 	trapinit();
 
 	/*
@@ -393,7 +417,7 @@ userinit(void)
 	 */
 	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKTOP);
 	p->seg[SSEG] = s;
-	pg = newpage(1, s, USTKTOP-segpgsize(s), PGSHFT, -1, 0);
+	pg = newpage(1, s, USTKTOP-segpgsize(s), 0);
 	segpage(s, pg);
 	k = kmap(pg);
 	bootargs(VA(k));
@@ -405,7 +429,7 @@ userinit(void)
 	s = newseg(SG_TEXT, UTZERO, UTZERO+PGSZ);
 	s->flushme++;
 	p->seg[TSEG] = s;
-	pg = newpage(1, s, UTZERO, PGSHFT, -1, 0);
+	pg = newpage(1, s, UTZERO, 0);
 	mmucachectl(pg, PG_TXTFLUSH);
 	segpage(s, pg);
 	k = kmap(s->map[0]->pages[0]);

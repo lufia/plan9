@@ -4,159 +4,336 @@
 #include	"dat.h"
 #include	"fns.h"
 
-enum
-{
-	Nfreepgs = 0, // 1*GiB/PGSZ
-};
+// #include "dbgprint.h"
 
-#define pghash(daddr)	palloc.hash[(daddr>>PGSHFT)&(PGHSIZE-1)]
+#define pghash(daddr)	palloc.hash[((daddr)>>PGSHFT) & (PGHSIZE-1)]
+
+enum {
+	Maxloops = 0,		/* if > 0, max loops in newpage() */
+};
 
 struct	Palloc palloc;
 
-static	uint	highwater;	/* TO DO */
+static	uintptr	highwater;
 
-char*
-seprintpagestats(char *s, char *e)
+uchar pgcarved; /* flag: pgmem carved off a memory bank? visible to memory.c */
+uintptr pgmem;	/* bytes allocated for the palloc.pages array */
+
+static void
+zero(void *p, uintptr n)
 {
-	Pallocpg *pg;
-	int i;
-
-	lock(&palloc);
-	for(i = 0; i < nelem(palloc.avail); i++){
-		pg = &palloc.avail[i];
-		if(pg->freecount != 0)
-			s = seprint(s, e, "%lud/%lud %dK user pages avail\n",
-				pg->freecount,
-				pg->count, (1<<i)/KiB);
-	}
-	unlock(&palloc);
-	return s;
+	memset(p, 0, n);
 }
 
+/*
+ * Split palloc.mem[i] if it's not all of the same color and we can.
+ * Return the new end of the known banks.
+ */
+static int
+splitbank(int i, int e)
+{
+	Pallocmem *pm;
+	uintmem psz;
+
+	if(e >= nelem(palloc.mem))		/* trying to split last slot? */
+		return 0;
+	pm = &palloc.mem[i];
+	psz = 0;
+	pm->color = memcolor(pm->base, &psz);
+	if(pm->color < 0){
+		pm->color = i > 0? pm[-1].color: 0;
+		return 0;
+	}
+
+	if(psz <= PGSZ || psz >= (pm->limit - pm->base))
+		return 0;
+	if(i+1 < e)			/* slot available in palloc.mem? */
+		memmove(pm+2, pm+1, (e-i-1)*sizeof(Pallocmem));
+	/* else just step on the next slot */
+	pm[1].base = pm->base + psz;
+	pm[1].limit = pm->limit;
+	pm->limit = pm[1].base;
+	DBG("palloc split[%d] col %d %#P %#P -> %#P\n",
+		i, pm->color, pm->base, pm[1].limit, pm->limit);
+
+	return 1;
+}
+
+/*
+ * add the pages of each bank to the palloc.head list of available
+ * pages, built from the Page array.  to allow addresses as large as 2⁶³
+ * or even just 2²⁰, page numbers need to be uvlong or uintptr.
+ */
+static void
+banksavailpages(int e)
+{
+	int i;
+	uintptr pgno, np;
+	Page *p;
+	Pallocmem *pm;
+
+	palloc.head = p = palloc.pages;
+	if (p == nil)
+		panic("banksavailpages: nil palloc.pages");
+	for(i=0; i<e; i++){
+		pm = &palloc.mem[i];
+		np = (pm->limit - pm->base)/PGSZ;
+		for(pgno=0; pgno < np; pgno++){
+			p->prev = p-1;
+			p->next = p+1;
+			/*
+			 * it's important that pgno be uvlong, so that pgno*PGSZ
+			 * doesn't otherwise overflow a ulong for pgno ≥ 1M.
+			 */
+			p->pa = pm->base + pgno*PGSZ;
+			p->lg2size = PGSHFT;
+			p->color = pm->color;
+			palloc.freecount++;
+			p++;
+		}
+	}
+	palloc.tail = p - 1;
+	palloc.head->prev = 0;
+	palloc.tail->next = 0;
+
+	palloc.user = p - palloc.pages;		/* # of user pages */
+	/* there are no more free pages than user pages */
+	if (palloc.freecount > palloc.user)
+		palloc.freecount = palloc.user;
+}
+
+typedef struct Unit Unit;
+struct Unit {
+	uvlong	scale;
+	char	sfx[2];
+};
+
+static Unit units[] = {
+	EB, "E", PB, "P", TB, "T", GB, "G", MB, "M", KB, "K", 1, "",
+};
+
+static void
+prsize(char *buf, int len, uvlong size)
+{
+	uvlong scale;
+	Unit *unit;
+
+	for (unit = units; unit < units + nelem(units) - 1; unit++)
+		if (size == unit->scale || size >= 10*unit->scale)
+			break;
+	/* round scaled size */
+	scale = unit->scale;
+	snprint(buf, len, "%llud%s", (size + scale/2) / scale, unit->sfx);
+}
+
+int
+unitsconv(Fmt *f)
+{
+	char buf[32];
+
+	switch(f->r) {
+	case 'N':
+		prsize(buf, sizeof buf, va_arg(f->args, uvlong));
+		return fmtstrcpy(f, buf);
+	default:
+		return fmtstrcpy(f, "(unitsconv)");
+	}
+}
+
+static void
+pagesummary(void)
+{
+	/* user, kernel, kernel malloc area, total memory in bytes */
+	uintptr uby, kby, kmby, occby;
+	uintptr usedby;
+
+	fmtinstall('N', unitsconv);
+	kby = (uintptr)end - KTZERO;
+	kmby = sys->vmend - (uintptr)end;
+	/*
+	 * Page array could be in the malloc arena or in KSEG2, but count it
+	 * as part of the malloc arena.
+	 * pgmem space for palloc.pages was allocated in meminit, but may
+	 * be a little larger than needed.
+	 */
+	if (pgcarved) {
+		pgmem = PGROUND(palloc.user * sizeof(Page));
+		kmby += pgmem;
+	}
+	uby = palloc.user * PGSZ;
+	usedby = kby + kmby + uby;
+	occby = sys->pmoccupied;	/* amount, not address */
+	if (0 && usedby > occby)
+		print("memory used > occupied by %N\n", usedby - occby);
+
+	print("%N memory: %N+%N kernel", occby, kby, kmby);
+	if (pgcarved)
+		print(" (%N of Page structs)", pgmem);
+	print(", %N user", uby);
+	if (occby > usedby)
+		print(", %N unused", occby - usedby);
+	print("\n");
+}
+
+/*
+ * palloc.mem[] banks *could* overlap what we allocate for .pages,
+ * so run through banks, looking for one large enough to hold pgmem
+ * and above the kernel's allocation space.
+ * ksize is the top of the kernel's allocation space.
+ * if not found, just malloc (in KSEG0).  if found, tear off beginning of bank.
+ * all pages have been mapped in meminit.
+ *
+ * we call this from meminit(), before palloc regions are sub-allocated.
+ * pgmem may be a little higher than necessary, which is harmless.
+ */
+void
+allocpages(uintmem ksize, uintmem pgmem, int forcemalloc)
+{
+	int i, e;
+	Pallocmem *pm;
+
+	for(e = 0; e < nelem(palloc.mem); e++)
+		if(palloc.mem[e].base == palloc.mem[e].limit)
+			break;
+	pm = nil;
+	/* work backward to avoid first bank, if possible */
+	for(i = e - 1; i >= 0; i--){
+		pm = &palloc.mem[i];
+		/* enough space for Page array in this bank? */
+		if (pm->base >= ksize && pm->limit - pm->base > pgmem)
+			break;
+	}
+	assert(palloc.pages == nil);
+	/* no bank big enough, or caller insists on malloc? */
+	if (i >= e || pm == nil || forcemalloc == Mustmalloc)
+		palloc.pages = malloc(pgmem);	/* zeroes its allocation */
+	else {
+		/* palloc.mem[i] has room for Pages, which may be GBs */
+		palloc.pages = KADDR(pm->base);
+		pm->base += pgmem;
+		/* zeroing is a good idea & needed since Page contains a Lock */
+		zero(palloc.pages, pgmem);
+		pgcarved = 1;
+		DBG("Pages carved from start of bank %d\n", i);
+	}
+	if(palloc.pages == nil)
+		panic("pageinit: no memory for user-page descriptors");
+	/* TODO: revert iprint to DBG */
+	iprint("Pages array of %,llud bytes allocated at %#p to %#p\n",
+		pgmem, palloc.pages, (char *)palloc.pages + pgmem - 1);
+}
+
+/* pagesarraysize has already been called. */
 void
 pageinit(void)
 {
-	uintmem avail;
-	uvlong pkb, kkb, kmkb, mkb;
+	int e, i;
+	Pallocmem *pm;
+	uintmem np;
 
-	avail = sys->pmpaged;
-	palloc.user = avail/PGSZ;
+	for(e = 0; e < nelem(palloc.mem); e++)
+		if(palloc.mem[e].base == palloc.mem[e].limit)
+			break;
 
-	/* user, kernel, kernel malloc area, memory */
-	pkb = palloc.user*PGSZ/KiB;
-	kkb = ROUNDUP((uintptr)end - KTZERO, PGSZ)/KiB;
-	kmkb = ROUNDUP(sys->vmend - (uintptr)end, PGSZ)/KiB;
-	mkb = sys->pmoccupied/KiB;
+	/*
+	 * Split banks if not of the same color
+	 * and the array can hold another item.
+	 */
+	np = 0;
+	for(i=0; i<e; i++){
+		pm = &palloc.mem[i];
+		if(splitbank(i, e))
+			e++;
 
-	/* Paging numbers */
-	highwater = (palloc.user*5)/100;
-	if(highwater >= 64*MiB/PGSZ)
-		highwater = 64*MiB/PGSZ;
-
-	print("%lldM memory: %lldK+%lldM kernel, %lldM user, %lldM lost\n",
-		mkb/KiB, kkb, kmkb/KiB, pkb/KiB, (vlong)(mkb-kkb-kmkb-pkb)/KiB);
-}
-
-Page*
-pgalloc(uint lg2size, int color)
-{
-	Page *pg;
-
-	if((pg = malloc(sizeof(Page))) == nil){
-		DBG("pgalloc: malloc failed\n");
-		return nil;
+		DBG("palloc[%d] col %d %#P %#P\n",
+			i, pm->color, pm->base, pm->limit);
+		np += (pm->limit - pm->base)/PGSZ;
 	}
-	memset(pg, 0, sizeof *pg);
-	if((pg->pa = physalloc(1<<lg2size, &color, pg)) == 0){
-		DBG("pgalloc: physalloc failed: size %#ux color %d\n", 1<<lg2size, color);
-		free(pg);
-		return nil;
-	}
-	pg->lg2size = lg2size;
-	palloc.avail[pg->lg2size].count++;
-	pg->color = color;
-	return pg;
-}
 
-void
-pgfree(Page* pg)
-{
-	palloc.avail[pg->lg2size].count--;
-	physfree(pg->pa, pagesize(pg));
-	free(pg);
+	banksavailpages(e);  /* generate palloc.pages list, sets palloc.user */
+
+	/* Paging numbers.  keep at least 5% of user pages free. */
+	highwater = (palloc.user*5ULL)/100;
+	if(highwater >= 64*MB/PGSZ)	/* or at least 64MB, if 5% is more. */
+		highwater = 64*MB/PGSZ;
+
+	pagesummary();
 }
 
 void
 pageunchain(Page *p)
 {
-	Pallocpg *pg;
-
 	if(canlock(&palloc))
 		panic("pageunchain (palloc %#p)", &palloc);
-	pg = &palloc.avail[p->lg2size];
 	if(p->prev)
 		p->prev->next = p->next;
 	else
-		pg->head = p->next;
+		palloc.head = p->next;
 	if(p->next)
 		p->next->prev = p->prev;
 	else
-		pg->tail = p->prev;
+		palloc.tail = p->prev;
 	p->prev = p->next = nil;
-	pg->freecount--;
+	palloc.freecount--;
 }
 
 void
 pagechaintail(Page *p)
 {
-	Pallocpg *pg;
-
 	if(canlock(&palloc))
 		panic("pagechaintail");
-	pg = &palloc.avail[p->lg2size];
-	if(pg->tail) {
-		p->prev = pg->tail;
-		pg->tail->next = p;
+	if(palloc.tail) {
+		p->prev = palloc.tail;
+		palloc.tail->next = p;
 	}
 	else {
-		pg->head = p;
-		p->prev = nil;
+		palloc.head = p;
+		p->prev = 0;
 	}
-	pg->tail = p;
-	p->next = nil;
-	pg->freecount++;
+	palloc.tail = p;
+	p->next = 0;
+	palloc.freecount++;
 }
 
 void
 pagechainhead(Page *p)
 {
-	Pallocpg *pg;
-
 	if(canlock(&palloc))
 		panic("pagechainhead");
-	pg = &palloc.avail[p->lg2size];
-	if(pg->head) {
-		p->next = pg->head;
-		pg->head->prev = p;
+	if(palloc.head) {
+		p->next = palloc.head;
+		palloc.head->prev = p;
 	}
 	else {
-		pg->tail = p;
-		p->next = nil;
+		palloc.tail = p;
+		p->next = 0;
 	}
-	pg->head = p;
-	p->prev = nil;
-	pg->freecount++;
+	palloc.head = p;
+	p->prev = 0;
+	palloc.freecount++;
 }
 
-static Page*
-findpg(Page *pl, int color)
+static void
+pagewait(uintptr va, int color)
 {
-	Page *p;
+	qlock(&palloc.pwait);	/* Hold memory requesters here */
 
-	for(p = pl; p != nil; p = p->next)
-		if(color == NOCOLOR || p->color == color)
-			return p;
-	return nil;
+	while(waserror())	/* Ignore interrupts */
+		;
+
+	if(palloc.freecount > 0)
+		iprint("nearly ");
+	iprint("out of physical memory for va %#p in %s; "
+		"highwater %llud freecount %llud\n",
+		va, (up? up->text: "<none>"),
+		(uvlong)highwater, (uvlong)palloc.freecount);
+	USED(color);
+	pagereclaim(highwater/2);
+
+	tsleep(&palloc.r, ispages, 0, 1000);
+	poperror();
+
+	qunlock(&palloc.pwait);
 }
 
 /*
@@ -164,76 +341,56 @@ findpg(Page *pl, int color)
  * return nil iff s was locked on entry and had to be unlocked to wait for memory.
  */
 Page*
-newpage(int clear, Segment *s, uintptr va, uint lg2pgsize, int color, int locked)
+newpage(int clear, Segment *s, uintptr va, int locked)
 {
 	Page *p;
-	KMap *k;
 	uchar ct;
-	Pallocpg *pg;
-	int i, hw, dontalloc;
-	static int once;
+	int color, loops;
+	uintptr hw;
 
+	/* if free memory is tight (uncommon), wait for some to be freed. */
 	lock(&palloc);
-	pg = &palloc.avail[lg2pgsize];
+	color = getpgcolor(va);
 	hw = highwater;
-	for(i = 0;; i++) {
-		if(pg->freecount > hw)
-			break;
-		if(up != nil && up->kp && pg->freecount > 0)
-			break;
-
-		if(i > 3)
-			color = NOCOLOR;
-
-		p = findpg(pg->head, color);
-		if(p != nil)
-			break;
-
-		p = pgalloc(lg2pgsize, color);
-		if(p != nil){
-			pagechainhead(p);
-			break;
-		}
-
+	loops = 0;
+	/* assumes that up will be set by the time freecount <= hw */
+	while (palloc.freecount <= hw && (!up->kp || palloc.freecount <= 0)) {
 		unlock(&palloc);
-		dontalloc = 0;
+
 		if(locked){
 			qunlock(&s->lk);
-			locked = 0;
-			dontalloc = 1;
-		}
-		qlock(&palloc.pwait);	/* Hold memory requesters here */
-
-		while(waserror())	/* Ignore interrupts */
-			;
-
-		kickpager(lg2pgsize, color);
-		tsleep(&palloc.r, ispages, pg, 1000);
-
-		poperror();
-
-		qunlock(&palloc.pwait);
-
-		/*
-		 * If called from fault and we lost the segment from
-		 * underneath don't waste time allocating and freeing
-		 * a page. Fault will call newpage again when it has
-		 * reacquired the segment locks
-		 */
-		if(dontalloc)
+			pagewait(va, color);
+			/*
+			 * If called from fault and we lost the segment from
+			 * underneath don't waste time allocating and freeing
+			 * a page.  Fault will call newpage again when it has
+			 * reacquired the segment locks.
+			 */
 			return nil;
+		}
+		pagewait(va, color);
+		if (Maxloops && ++loops > Maxloops)
+			panic("newpage: va %#p: no page after waiting %d iterations",
+				va, Maxloops);
 
 		lock(&palloc);
 	}
+	USED(loops);
 
 	/* First try for our colour */
-	for(p = pg->head; p; p = p->next)
-		if(color == NOCOLOR || p->color == color)
+	/*
+	 * if we actually ever have systems with multiple memory domains,
+	 * we'll probably want to maintain separate lists for each color
+	 * so that we don't spend a long time skipping pages of the wrong color.
+	 */
+	for(p = palloc.head; p; p = p->next)
+		if(p->color == color)
 			break;
 
 	ct = PG_NOFLUSH;
-	if(p == nil) {
-		p = pg->head;
+	if(p == 0) {
+		p = palloc.head;
+		assert(p);		/* palloc.head */
 		p->color = color;
 		ct = PG_NEWCOL;
 	}
@@ -242,19 +399,22 @@ newpage(int clear, Segment *s, uintptr va, uint lg2pgsize, int color, int locked
 
 	lock(p);
 	if(p->ref != 0)
-		panic("newpage: p->ref %d != 0", p->ref);
+		panic("newpage");
 
 	uncachepage(p);
 	p->ref++;
 	p->va = va;
 	p->modref = 0;
-	mmucachectl(p, ct);
+	memset(p->cachectl, ct, sizeof(p->cachectl));
 	unlock(p);
 	unlock(&palloc);
 
 	if(clear) {
+		KMap *k;
+
 		k = kmap(p);
-		memset((void*)VA(k), 0, pagesize(p));
+		assert(p->lg2size < 32);	/* else need wide memset */
+		zero((void*)VA(k), 1LL<<p->lg2size);
 		kunmap(k);
 	}
 
@@ -262,22 +422,21 @@ newpage(int clear, Segment *s, uintptr va, uint lg2pgsize, int color, int locked
 }
 
 int
-ispages(void *a)
+ispages(void*)
 {
-	return ((Pallocpg*)a)->freecount > highwater;
+	return palloc.freecount > highwater;
 }
 
 void
 putpage(Page *p)
 {
-	Pallocpg *pg;
-	int rlse;
-
+	/*
+	 * we infrequently get lock loops on palloc here.  they pass, so
+	 * they probably just indicate a long search down a linked list of
+	 * Pages (such as palloc.head or palloc.tail) somewhere.
+	 */
 	lock(&palloc);
 	lock(p);
-
-	if(p->ref == 0)
-		panic("putpage");
 
 	if(--p->ref > 0) {
 		unlock(p);
@@ -285,42 +444,32 @@ putpage(Page *p)
 		return;
 	}
 
-	rlse = 0;
+	if(p->ref < 0)
+		panic("putpage");
+
 	if(p->image != nil)
 		pagechaintail(p);
-	else{
-		/*
-		 * Free pages if we have plenty in the free list.
-		 */
-		pg = &palloc.avail[p->lg2size];
-		if(pg->freecount > Nfreepgs)
-			rlse = 1;
-		else
-			pagechainhead(p);
-	}
+	else
+		pagechainhead(p);
 
-	if(palloc.r.p != nil)
+	if(palloc.r.p != 0)
 		wakeup(&palloc.r);
 
 	unlock(p);
-	if(rlse)
-		pgfree(p);
 	unlock(&palloc);
 }
 
 Page*
-auxpage(uint lg2size)
+auxpage(void)
 {
 	Page *p;
-	Pallocpg *pg;
 
 	lock(&palloc);
-	pg = &palloc.avail[lg2size];
-	p = pg->head;
-	if(pg->freecount <= highwater) {
+	p = palloc.head;
+	if(palloc.freecount <= highwater) {
 		/* memory's tight, don't use it for file cache */
 		unlock(&palloc);
-		return nil;
+		return 0;
 	}
 	pageunchain(p);
 
@@ -340,7 +489,6 @@ static int dupretries = 15000;
 int
 duppage(Page *p)				/* Always call with p locked */
 {
-	Pallocpg *pg;
 	Page *np;
 	int color;
 	int retries;
@@ -355,7 +503,7 @@ retry:
 		print("duppage %d, up %#p\n", retries, up);
 		dupretries += 100;
 		if(dupretries > 100000)
-			panic("duppage\n");
+			panic("duppage");
 		uncachepage(p);
 		return 1;
 	}
@@ -384,21 +532,27 @@ retry:
 		goto retry;
 	}
 
-	pg = &palloc.avail[p->lg2size];
+	/*
+	 *  apparently we are spending too long here with palloc locked.
+	 *  maybe acquiring the lock on np just before unlocking palloc
+	 *  can take a long time (say, due to a race with another cpu(s)
+	 *  for that Page)?
+	 */
+
 	/* No freelist cache when memory is relatively low */
-	if(pg->freecount <= highwater) {
+	if(palloc.freecount <= highwater) {
 		unlock(&palloc);
 		uncachepage(p);
 		return 1;
 	}
 
-	color = p->color;
-	for(np = pg->head; np; np = np->next)
+	color = getpgcolor(p->va);
+	for(np = palloc.head; np; np = np->next)
 		if(np->color == color)
 			break;
 
 	/* No page of the correct color */
-	if(np == nil) {
+	if(np == 0) {
 		unlock(&palloc);
 		uncachepage(p);
 		return 1;
@@ -442,7 +596,8 @@ copypage(Page *f, Page *t)
 		panic("copypage");
 	ks = kmap(f);
 	kd = kmap(t);
-	memmove((void*)VA(kd), (void*)VA(ks), pagesize(t));
+	assert(t->lg2size < 32);	/* else need to change memmove */
+	memmove((void*)VA(kd), (void*)VA(ks), 1LL<<t->lg2size);
 	kunmap(ks);
 	kunmap(kd);
 }
@@ -452,12 +607,12 @@ uncachepage(Page *p)			/* Always called with a locked page */
 {
 	Page **l, *f;
 
-	if(p->image == nil)
+	if(p->image == 0)
 		return;
 
 	lock(&palloc.hashlock);
 	l = &pghash(p->daddr);
-	for(f = *l; f != nil; f = f->hash) {
+	for(f = *l; f; f = f->hash) {
 		if(f == p) {
 			*l = p->hash;
 			break;
@@ -466,7 +621,7 @@ uncachepage(Page *p)			/* Always called with a locked page */
 	}
 	unlock(&palloc.hashlock);
 	putimage(p->image);
-	p->image = nil;
+	p->image = 0;
 	p->daddr = 0;
 }
 
@@ -499,13 +654,13 @@ cachedel(Image *i, ulong daddr)
 
 	lock(&palloc.hashlock);
 	l = &pghash(daddr);
-	for(f = *l; f != nil; f = f->hash) {
+	for(f = *l; f; f = f->hash) {
 		if(f->image == i && f->daddr == daddr) {
 			lock(f);
 			if(f->image == i && f->daddr == daddr){
 				*l = f->hash;
 				putimage(f->image);
-				f->image = nil;
+				f->image = 0;
 				f->daddr = 0;
 			}
 			unlock(f);
@@ -522,7 +677,7 @@ lookpage(Image *i, ulong daddr)
 	Page *f;
 
 	lock(&palloc.hashlock);
-	for(f = pghash(daddr); f != nil; f = f->hash) {
+	for(f = pghash(daddr); f; f = f->hash) {
 		if(f->image == i && f->daddr == daddr) {
 			unlock(&palloc.hashlock);
 
@@ -543,7 +698,7 @@ lookpage(Image *i, ulong daddr)
 	}
 	unlock(&palloc.hashlock);
 
-	return nil;
+	return 0;
 }
 
 uvlong
@@ -551,7 +706,6 @@ pagereclaim(int npages)
 {
 	Page *p;
 	uvlong ticks;
-	int i;
 
 	lock(&palloc);
 	ticks = fastticks(nil);
@@ -560,18 +714,28 @@ pagereclaim(int npages)
 	 * All the pages with images backing them are at the
 	 * end of the list (see putpage) so start there and work
 	 * backward.
+	 *
+	 * pageunchain and pagechainhead avoid resource starvation caused by
+	 * duppage() shuffling the freelist differently.  Without inserting
+	 * cached pages at the freelist tail, the tail accumulates an uncached
+	 * "stopper" page which breaks the invariant of imagereclaim, which
+	 * scans from the tail backwards as long as pages are cached.
+	 *
+	 * imagereclaim does not move the pages to the head after uncaching
+	 * them, so prevents the cached pages before the ones it reclaimed from
+	 * being reclaimed ever.
+	 *
+	 * Vetted by Richard Miller.
 	 */
-	for(i = 0; i < nelem(palloc.avail); i++) {
-		for(p = palloc.avail[i].tail; p != nil && p->image != nil && npages > 0; p = p->prev) {
-			if(p->ref == 0 && canlock(p)) {
-				if(p->ref == 0) {
-					npages--;
-					uncachepage(p);
-					pageunchain(p);
-					pagechainhead(p);
-				}
-				unlock(p);
+	for(p = palloc.tail; p && p->image && npages > 0; p = p->prev) {
+		if(p->ref == 0 && canlock(p)) {
+			if(p->ref == 0) {
+				npages--;
+				uncachepage(p);
+				pageunchain(p);
+				pagechainhead(p);
 			}
+			unlock(p);
 		}
 	}
 	ticks = fastticks(nil) - ticks;
@@ -624,18 +788,18 @@ freepte(Segment *s, Pte *p)
 	case SG_PHYSICAL:
 		fn = s->pseg->pgfree;
 		ptop = &p->pages[PTEPERTAB];
-		if(fn) {
+		if(fn) {			/* never used yet */
 			for(pg = p->pages; pg < ptop; pg++) {
-				if(*pg == nil)
+				if(*pg == 0)
 					continue;
 				(*fn)(*pg);
-				*pg = nil;
+				*pg = 0;
 			}
 			break;
 		}
 		for(pg = p->pages; pg < ptop; pg++) {
 			pt = *pg;
-			if(pt == nil)
+			if(pt == 0)
 				continue;
 			lock(pt);
 			ref = --pt->ref;
@@ -646,9 +810,9 @@ freepte(Segment *s, Pte *p)
 		break;
 	default:
 		for(pg = p->first; pg <= p->last; pg++)
-			if(*pg != nil) {
+			if(*pg) {
 				putpage(*pg);
-				*pg = nil;
+				*pg = 0;
 			}
 	}
 	free(p);

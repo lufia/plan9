@@ -55,7 +55,6 @@ noted(Ureg* cur, uintptr arg0)
 	 * Check the segment selectors are all valid.
 	 */
 	nur = &nf->ureg;
-#ifdef notdef
 	if(nur->cs != SSEL(SiUCS, SsRPL3) || nur->ss != SSEL(SiUDS, SsRPL3)
 	|| nur->ds != SSEL(SiUDS, SsRPL3) || nur->es != SSEL(SiUDS, SsRPL3)
 	|| nur->fs != SSEL(SiUDS, SsRPL3) || nur->gs != SSEL(SiUDS, SsRPL3)){
@@ -63,7 +62,6 @@ noted(Ureg* cur, uintptr arg0)
 		pprint("suicide: bad segment selector in noted\n");
 		pexit("Suicide", 0);
 	}
-#endif /* notdef */
 
 	/* don't let user change system flags */
 	nur->flags &= (Of|Df|Sf|Zf|Af|Pf|Cf);
@@ -171,7 +169,8 @@ notify(Ureg* ureg)
 		pexit("Suicide", 0);
 	}
 
-	sp = ureg->sp - sizeof(NFrame);
+	/* leave headroom below sp so a handler push (Go sigpanic) misses the saved ureg */
+	sp = ureg->sp - sizeof(NFrame) - 256;
 	if(!okaddr(sp, sizeof(NFrame), 1)){
 		qunlock(&up->debug);
 		pprint("suicide: bad stack address %#p in notify\n", sp);

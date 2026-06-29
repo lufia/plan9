@@ -7,6 +7,36 @@ fn sigexit {
 	rm -f $diffpath
 }
 
+fn apply1 {
+	adate=`{seconds $adate}
+	files=`$nl{patch -np1 < $diffpath}
+	if(! git/walk -q $files){
+		>[1=2] {
+			echo patch would clobber files:
+			git/walk $files
+			exit clobber
+		}
+	}
+	echo applying $msg | sed 1q
+	if(! files=`$nl{patch -p1 < $diffpath})
+		die 'patch failed'
+	for(f in $files){
+		if(test -e $f)
+			git/add $f
+		if not
+			git/add -r $f
+	}
+	git/walk -fRMA $files
+	if(~ $#nocommit 0){
+		if(hash=`{git/save -n $aname -e $amail -N $name -E $email -m $msg -d $adate $parents $files}){
+			echo $hash > $refpath
+			for(f in $files)
+				echo T NOQID 0 $f >> .git/INDEX9
+		}
+	}
+	exit ''
+}
+	
 
 fn apply @{
 	git/fs
@@ -23,10 +53,32 @@ fn apply @{
 	if not
 		die 'invalid branch:' $branch
 	awk '
+	function doapply(){
+		if(aname == "" || amail == "" || date == "" || gotmsg == "")
+			exit("missing headers");
+		printf "%s", aname > "/env/aname"
+		printf "%s", amail > "/env/amail"
+		printf "%s", date > "/env/adate"
+		if(system("rc -c apply1") != 0)
+			exit("patch failed");
+		close("/env/aname")
+		close("/env/amail")
+		close("/env/adate")
+		close(ENVIRON["diffpath"])
+		applied = 1
+	}
 	BEGIN{
 		state="headers"
 	}
-	state=="headers" && /^From:/ {
+	state=="diff" && !/^[-+ @]|^diff|^$|^\\ No newline at end of file$/{
+		state="footers";
+		doapply();
+	}
+	state=="footers" && /^⑨$/{
+		state="headers"
+		next
+	}
+	state=="headers" && /^[fF]rom:/ {
 		sub(/^From:[ \t]*/, "", $0);
 		aname=$0;
 		amail=$0;
@@ -34,12 +86,12 @@ fn apply @{
 		sub(/^[^<]*</, "", amail);
 		sub(/>[^>]*$/, "", amail);
 	}
-	state=="headers" && /^Date:/{
+	state=="headers" && /^[Dd]ate:/{
 		sub(/^Date:[ \t]*/, "", $0)
 		date=$0
 	}
 	state=="headers" && /^Subject:/{
-		sub(/^Subject:[ \t]*(\[[^\]]*\][ \t]*)*/, "", $0);
+		sub(/^Subject:[ \t]*([Rr][Ee]:)?[ \t]*(\[[^\]]*\][ \t]*)*/, "", $0);
 		gotmsg = 1
 		print > "/env/msg"
 	}
@@ -48,6 +100,7 @@ fn apply @{
 	}
 	(state=="headers" || state=="body") && (/^diff / || /^---( |$)/){
 		state="diff"
+		next
 	}
 	state=="body" && /^[ 	]*$/ {
 		empty=1
@@ -64,34 +117,11 @@ fn apply @{
 		print > ENVIRON["diffpath"]
 	}
 	END{
-		if(state != "diff")
-			exit("malformed patch: " state);
-		if(aname == "" || amail == "" || date == "" || gotmsg == "")
-			exit("missing headers");
-		printf "%s", aname > "/env/aname"
-		printf "%s", amail > "/env/amail"
-		printf "%s", date > "/env/date"
+		if(!failed && state == "diff" && doapply() != 0){
+			print "unable to apply patch" > "/fd/2"
+			exit("mispatch")
+		}
 	}
-	' || die 'could not import:' $status
-
-	# force re-reading env
-	rc -c '
-		echo applying $msg | sed 1q
-		date=`{seconds $date}
-		if(! files=`$nl{ape/patch -Ep1 < $diffpath | grep ''^patching file'' | sed ''s/^patching file `(.*)''''/\1/''})
-			die ''patch failed''
-		for(f in $files){
-			if(test -e $f)
-				git/add $f
-			if not
-				git/add -r $f
-		}
-		git/walk -fRMA $files
-		if(~ $#nocommit 0){
-			if(hash=`{git/save -n $aname -e $amail -N $name -E $email -m $msg -d $date $parents $files})
-				echo $hash > $refpath
-		}
-		status=''''
 	'
 }
 
@@ -102,7 +132,7 @@ eval `''{aux/getflags $*} || exec aux/usage
 
 patches=(/fd/0)
 if(! ~ $#* 0)
-	patches=$*
+	patches=`{cleanname -d $gitrel $*}
 for(p in $patches){
 	# upas serves the decoded header and body separately,
 	# so we cat them together when applying a upas message.
@@ -111,6 +141,6 @@ for(p in $patches){
 	if(test -d $p && test -f $p/header && test -f $p/body)
 		{{cat $p/header; echo; cat $p/body} | apply} || die $status
 	if not
-		apply < $p || die $status
+		apply < $p
 }
 exit ''

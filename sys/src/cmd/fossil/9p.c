@@ -555,8 +555,12 @@ rTread(Msg* m)
 		n = dirRead(fid, data, count, m->t.offset);
 	else if(fid->qid.type & QTAUTH)
 		n = authRead(fid, data, count);
-	else
+	else{
 		n = fileRead(fid->file, data, count, m->t.offset);
+		if(n > 0)
+			fileReadAhead(fid->file, m->t.offset, n,
+				&fid->raexpect, &fid->ramax);
+	}
 	if(n < 0)
 		goto error;
 
@@ -811,7 +815,7 @@ rTwalk(Msg* m)
 	if(t->fid != t->newfid){
 		nfid = fidGet(m->con, t->newfid, FidFWlock|FidFCreate);
 		if(nfid == nil){
-			werrstr("%s: walk: newfid 0x%ud in use",
+			werrstr("%s: walk: newfid 0x%ux in use",
 				argv0, t->newfid);
 			fidPut(ofid);
 			return 0;

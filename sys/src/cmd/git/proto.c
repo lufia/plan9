@@ -13,9 +13,45 @@ enum {
 	Nport	= 16,
 	Nhost	= 256,
 	Npath	= 128,
-	Nrepo	= 64,
 	Nbranch	= 32,
 };
+
+char *
+matchcap(char *s, char *cap, int full)
+{
+	if(strncmp(s, cap, strlen(cap)) == 0)
+		if(!full || strlen(s) == strlen(cap))
+			return s + strlen(cap);
+	return nil;
+}
+
+void
+parsecaps(char *caps, Conn *c)
+{
+	char *p, *n, *s, *t;
+
+	for(p = caps; p != nil; p = n){
+		n = strchr(p, ' ');
+		if(n != nil)
+			*n++ = 0;
+		if(matchcap(p, "report-status", 1) != nil)
+			c->report = 1;
+		if(matchcap(p, "multi_ack", 1) != nil)
+			c->multiack = 1;
+		else if(matchcap(p, "side-band", 1) != nil)
+			c->sideband = 1;
+		else if(matchcap(p, "side-band-64k", 1) != nil)
+			c->sideband64k = 1;
+		else if((s = matchcap(p, "symref=", 0)) != nil){
+			if((t = strchr(s, ':')) == nil)
+				continue;
+			*t++ = '\0';
+			snprint(c->symfrom, sizeof(c->symfrom), s);
+			snprint(c->symto, sizeof(c->symto), t);
+		}
+	}
+}
+
 
 void
 tracepkt(int v, char *pfx, char *b, int n)
@@ -58,8 +94,10 @@ readpkt(Conn *c, char *buf, int nbuf)
 	char *e;
 	int n;
 
-	if(readn(c->rfd, len, 4) == -1)
+	if(readn(c->rfd, len, 4) != 4){
+		werrstr("pktline: short read from transport");
 		return -1;
+	}
 	len[4] = 0;
 	n = strtol(len, &e, 16);
 	if(n == 0){
@@ -70,9 +108,15 @@ readpkt(Conn *c, char *buf, int nbuf)
 		sysfatal("pktline: bad length '%s'", len);
 	n  -= 4;
 	if(n >= nbuf)
-		sysfatal("pktline: undersize buffer");
+		abort();//sysfatal("pktline: undersize buffer");
 	if(readn(c->rfd, buf, n) != n)
 		return -1;
+	if(n > 4 && strncmp(buf, "ERR ", 4) == 0){
+		if((e = strrchr(buf, '\n')) != nil)
+			*e = '\0';
+		werrstr("%s", buf + 4);
+		return -1;
+	}
 	buf[n] = 0;
 	tracepkt(1, "=r=>", buf, n);
 	return n;
@@ -91,6 +135,20 @@ writepkt(Conn *c, char *buf, int nbuf)
 		return -1;
 	tracepkt(1, "<=w=", buf, nbuf);
 	return 0;
+}
+
+int
+fmtpkt(Conn *c, char *fmt, ...)
+{
+	char pkt[Pktmax];
+	va_list ap;
+	int n;
+
+	va_start(ap, fmt);
+	n = vsnprint(pkt, sizeof(pkt), fmt, ap);
+	n = writepkt(c, pkt, n);
+	va_end(ap);
+	return n;
 }
 
 int
@@ -113,10 +171,11 @@ grab(char *dst, int n, char *p, char *e)
 }
 
 static int
-parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
+parseuri(char *uri, char *proto, char *host, char *port, char *path)
 {
 	char *s, *p, *q;
-	int n, hasport;
+	int hasport;
+
 	print("uri: \"%s\"\n", uri);
 
 	p = strstr(uri, "://");
@@ -161,18 +220,8 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 	}else{
 		grab(host, Nhost, s, p);
 	}
-	
+
 	snprint(path, Npath, "%s", p);
-	if((q = strrchr(p, '/')) != nil)
-		p = q + 1;
-	if(strlen(p) == 0){
-		werrstr("missing repository in uri");
-		return -1;
-	}
-	n = strlen(p);
-	if(hassuffix(p, ".git"))
-		n -= 4;
-	grab(repo, Nrepo, p, p + n);
 	return 0;
 }
 
@@ -253,19 +302,24 @@ issmarthttp(Conn *c, char *direction)
 static int
 dialhttp(Conn *c, char *host, char *port, char *path, char *direction)
 {
-	char *geturl, *suff, *hsep, *psep;
+	char *geturl, *suff, *hsep, *psep, *isep;
 
 	suff = "";
 	hsep = "";
 	psep = "";
+	isep = "";
 	if(port && strlen(port) != 0)
 		hsep = ":";
 	if(path && path[0] != '/')
 		psep = "/";
+	if(path && path[0] && path[strlen(path)-1] != '/')
+		isep = "/";
 	memset(c, 0, sizeof(*c));
-	geturl = smprint("https://%s%s%s%s%s%s/info/refs?service=git-%s-pack", host, hsep, port, psep, path, suff, direction);
+	geturl = smprint("https://%s%s%s%s%s%s%sinfo/refs?service=git-%s-pack",
+		host, hsep, port, psep, path, suff, isep, direction);
 	c->type = ConnHttp;
-	c->url = smprint("https://%s%s%s%s%s%s/git-%s-pack", host, hsep, port, psep, path, suff, direction);
+	c->url = smprint("https://%s%s%s%s%s%s%sgit-%s-pack",
+		host, hsep, port, psep, path, suff, isep, direction);
 	c->cfd = webclone(c, geturl);
 	free(geturl);
 	if(c->cfd == -1)
@@ -410,7 +464,6 @@ static int
 localrepo(char *uri, char *path, int npath)
 {
 	int fd;
-
 	snprint(path, npath, "%s/.git/../", uri);
 	fd = open(path, OREAD);
 	if(fd < 0)
@@ -426,8 +479,7 @@ localrepo(char *uri, char *path, int npath)
 int
 gitconnect(Conn *c, char *uri, char *direction)
 {
-	char proto[Nproto], host[Nhost], port[Nport];
-	char repo[Nrepo], path[Npath];
+	char proto[Nproto], host[Nhost], port[Nport], path[Npath];
 
 	memset(c, 0, sizeof(Conn));
 	c->rfd = c->wfd = c->cfd = -1;
@@ -435,7 +487,7 @@ gitconnect(Conn *c, char *uri, char *direction)
 	if(localrepo(uri, path, sizeof(path)) == 0)
 		return servelocal(c, path, direction);
 
-	if(parseuri(uri, proto, host, port, path, repo) == -1){
+	if(parseuri(uri, proto, host, port, path) == -1){
 		werrstr("bad uri %s", uri);
 		return -1;
 	}

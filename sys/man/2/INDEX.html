@@ -44,7 +44,7 @@
 </DT>
 <DT><A HREF="/magic/man2html/2/aes">aes</A>
 -  advanced encryption standard (rijndael)
-<DD><TT> setupAESstate, aesCBCencrypt, aesCBCdecrypt, aesCTRencrypt, aesCTRdecrypt, setupAESXCBCstate, aesXCBCmac</TT>
+<DD><TT> setupAESstate, aesCBCencrypt, aesCBCdecrypt, aesCTRencrypt, aesCTRdecrypt, setupAESXCBCstate, aesXCBCmac, setupAESGCMstate, aesgcm_setiv, aesgcm_encrypt, aesgcm_decrypt</TT>
 </DT>
 <DT><A HREF="/magic/man2html/2/ainc">ainc</A>
 -  atomic operations
@@ -106,13 +106,17 @@
 -  change memory allocation
 <DD><TT> brk, sbrk</TT>
 </DT>
+<DT><A HREF="/magic/man2html/2/byteserial">byteserial</A>
+-  converts integers to bytes, and vice versa, in either byte order
+<DD><TT> byteserial: begeth, begetl, begetvl, beputh, beputl, beputvl, legeth, legetl, legetvl, leputh, leputl, leputvl</TT>
+</DT>
 <DT><A HREF="/magic/man2html/2/cachechars">cachechars</A>
 -  font utilities
 <DD><TT> cachechars, agefont, loadchar, Subfont, Fontchar, Font</TT>
 </DT>
 <DT><A HREF="/magic/man2html/2/chacha">chacha</A>
 -  chacha encryption
-<DD><TT> setupChachastate, chacha_setblock, chacha_setiv, chacha_encrypt, chacha_encrypt2, ccpoly_encrypt, ccpoly_decrypt</TT>
+<DD><TT> setupChachastate, chacha_setblock, chacha_setiv, chacha_encrypt, chacha_encrypt2, hchacha, ccpoly_encrypt, ccpoly_decrypt</TT>
 </DT>
 <DT><A HREF="/magic/man2html/2/chdir">chdir</A>
 -  change working directory
@@ -154,6 +158,10 @@
 -  single and triple digital encryption standard
 <DD><TT> setupDESstate, des_key_setup, block_cipher, desCBCencrypt, desCBCdecrypt, desECBencrypt, desECBdecrypt, des3CBCencrypt, des3CBCdecrypt, des3ECBencrypt, des3ECBdecrypt, key_setup, des56to64, des64to56, setupDES3state, triple_block_cipher</TT>
 </DT>
+<DT><A HREF="/magic/man2html/2/dh">dh</A>
+-  ephemeral Diffie-Hellman key exchange
+<DD><TT> dh_new, dh_finish</TT>
+</DT>
 <DT><A HREF="/magic/man2html/2/dial">dial</A>
 -  make and break network connections
 <DD><TT> dial, hangup, announce, listen, accept, reject, netmkaddr, setnetmtpt, getnetconninfo, freenetconninfo</TT>
@@ -181,6 +189,10 @@
 <DT><A HREF="/magic/man2html/2/dynld">dynld</A>
 -  load object file dynamically
 <DD><TT> dynfindsym, dynfreeimport, dynloadfd, dynloadgen, dynobjfree, dyntabsize</TT>
+</DT>
+<DT><A HREF="/magic/man2html/2/ec">ec</A>
+-  elliptic curve cryptography
+<DD><TT> secp256r1, ecdominit, ecdomfree, ecassign, ecadd, ecmul, strtoec, ecgen, ecverify, ecpubverify, ecdsasign, ecdsaverify, ecencodepub, ecdecodepub, ecpubfree, X509toECpub, X509ecdsaverifydigest</TT>
 </DT>
 <DT><A HREF="/magic/man2html/2/elgamal">elgamal</A>
 -  elgamal encryption
@@ -302,6 +314,10 @@
 -  interactive graphics
 <DD><TT> Display, Point, Rectangle, Cursor, initdraw, geninitdraw, drawerror, initdisplay, closedisplay, getdefont, getwindow, gengetwindow, flushimage, bufimage, lockdisplay, unlockdisplay, openfont, buildfont, freefont, Pfmt, Rfmt, strtochan, chantostr, chantodepth</TT>
 </DT>
+<DT><A HREF="/magic/man2html/2/hkdf">hkdf</A>
+-  HMAC-based extract-and-expand key derivation function (HKDF)
+<DD><TT> hkdfExpand, hkdfExtract, hkdfKey</TT>
+</DT>
 <DT><A HREF="/magic/man2html/2/html">html</A>
 -  HTML parser
 <DD><TT> parsehtml, printitems, validitems, freeitems, freedocinfo, dimenkind, dimenspec, targetid, targetname, fromStr, toStr</TT>
@@ -338,10 +354,6 @@
 -  keyboard control
 <DD><TT> initkeyboard, ctlkeyboard, closekeyboard</TT>
 </DT>
-<DT><A HREF="/magic/man2html/2/leget">leget</A>
-- 
-<DD><TT></TT>
-</DT>
 <DT><A HREF="/magic/man2html/2/lock">lock</A>
 -  spin locks, queueing rendezvous locks, reader-writer locks, rendezvous points, and reference counts
 <DD><TT> lock, canlock, unlock, qlock, canqlock, qunlock, rlock, canrlock, runlock, wlock, canwlock, wunlock, rsleep, rwakeup, rwakeupall, incref, decref</TT>
@@ -368,7 +380,7 @@
 </DT>
 <DT><A HREF="/magic/man2html/2/memory">memory</A>
 -  memory operations
-<DD><TT> memccpy, memchr, memcmp, memcpy, memmove, memset</TT>
+<DD><TT> memccpy, memchr, memcmp, memcpy, memmove, memset, tsmemcmp</TT>
 </DT>
 <DT><A HREF="/magic/man2html/2/mktemp">mktemp</A>
 -  make a unique file name
@@ -504,7 +516,7 @@
 </DT>
 <DT><A HREF="/magic/man2html/2/rsa">rsa</A>
 -  RSA encryption algorithm
-<DD><TT> asn1dump, asn1toRSApub, asn1toRSApriv, decodePEM, rsadecrypt, rsaencrypt, rsagen, rsaprivalloc, rsaprivfree, rsaprivtopub, rsapuballoc, rsapubfree, RSApubtoasn1, X509toRSApub, X509gen, X509verify</TT>
+<DD><TT> asn1dump, asn1toRSApub, asn1toRSApriv, decodePEM, rsadecrypt, rsaencrypt, rsagen, rsaprivalloc, rsaprivfree, rsaprivtopub, rsapuballoc, rsapubfree, RSApubtoasn1, X509toRSApub, X509reqtoRSApub, X509gen, X509verify</TT>
 </DT>
 <DT><A HREF="/magic/man2html/2/rune">rune</A>
 -  rune/UTF conversion

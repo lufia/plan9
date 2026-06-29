@@ -25,6 +25,7 @@ env
 lib/audio
 lib/tftpd/faa1159e
 pbsraw
+rc/bin/_*
 usr/djc
 sys/lib/dist/bin
 sys/lib/dist/pc/multi

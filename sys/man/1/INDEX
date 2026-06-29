@@ -131,13 +131,13 @@ mahjongg games
 memo games
 sokoban games
 sudoku games
- git
 git git
 git/branch git
 git/clone git
 git/commit git
 git/conf git
 git/diff git
+git/hist git
 git/init git
 git/log git
 git/merge git

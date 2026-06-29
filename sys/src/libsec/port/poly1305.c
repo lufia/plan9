@@ -1,5 +1,4 @@
-#include <u.h>
-#include <libc.h>
+#include "os.h"
 #include <libsec.h>
 
 /*
@@ -63,6 +62,10 @@ poly1305(uchar *m, ulong len, uchar *key, ulong klen, uchar *digest, DigestState
 		if(s->blen == 16){
 			s->blen = 0;
 			poly1305(s->buf, 16, key, klen, nil, s);
+		} else if(len == 0){
+			m = s->buf;
+			len = s->blen;
+			s->blen = 0;
 		}
 	}
 
@@ -169,7 +172,7 @@ Block:
 	h1 = (h1 >>  6) | (h2 << 20);
 	h2 = (h2 >> 12) | (h3 << 14);
 	h3 = (h3 >> 18) | (h4 <<  8);
-
+	
 	/* digest = (h + pad) % (2^128) */
 	f = (u64int)h0 + s->state[10]            ; h0 = (u32int)f;
 	f = (u64int)h1 + s->state[11] + (f >> 32); h1 = (u32int)f;

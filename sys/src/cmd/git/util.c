@@ -4,11 +4,15 @@
 
 #include "git.h"
 
-Reprog *authorpat;
-Hash Zhash;
+Reprog	*authorpat;
+Hash	Zhash;
+int	chattygit;
+int	interactive = 1;
+int	gitdirmode = -1;
 
-int chattygit;
-int interactive = 1;
+enum {
+	Seed		= 2928213749ULL
+};
 
 Object*
 emptydir(void)
@@ -29,6 +33,51 @@ emptydir(void)
 	cache(e);
 	return e;
 }
+int
+entcmp(void *pa, void *pb)
+{
+	Dirent *ae, *be;
+	uchar *a, *b;
+	int ca, cb;
+
+	ae = pa;
+	be = pb;
+	a = (uchar*)ae->name;
+	b = (uchar*)be->name;
+	/*
+	 * If the files have the same name, they're equal.
+	 * Otherwise, If they're trees, they sort as thoug
+	 * there was a trailing slash.
+	 *
+	 * Wat.
+	 */
+	while(1){
+		ca = *a++;
+		cb = *b++;
+		/*
+		 * because these are dir entries in a tree,
+		 * the only '/' allowable is the virtual '/'
+		 * at the end of the file name.
+		 */
+		assert(ca != '/' && cb != '/');
+		if(ca != cb){
+			if(ca == 0 && (ae->mode & DMDIR))
+				ca = '/';
+			if(cb == 0 && (be->mode & DMDIR))
+				cb = '/';
+			return (ca > cb) ? 1 : -1;
+		}
+		if(ca == 0){
+			if(ae->mode & DMDIR)
+				ca = '/';
+			if(be->mode & DMDIR)
+				cb = '/';
+			if(ca == cb)
+				return 0;
+			return (ca > cb) ? 1 : -1;
+		}
+	}
+}
 
 int
 hasheq(Hash *a, Hash *b)
@@ -36,8 +85,8 @@ hasheq(Hash *a, Hash *b)
 	return memcmp(a->h, b->h, sizeof(a->h)) == 0;
 }
 
-static int
-charval(int c, int *err)
+int
+charval(int c)
 {
 	if(c >= '0' && c <= '9')
 		return c - '0';
@@ -45,7 +94,7 @@ charval(int c, int *err)
 		return c - 'a' + 10;
 	if(c >= 'A' && c <= 'F')
 		return c - 'A' + 10;
-	*err = 1;
+	werrstr("invalid hex char");
 	return -1;
 }
 
@@ -188,38 +237,70 @@ Qfmt(Fmt *fmt)
 	Qid q;
 
 	q = va_arg(fmt->args, Qid);
-	return fmtprint(fmt, "Qid{path=0x%llx(dir:%d,obj:%lld), vers=%ld, type=%d}",
-	    q.path, QDIR(&q), (q.path >> 8), q.vers, q.type);
+	if(q.path == ~0ULL && q.vers == ~0UL && q.type == 0xff)
+		return fmtprint(fmt, "NOQID");
+	else
+		return fmtprint(fmt, "%llux.%lud.%hhx", q.path, q.vers, q.type);
+}
+
+/* Finds the directory containing the git repo. */
+static void
+findrepo(char *buf, int nbuf, int *nrel)
+{
+	char *p, *suff;
+
+	suff = "/.git/HEAD";
+	if(getwd(buf, nbuf - strlen(suff) - 1) == nil)
+		sysfatal("getwd: %r");
+
+	*nrel = 0;
+	for(p = buf + strlen(buf); p != nil; p = strrchr(buf, '/')){
+		strcpy(p, suff);
+		if(access(buf, AEXIST) == 0){
+			p[p == buf] = '\0';
+			return;
+		}
+		*nrel += 1;
+		*p = '\0';
+	}
+	sysfatal("not a git repository");
 }
 
 void
-gitinit(void)
+gitinit(char *root, int nroot, int *nrel)
 {
+	char repo[512] = ".git";
+	Dir *d;
+
 	fmtinstall('H', Hfmt);
 	fmtinstall('T', Tfmt);
 	fmtinstall('O', Ofmt);
 	fmtinstall('Q', Qfmt);
 	inflateinit();
 	deflateinit();
-	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]+([\\-+]?[0-9]+)");
+	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]*([\\-+]?[0-9]+)?");
 	osinit(&objcache);
+	if(root != nil){
+		findrepo(root, nroot, nrel);
+		snprint(repo, sizeof(repo), "%s/.git", root);
+	}
+	if((d = dirstat(repo)) == nil)
+		sysfatal("stat %s: %r", repo);
+	gitdirmode = d->mode & 0777;
+	free(d);
 }
 
 int
 hparse(Hash *h, char *b)
 {
-	int i, err;
+	int i, c0, c1;
 
-	err = 0;
-	for(i = 0; i < sizeof(h->h); i++){
-		err = 0;
-		h->h[i] = 0;
-		h->h[i] |= ((charval(b[2*i], &err) & 0xf) << 4);
-		h->h[i] |= ((charval(b[2*i+1], &err)& 0xf) << 0);
-		if(err){
-			werrstr("invalid hash");
+	for(i = 0; i < nelem(h->h); i++){
+		if((c0 = charval(b[2*i+0])) == -1)
 			return -1;
-		}
+		if((c1 = charval(b[2*i+1])) == -1)
+			return -1;
+		h->h[i] = (c0 << 4) | c1;
 	}
 	return 0;
 }
@@ -288,28 +369,6 @@ _dprint(char *fmt, ...)
 	va_end(ap);
 }
 
-/* Finds the directory containing the git repo. */
-int
-findrepo(char *buf, int nbuf)
-{
-	char *p, *suff;
-
-	suff = "/.git/HEAD";
-	if(getwd(buf, nbuf - strlen(suff) - 1) == nil)
-		return -1;
-
-	for(p = buf + strlen(buf); p != nil; p = strrchr(buf, '/')){
-		strcpy(p, suff);
-		if(access(buf, AEXIST) == 0){
-			p[p == buf] = '\0';
-			return 0;
-		}
-		*p = '\0';
-	}
-	werrstr("not a git repository");
-	return -1;
-}
-
 int
 showprogress(int x, int pct)
 {
@@ -343,6 +402,7 @@ qput(Objq *q, Object *o, int color)
 	Qelt t;
 	int i;
 
+	assert(o->type == GCommit);
 	if(q->nheap == q->heapsz){
 		q->heapsz *= 2;
 		q->heap = earealloc(q->heap, q->heapsz, sizeof(Qelt));
@@ -390,4 +450,116 @@ qpop(Objq *q, Qelt *e)
 		i = m;
 	}
 	return 1;
+}
+
+u64int
+murmurhash2(void *pp, usize n)
+{
+	u32int m = 0x5bd1e995;
+	u32int r = 24;
+	u32int h, k;
+	uchar *w, *e;
+	
+	h = Seed ^ n;
+	e = pp;
+	e += n & -4;
+	for (w = pp; w != e; w += 4) {
+		k = (u32int)w[0] | (u32int)w[1] << 8 | (u32int)w[2] << 16 | (u32int)w[3] << 24;
+		k *= m;
+		k ^= k >> r;
+		k *= m;
+
+		h *= m;
+		h ^= k;
+	}
+
+	switch (n & 0x3) {
+	case 3:	h ^= w[2] << 16;
+	case 2:	h ^= w[1] << 8;
+	case 1:	h ^= w[0] << 0;
+		h *= m;
+	}
+
+	h ^= h >> 13;
+	h *= m;
+	h ^= h >> 15;
+
+	return h;
+}
+
+Qid
+parseqid(char *s)
+{
+	char *e;
+	Qid q;
+
+	if(strcmp(s, "NOQID") == 0)
+		return (Qid){-1, -1, -1};		
+	e = s;
+	q.path = strtoull(e, &e, 16);
+	if(*e != '.')
+		sysfatal("corrupt qid: %s (%s)", s, e);
+	q.vers = strtoul(e+1, &e, 10);
+	if(*e != '.')
+		sysfatal("corrupt qid: %s (%s)", s, e);
+	q.type = strtoul(e+1, &e, 16);
+	if(*e != '\0')
+		sysfatal("corrupt qid: %s (%x)", s, *e);
+	return q;
+}
+
+/*
+ * Checks the rules for valid ref names, as defined in
+ *   git/Documentation/protocol-common.txt.
+ * It does not check that the ref begins with refs/
+ * or is called HEAD, since that's only needed in the
+ * clone protocol.
+ */
+int
+okref(char *ref)
+{
+	int n, slashed;
+	char *p;
+	Rune r;
+
+	slashed = 0;
+	if(*ref == '/' || *ref == '.')
+		return 0;
+	for(p = ref; *p != 0; p += n) {
+		n = chartorune(&r, p);
+		switch(r){
+		case '.':
+			if(p[1]== 0 || p[1] == '.')
+				return 0;
+			if(strcmp(p, ".lock") == 0)
+				return 0;
+			break;
+		case '/':
+			if(p[1] == 0 || p[1] == '.' || p[1] == '/')
+				return 0;
+			slashed = 1;
+			break;
+		case '@':
+			if(p[1] == '{')
+				return 0;
+			break;
+		case ' ':
+		case '~':
+		case '^':
+		case ':':
+		case '?':
+		case '*':
+		case '[':
+		case '\\':
+		case Runeerror:
+		case 0x7f: /* DEL */
+			return 0;
+		default:
+			if(r < 0x20 || isspacerune(r))
+				return 0;
+		}
+	}
+	if(ref == p)
+		return 0;
+	return slashed;
 }

@@ -2,14 +2,14 @@
 #pragma	src	"/sys/src/libc"
 
 #define	nelem(x)	(sizeof(x)/sizeof((x)[0]))
-#define	offsetof(s, m)	(ulong)(&(((s*)0)->m))
+#define	offsetof(s, m)	(uintptr)(&(((s*)0)->m))
 #define	assert(x)	if(x){}else _assert("x")
 
 /*
  * mem routines
  */
 extern	void*	memccpy(void*, void*, int, ulong);
-extern	void*	memset(void*, int, ulong);
+extern	void*	memset(void*, int, uintptr);
 extern	int	memcmp(void*, void*, ulong);
 extern	void*	memcpy(void*, void*, ulong);
 extern	void*	memmove(void*, void*, ulong);
@@ -48,6 +48,23 @@ enum
 	Runemax		= 0x10FFFF,	/* 21-bit rune */
 	Runemask	= 0x1FFFFF,	/* bits used by runes (see grep) */
 };
+
+/*
+ * byte serialization
+ */
+extern	uint	begeth(void *vp);
+extern	uint	begetl(void *vp);
+extern	uvlong	begetvl(void *vp);
+extern	void*	beputh(void *vp, ushort l);
+extern	void*	beputl(void *vp, ulong l);
+extern	void*	beputvl(void *vp, uvlong l);
+
+extern	uint	legeth(void *vp);
+extern	uint	legetl(void *vp);
+extern	uvlong	legetvl(void *vp);
+extern	void*	leputh(void *vp, ushort l);
+extern	void*	leputl(void *vp, ulong l);
+extern	void*	leputvl(void *vp, uvlong l);
 
 /*
  * rune routines
@@ -92,17 +109,17 @@ extern	int	isupperrune(Rune);
 /*
  * malloc
  */
-extern	void*	malloc(ulong);
-extern	void*	mallocz(ulong, int);
+extern	void*	malloc(uintptr);
+extern	void*	mallocz(uintptr, int);
 extern	void	free(void*);
-extern	ulong	msize(void*);
-extern	void*	mallocalign(ulong, ulong, long, ulong);
-extern	void*	calloc(ulong, ulong);
-extern	void*	realloc(void*, ulong);
-extern	void	setmalloctag(void*, ulong);
-extern	void	setrealloctag(void*, ulong);
-extern	ulong	getmalloctag(void*);
-extern	ulong	getrealloctag(void*);
+extern	uintptr	msize(void*);
+extern	void*	mallocalign(uintptr, uintptr, vlong, uintptr);
+extern	void*	calloc(uintptr, uintptr);
+extern	void*	realloc(void*, uintptr);
+extern	void	setmalloctag(void*, uintptr);
+extern	void	setrealloctag(void*, uintptr);
+extern	uintptr	getmalloctag(void*);
+extern	uintptr	getrealloctag(void*);
 extern	void*	malloctopoolblock(void*);
 
 /*
@@ -335,25 +352,6 @@ extern	vlong	nsec(void);
 
 extern	void	cycles(uvlong*);	/* 64-bit value of the cycle counter if there is one, 0 if there isn't */
 
-/*
- * endian conversion
- */
-extern u16int	le16get(uchar *t,  uchar **r);
-extern u32int	le24get(uchar *t,  uchar **r);
-extern u32int	le32get(uchar *t,  uchar **r);
-extern u64int	le64get(uchar *t,  uchar **r);
-extern uchar*	le16put(uchar *t, u16int r);
-extern uchar*	le24put(uchar *t, u32int r);
-extern uchar*	le32put(uchar *t, u32int r);
-extern uchar*	le64put(uchar *t, u64int r);
-extern u16int	be16get(uchar *t,  uchar **r);
-extern u32int	be24get(uchar *t,  uchar **r);
-extern u32int	be32get(uchar *t,  uchar **r);
-extern u64int	be64get(uchar *t,  uchar **r);
-extern uchar*	be16put(uchar *t, u16int r);
-extern uchar*	be24put(uchar *t, u32int r);
-extern uchar*	be32put(uchar *t, u32int r);
-extern uchar*	be64put(uchar *t, u64int r);
 
 /*
  * endian conversion

@@ -3,7 +3,7 @@
 LIB=/$objtype/lib/libsec.a
 
 CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
-	aes.c blowfish.c chacha.c \
+	aes.c aes_gcm.c blowfish.c chacha.c chachablock.c \
 	hmac.c md5.c md5block.c md4.c sha1.c sha1block.c\
 	sha2_64.c sha2_128.c sha2block64.c sha2block128.c\
 	sha1pickle.c md5pickle.c\
@@ -20,8 +20,11 @@ CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
 	tlshand.c thumb.c readcert.c \
 	pbkdf2.c\
 	hkdf.c\
-	ccpoly.c\
 	tsmemcmp.c\
+	ccpoly.c\
+	ecc.c jacobian.c secp256r1.c secp384r1.c dh.c curve25519.c curve25519_dh.c\
+
+CLEANFILES=secp256r1.c secp384r1.c jacobian.c
 
 ALLOFILES=${CFILES:%.c=%.$O}
 
@@ -38,5 +41,14 @@ UPDATE=mkfile\
 
 </sys/src/cmd/mksyslib
 
+# generate the elliptic curve parameter tables from their mp source
+%.c:D:	%.mp
+	echo '#include "os.h"' > $target
+	echo '#include <mp.h>' >> $target
+	mpc $prereq >> $target
+
 $O.rsatest: rsatest.$O
+	$LD -o $target $prereq
+
+$O.hkdftest: hkdftest.$O
 	$LD -o $target $prereq
