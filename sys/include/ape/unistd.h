@@ -112,6 +112,7 @@ extern pid_t fork(void);
 #endif
 
 /* process environment */
+extern int gethostname(char *, int);
 extern char *getlogin(void);
 extern char *cuserid(char *);
 extern char *ttyname(int);
