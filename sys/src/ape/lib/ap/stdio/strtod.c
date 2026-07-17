@@ -42,7 +42,7 @@ extern double rnd_prod(double, double), rnd_quot(double, double);
  static double
 ulp(double xarg)
 {
-	long L;
+	register long L;
 	Dul a;
 	Dul x;
 

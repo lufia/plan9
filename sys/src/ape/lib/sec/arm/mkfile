@@ -10,6 +10,3 @@ HFILES=/sys/include/ape/libsec.h
 UPDATE=mkfile
 
 </sys/src/cmd/mksyslib
-
-%.$O:	../../../../libsec/$objtype/%.s
-	$AS $AFLAGS ../../../../libsec/$objtype/$stem.s

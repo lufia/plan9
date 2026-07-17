@@ -5,8 +5,6 @@
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
-#include <inttypes.h>
-
 /*
  * Leading flags
  */
@@ -205,7 +203,7 @@ vfprintf(FILE *f, const char *as, va_list args)
 			nprint++;
 		}
 	}
-	return ferror(f)? -1: nprint;
+	return ferror(f)? -1: nprint;;
 }
 
 static int

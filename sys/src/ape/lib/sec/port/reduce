@@ -1,4 +1,3 @@
-#!/bin/rc
 O=$1
 shift
 objtype=$1
@@ -6,7 +5,7 @@ shift
 
 cwd=`{basename -d `{pwd}}
 cwd=$cwd/$objtype
-bind -ac ../../../../libsec/$objtype $cwd
+bind -ac /sys/src/libsec/$objtype $cwd
 
 ls -p ../$objtype/*.[cs] >[2]/dev/null | sed 's/..$//' > /tmp/reduce.$pid
 #

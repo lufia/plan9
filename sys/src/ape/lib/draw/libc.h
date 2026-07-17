@@ -14,11 +14,6 @@
 #include <utf.h>
 #include <fmt.h>
 #include <signal.h>
-#include <time.h>
-
-#define	nelem(x)	(sizeof(x)/sizeof((x)[0]))
-
-extern	int	tokenize(char*, char**, int);
 
 typedef
 struct Qid
@@ -131,6 +126,7 @@ extern	int	_IOUNIT(int);
 #define readn _READN
 #define mallocz _MALLOCZ
 #define iounit	_IOUNIT
+#define bind _BIND
 
 /* assume being called as in event.c */
 #define postnote(x, pid, msg) kill(pid, SIGTERM)
@@ -140,21 +136,3 @@ extern	int	_IOUNIT(int);
 
 extern	void	setmalloctag(void*, ulong);
 extern	ulong	getcallerpc(void*);
-
-/* Used in libsec.h and not picked up in earlier type definitions */
-typedef unsigned int u32int;
-typedef unsigned long long u64int;
-
-int  dec16(uchar *, int, char *, int);
-int  enc16(char *, int, uchar *, int);
-int  dec32(uchar *, int, char *, int);
-int  enc32(char *, int, uchar *, int);
-int  dec64(uchar *, int, char *, int);
-int  enc64(char *, int, uchar *, int);
-
-extern	vlong	nsec(void);
-
-extern void sysfatal(char*, ...);
-
-extern	ulong	truerand(void);			/* uses /dev/random */
-extern	int	getfields(char*, char**, int, int, char*);

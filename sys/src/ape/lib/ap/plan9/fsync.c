@@ -3,9 +3,8 @@
 #include <errno.h>
 
 int
-fsync(int fd)
+fsync(int)
 {
-	USED(fd);
 	errno = EINVAL;
 	return -1;
 }

@@ -1,16 +1,22 @@
 /*
  *  substitution list
  */
-enum {
-	NSUBEXP	= 32,
-	LISTINCREMENT	= 8,
-};
-
 typedef struct Resublist	Resublist;
 struct	Resublist
 {
-	Resub	m[NSUBEXP];
+	Resub	m[32];
 };
+
+/* max subexpressions per program */
+Resublist ReSuBlIsT;
+#define NSUBEXP (sizeof(ReSuBlIsT.m)/sizeof(Resub))
+
+/* max character classes per program */
+Reprog	RePrOg;
+#define	NCLASS	(sizeof(RePrOg.class)/sizeof(Reclass))
+
+/* max rune ranges per character class */
+#define NCCRUNE	(sizeof(Reclass)/sizeof(wchar_t))
 
 /*
  * Actions and Tokens (Reinst types)
@@ -40,6 +46,7 @@ struct	Resublist
 /*
  *  regexec execution lists
  */
+#define LISTINCREMENT 8
 typedef struct Relist	Relist;
 struct Relist
 {

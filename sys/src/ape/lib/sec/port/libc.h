@@ -14,7 +14,7 @@
 #include <utf.h>
 #include <fmt.h>
 #include <signal.h>
-#include <time.h>
+// #include <time.h>
 
 #define	nelem(x)	(sizeof(x)/sizeof((x)[0]))
 
@@ -64,6 +64,37 @@ struct Waitmsg
 	char	*msg;
 } Waitmsg;
 
+/*
+ * Time-of-day
+ */
+
+typedef
+struct Tm
+{
+	int	sec;
+	int	min;
+	int	hour;
+	int	mday;
+	int	mon;
+	int	year;
+	int	wday;
+	int	yday;
+	char	zone[4];
+	int	tzoff;
+} Tm;
+
+extern	Tm*	gmtime(long);
+extern	Tm*	localtime(long);
+extern	char*	asctime(Tm*);
+extern	char*	ctime(long);
+extern	double	cputime(void);
+extern	long	times(long*);
+extern	long	tm2sec(Tm*);
+extern	vlong	nsec(void);
+
+extern	void	cycles(uvlong*);	/* 64-bit value of the cycle counter if there is one, 0 if there isn't */
+
+extern	long	time(long*);
 
 extern	int	_AWAIT(char*, int);
 extern	int	_ALARM(unsigned long);
@@ -158,3 +189,50 @@ extern void sysfatal(char*, ...);
 
 extern	ulong	truerand(void);			/* uses /dev/random */
 extern	int	getfields(char*, char**, int, int, char*);
+
+#pragma	varargck	type	"lld"	vlong
+#pragma	varargck	type	"llo"	vlong
+#pragma	varargck	type	"llx"	vlong
+#pragma	varargck	type	"llb"	vlong
+#pragma	varargck	type	"lld"	uvlong
+#pragma	varargck	type	"llo"	uvlong
+#pragma	varargck	type	"llx"	uvlong
+#pragma	varargck	type	"llb"	uvlong
+#pragma	varargck	type	"ld"	long
+#pragma	varargck	type	"lo"	long
+#pragma	varargck	type	"lx"	long
+#pragma	varargck	type	"lb"	long
+#pragma	varargck	type	"ld"	ulong
+#pragma	varargck	type	"lo"	ulong
+#pragma	varargck	type	"lx"	ulong
+#pragma	varargck	type	"lb"	ulong
+#pragma	varargck	type	"d"	int
+#pragma	varargck	type	"o"	int
+#pragma	varargck	type	"x"	int
+#pragma	varargck	type	"c"	int
+#pragma	varargck	type	"C"	int
+#pragma	varargck	type	"b"	int
+#pragma	varargck	type	"d"	uint
+#pragma	varargck	type	"x"	uint
+#pragma	varargck	type	"c"	uint
+#pragma	varargck	type	"C"	uint
+#pragma	varargck	type	"b"	uint
+#pragma	varargck	type	"f"	double
+#pragma	varargck	type	"e"	double
+#pragma	varargck	type	"g"	double
+#pragma	varargck	type	"s"	char*
+#pragma	varargck	type	"q"	char*
+#pragma	varargck	type	"S"	Rune*
+#pragma	varargck	type	"Q"	Rune*
+#pragma	varargck	type	"r"	void
+#pragma	varargck	type	"%"	void
+#pragma	varargck	type	"n"	int*
+#pragma	varargck	type	"p"	ulong		/* uintptr */
+#pragma	varargck	type	"p"	void*
+#pragma	varargck	flag	','
+#pragma	varargck	flag	' '
+#pragma	varargck	flag	'h'
+#pragma varargck	type	"<"	void*
+#pragma varargck	type	"["	void*
+#pragma varargck	type	"H"	void*
+#pragma varargck	type	"lH"	void*

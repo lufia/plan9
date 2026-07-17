@@ -1,16 +1,15 @@
 /* qsort -- qsort interface implemented by faster quicksort */
 #include <stdlib.h>
-#include <inttypes.h>
 
 #define SWAPINIT(a, es) swaptype =                            \
-    ((uintptr_t)a - 0) % sizeof(long) || es % sizeof(long) ? 2 : \
+    (a - (char*) 0) % sizeof(long) || es % sizeof(long) ? 2 : \
     es == sizeof(long) ? 0 : 1;
 #define swapcode(TYPE, parmi, parmj, n) {  \
     long i = (n) / (int) sizeof(TYPE);     \
-    TYPE *pi = (TYPE *) (parmi);  \
-    TYPE *pj = (TYPE *) (parmj);  \
+    register TYPE *pi = (TYPE *) (parmi);  \
+    register TYPE *pj = (TYPE *) (parmj);  \
     do {                                   \
-        TYPE t = *pi;             \
+        register TYPE t = *pi;             \
         *pi++ = *pj;                       \
         *pj++ = t;                         \
     } while (--i > 0);                     \
