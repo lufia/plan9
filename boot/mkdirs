@@ -1,12 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 cd $(dirname $0)/..
-
-# list the empty directories from a Plan 9 CD image:
-# find . -type d -empty | awk '{print "\t"$1" \\"}'
-
-# empty directories
 
 lst=( \
 	./386/bin \
@@ -31,9 +26,12 @@ lst=( \
 	./acme/bin/alpha \
 	./acme/bin/amd64 \
 	./acme/bin/arm \
+	./acme/bin/arm64 \
 	./acme/bin/mips \
 	./acme/bin/power \
 	./acme/bin/power64 \
+	./acme/bin/riscv \
+	./acme/bin/riscv64 \
 	./amd64/bin \
 	./amd64/bin/ape \
 	./amd64/bin/auth \
@@ -52,6 +50,7 @@ lst=( \
 	./amd64/bin/venti \
 	./amd64/lib \
 	./amd64/lib/ape \
+	./arm/bin/ape \
 	./arm/bin/auth \
 	./arm/bin/aux \
 	./arm/bin/bitsy \
@@ -60,6 +59,7 @@ lst=( \
 	./arm/bin/fossil \
 	./arm/bin/fs \
 	./arm/bin/games \
+	./arm/bin/git \
 	./arm/bin/ip/httpd \
 	./arm/bin/ndb \
 	./arm/bin/replica \
@@ -67,6 +67,7 @@ lst=( \
 	./arm/bin/usb \
 	./arm/bin/venti \
 	./arm/lib/ape \
+	./arm64/bin/ape \
 	./arm64/bin/auth \
 	./arm64/bin/aux \
 	./arm64/bin/bitsy \
@@ -75,6 +76,7 @@ lst=( \
 	./arm64/bin/fossil \
 	./arm64/bin/fs \
 	./arm64/bin/games \
+	./arm64/bin/git \
 	./arm64/bin/ip/httpd \
 	./arm64/bin/ndb \
 	./arm64/bin/replica \
@@ -127,7 +129,7 @@ lst=( \
 	./mail/grey/tmp \
 	./mail/queue \
 	./mail/tmp \
-	./misp/bin/ape \
+	./mips/bin/ape \
 	./mips/bin/auth \
 	./mips/bin/aux \
 	./mips/bin/bitsy \
@@ -241,6 +243,40 @@ lst=( \
 	./power/lib/ape \
 	./rc/bin/dial \
 	./rc/bin/postscript \
+	./riscv/bin/ape \
+	./riscv/bin/auth \
+	./riscv/bin/aux \
+	./riscv/bin/bitsy \
+	./riscv/bin/dial \
+	./riscv/bin/disk \
+	./riscv/bin/fossil \
+	./riscv/bin/fs \
+	./riscv/bin/games \
+	./riscv/bin/git \
+	./riscv/bin/ip/httpd \
+	./riscv/bin/ndb \
+	./riscv/bin/replica \
+	./riscv/bin/upas \
+	./riscv/bin/usb \
+	./riscv/bin/venti \
+	./riscv/lib/ape \
+	./riscv64/bin/ape \
+	./riscv64/bin/auth \
+	./riscv64/bin/aux \
+	./riscv64/bin/bitsy \
+	./riscv64/bin/dial \
+	./riscv64/bin/disk \
+	./riscv64/bin/fossil \
+	./riscv64/bin/fs \
+	./riscv64/bin/games \
+	./riscv64/bin/git \
+	./riscv64/bin/ip/httpd \
+	./riscv64/bin/ndb \
+	./riscv64/bin/replica \
+	./riscv64/bin/upas \
+	./riscv64/bin/usb \
+	./riscv64/bin/venti \
+	./riscv64/lib/ape \
 	./sparc/bin/ape \
 	./sparc/bin/auth \
 	./sparc/bin/aux \
@@ -282,12 +318,30 @@ for i in "${lst[@]}"; do
 	mkdir -p $i
 done
 
-# empty files
-
 lst=( \
 	./mail/box/glenda/mbox
 )
 
 for i in "${lst[@]}"; do
 	touch $i
+done
+
+lst=( \
+	./sys/src/9k/root/nvram
+)
+
+for i in "${lst[@]}"; do
+	mkdir -p $(dirname $i)
+	[ -f $i ] || dd if=/dev/zero of=$i bs=512 count=1 status=none
+done
+
+lst=( \
+	./sys/src/9/vt4/qtm.h \
+	./sys/src/9/vt5/qtm.h \
+	./sys/src/boot/vt4/qtm.h \
+	./sys/src/boot/vt5/qtm.h \
+)
+
+for i in "${lst[@]}"; do
+	[ -d $(dirname $i) ] && touch $i
 done
