@@ -31,7 +31,7 @@ int debug = 0;
 #define	SNDSELTIMEOUT	300
 
 void
-rdtmout(int) {
+rdtmout(void) {
 	fprintf(stderr, "read timeout occurred, check printer\n");
 }
 
