@@ -1,13 +1,9 @@
 #!/usr/bin/expect
 
 set timeout 60
-spawn sh boot/qemu -ci
+spawn sh boot/qemu
 
 # Boot up
-expect "Selection: "
-send "4\r"
-expect "bootfile: "
-send "2\r"
 expect "term% "
 
 proc terminate {status} {

@@ -14,9 +14,6 @@
  *	fseek		fsetpos		ftell		rewind		clearerr
  *	feof		ferror		perror	
  */
-#ifndef _SUSV2_SOURCE
-#define _SUSV2_SOURCE	/* for *intptr_t types */
-#endif
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -47,4 +44,3 @@ int _IO_setvbuf(FILE *);
 FILE *_IO_sopenr(const char*);
 FILE *_IO_sopenw(void);
 char *_IO_sclose(FILE *);
-FILE *_IO_newfile(void);

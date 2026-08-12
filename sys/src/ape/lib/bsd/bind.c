@@ -24,9 +24,10 @@
 int
 bind(int fd, void *a, int alen)
 {
-	int n, len, cfd, port;
+	int n, len, cfd;
 	Rock *r;
 	char msg[128];
+	struct sockaddr_in *lip;
 
 	/* assign the address */
 	r = _sock_findrock(fd, 0);
@@ -41,30 +42,29 @@ bind(int fd, void *a, int alen)
 	memmove(&r->addr, a, alen);
 
 	/* the rest is IP sepecific */
-	switch(r->domain){
-	case PF_INET:
-	case PF_INET6:
-		cfd = open(r->ctl, O_RDWR);
-		if(cfd < 0){
-			errno = EBADF;
-			return -1;
-		}
-		_sock_ntop(r->domain, &r->addr, nil, 0, &port);
-		if(port > 0)
-			snprintf(msg, sizeof msg, "bind %d", port);
-		else
-			strcpy(msg, "bind *");
-		n = write(cfd, msg, strlen(msg));
-		if(n < 0){
-			errno = EOPNOTSUPP;	/* Improve error reporting!!! */
-			close(cfd);
-			return -1;
-		}
-		close(cfd);
+	if (r->domain != PF_INET)
+		return 0;
 
-		if(port <= 0)
-			_sock_ingetaddr(r, &r->addr, &len, "local");
+	cfd = open(r->ctl, O_RDWR);
+	if(cfd < 0){
+		errno = EBADF;
+		return -1;
 	}
+	lip = (struct sockaddr_in*)&r->addr;
+	if(lip->sin_port > 0)
+		snprintf(msg, sizeof msg, "bind %d", ntohs(lip->sin_port));
+	else
+		strcpy(msg, "bind *");
+	n = write(cfd, msg, strlen(msg));
+	if(n < 0){
+		errno = EOPNOTSUPP;	/* Improve error reporting!!! */
+		close(cfd);
+		return -1;
+	}
+	close(cfd);
+
+	if(lip->sin_port <= 0)
+		_sock_ingetaddr(r, lip, &len, "local");
 
 	return 0;
 }

@@ -11,8 +11,8 @@ int
 getopt (int argc, char **argv, char *opts)
 {
 	static int sp = 1;
-	int c;
-	char *cp;
+	register c;
+	register char *cp;
 
 	if (sp == 1)
 		if (optind >= argc ||

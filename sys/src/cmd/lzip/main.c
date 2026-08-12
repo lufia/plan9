@@ -75,12 +75,14 @@ char *
 format_ds(unsigned dict_size)
 {
 	enum { bufsize = 16, factor = 1024 };
-	char *prefix[8] = { "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi", "Yi" };
 	char *p = "";
 	char *np = "  ";
 	unsigned num = dict_size, i;
 	bool exact = (num % factor == 0);
 	static char buf[bufsize];
+	static char *prefix[8] = {
+		"Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi", "Yi",
+	};
 
 	for (i = 0; i < 8 && (num > 9999 || (exact && num >= factor)); ++i) {
 		num /= factor;
@@ -701,8 +703,8 @@ main(int argc, char *argv[])
 	bool filenames_given = false, force = false, ignore_trailing = true,
 		recompress = false,
 		stdin_used = false, to_stdout = false, zero = false;
-	uvlong max_member_size = 0x0008000000000000ULL;
-	uvlong max_volume_size = 0x4000000000000000ULL;
+	uvlong max_member_size = 1ll << 51;
+	uvlong max_volume_size = 1ll << 62;
 	uvlong member_size = max_member_size;
 	uvlong volume_size = 0;
 	char *default_output_filename = "";

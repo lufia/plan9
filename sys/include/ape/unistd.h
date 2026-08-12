@@ -13,14 +13,26 @@
 #define _POSIX_SYNC_IO -1
 #define _POSIX_VDISABLE -1
 
+#include "_apetypes.h"
+
 #ifndef _SIZE_T
 #define _SIZE_T
+#ifdef _BITS64
+typedef unsigned long long size_t;
+#else
 typedef unsigned long size_t;
 #endif
+#endif
+
 #ifndef _SSIZE_T
 #define _SSIZE_T
+#ifdef _BITS64
+typedef long long ssize_t;
+#else
 typedef long ssize_t;
 #endif
+#endif
+
 #ifndef NULL
 #ifndef NULL
 #ifdef __cplusplus
@@ -100,6 +112,7 @@ extern pid_t fork(void);
 #endif
 
 /* process environment */
+extern int gethostname(char *, int);
 extern char *getlogin(void);
 extern char *cuserid(char *);
 extern char *ttyname(int);
@@ -146,9 +159,6 @@ extern ssize_t write(int, const void *, size_t);
 #ifdef __TYPES_H
 extern int ftruncate(int, off_t);
 extern off_t lseek(int, off_t, int);
-
-extern ssize_t pread(int, void*, size_t, off_t);
-extern ssize_t pwrite(int, void*, size_t, off_t);
 #endif
 
 /* device- and class-specific functions */
@@ -167,8 +177,6 @@ extern char *getlogin_r(char *, int);
 
 extern int getpagesize(void);
 #endif
-
-int gethostname(char *, size_t);
 
 #ifdef __cplusplus
 }
