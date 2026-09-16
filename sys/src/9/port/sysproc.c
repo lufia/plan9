@@ -1162,9 +1162,9 @@ tsemacquire(Segment *s, long *addr, ulong ms)
 		}
 		if(waserror())
 			break;
-		t = m->ticks;
+		t = MACHP(0)->ticks;
 		tsleep(&phore, semawoke, &phore, ms);
-		elms = TK2MS(m->ticks - t);
+		elms = TK2MS(MACHP(0)->ticks - t);
 		poperror();
 		if(elms >= ms){
 			timedout = 1;
