@@ -469,8 +469,6 @@ another:
 		p = rq->head;
 		if(p == nil)
 			continue;
-		if(p->mp != m)
-			continue;
 		if(pri == p->basepri)
 			continue;
 		updatecpu(p);
@@ -1068,7 +1066,7 @@ pexit(char *exitstr, int freemem)
 	 * if not a kernel process and have a parent,
 	 * do some housekeeping.
 	 */
-	if(up->kp == 0) {
+	if(up->kp == 0 && up->parentpid != 0) {
 		p = up->parent;
 		if(p == nil) {
 			if(exitstr == nil)
@@ -1103,13 +1101,13 @@ pexit(char *exitstr, int freemem)
 			p->time[TCUser] += utime;
 			p->time[TCSys] += stime;
 			/*
-			 * If there would be more than 128 wait records
+			 * If there would be more than 2000 wait records
 			 * processes for my parent, then don't leave a wait
 			 * record behind.  This helps prevent badly written
 			 * daemon processes from accumulating lots of wait
 			 * records.
 		 	 */
-			if(p->nwait < 128) {
+			if(p->nwait < 2000) {
 				wq->next = p->waitq;
 				p->waitq = wq;
 				p->nwait++;
@@ -1306,11 +1304,14 @@ procflushseg(Segment *s)
 	 *  wait for all processors to take a clock interrupt
 	 *  and flush their mmu's
 	 */
+again:
 	for(i = 0; i < MACHMAX; i++){
-		if((mp = sys->machptr[i]) == nil || !mp->online || mp == m)
+		if((mp = sys->machptr[i]) == nil || !mp->online || i == m->machno)
 			continue;
-		while(mp->mmuflush)
+		if(mp->mmuflush){
 			sched();
+			goto again;
+		}
 	}
 }
 

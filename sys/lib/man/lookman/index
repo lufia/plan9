@@ -1051,6 +1051,7 @@ acid	/sys/man/6/a.out
 acidinit	/sys/man/1/acid
 acidleak	/sys/man/1/leak
 acidleak.c	/sys/man/1/leak
+acisttvd	/sys/man/1/gzip
 ack	/sys/man/1/rio
 ack'd	/sys/man/9/allocb
 acked	/sys/man/3/ip
@@ -2648,6 +2649,7 @@ allows	/sys/man/8/fossilcons
 allows	/sys/man/8/fs
 allows	/sys/man/8/ipconfig
 allows	/sys/man/8/ipserv
+allows	/sys/man/8/nboot
 allows	/sys/man/8/ppp
 allows	/sys/man/8/scanmail
 allows	/sys/man/9/eve
@@ -3754,6 +3756,7 @@ arm	/sys/man/4/jtagfs
 arm	/sys/man/4/namespace
 arm	/sys/man/6/a.out
 arm	/sys/man/8/booting
+arm64	/sys/man/8/nboot
 arm7500	/sys/man/1/8l
 arm7tdmi	/sys/man/4/jtagfs
 arm9e	/sys/man/4/jtagfs
@@ -4154,6 +4157,7 @@ assumed	/sys/man/8/acmed
 assumed	/sys/man/8/backup
 assumed	/sys/man/8/httpd
 assumed	/sys/man/8/iscsisrv
+assumed	/sys/man/8/nboot
 assumed	/sys/man/8/ndb
 assumed	/sys/man/8/plan9.ini
 assumed	/sys/man/8/prep
@@ -4477,6 +4481,7 @@ attempts	/sys/man/8/aquarela
 attempts	/sys/man/8/auth
 attempts	/sys/man/8/fossilcons
 attempts	/sys/man/8/ipconfig
+attempts	/sys/man/8/nboot
 attempts	/sys/man/8/ping
 attempts	/sys/man/8/scuzz
 attempts	/sys/man/8/venti-fmt
@@ -4966,6 +4971,7 @@ automatically	/sys/man/1/fortune
 automatically	/sys/man/1/grap
 automatically	/sys/man/1/graph
 automatically	/sys/man/1/gs
+automatically	/sys/man/1/gzip
 automatically	/sys/man/1/jpg
 automatically	/sys/man/1/marshal
 automatically	/sys/man/1/mk
@@ -5026,7 +5032,6 @@ automatically	/sys/man/8/plan9.ini
 automatically	/sys/man/8/prep
 automatically	/sys/man/8/scuzz
 automatically	/sys/man/8/wpa
-automaticialy	/sys/man/1/gzip
 automaton	/sys/man/1/spin
 autonomous	/sys/man/3/ip
 autoprobing	/sys/man/8/plan9.ini
@@ -5088,7 +5093,6 @@ av8	/sys/man/8/plan9.ini
 availw	/sys/man/2/html
 avanstar	/sys/man/8/plan9.ini
 avayalabs.com	/sys/man/4/factotum
-avd	/sys/man/1/gzip
 avd	/sys/man/8/scanmail
 average	/sys/man/1/awk
 average	/sys/man/1/mp3enc
@@ -5137,6 +5141,7 @@ avoidant	/sys/man/8/smtp
 avoided	/sys/man/2/9p
 avoided	/sys/man/2/dial
 avoided	/sys/man/2/string
+avoided	/sys/man/8/nboot
 avoided	/sys/man/8/venti
 avoiding	/sys/man/8/fossilcons
 avoids	/sys/man/1/ar
@@ -5515,6 +5520,7 @@ baud	/sys/man/8/booting
 baud	/sys/man/8/gpsfs
 baud	/sys/man/8/ipconfig
 baud	/sys/man/8/mouse
+baud	/sys/man/8/nboot
 baud	/sys/man/8/plan9.ini
 baud	/sys/man/8/ppp
 baudrate	/sys/man/4/telco
@@ -6500,6 +6506,7 @@ block	/sys/man/8/kfscmd
 block	/sys/man/8/mk9660
 block	/sys/man/8/mkfs
 block	/sys/man/8/mkpaqfs
+block	/sys/man/8/nboot
 block	/sys/man/8/plan9.ini
 block	/sys/man/8/prep
 block	/sys/man/8/scanmail
@@ -6747,6 +6754,7 @@ boot	/sys/man/9/conf
 boot	/sys/man/9/seconds
 boot.ini	/sys/man/8/update
 boot.p9	/sys/man/8/update
+bootaa64.efi	/sys/man/8/nboot
 bootable	/sys/man/8/booting
 bootable	/sys/man/8/mk9660
 bootable	/sys/man/8/mkusbboot
@@ -7649,6 +7657,7 @@ bugs	/sys/man/8/loadfossil
 bugs	/sys/man/8/lp
 bugs	/sys/man/8/mkusbboot
 bugs	/sys/man/8/mouse
+bugs	/sys/man/8/nboot
 bugs	/sys/man/8/ndb
 bugs	/sys/man/8/nfsserver
 bugs	/sys/man/8/plan9.ini
@@ -7709,6 +7718,7 @@ builds	/sys/man/3/fs
 builds	/sys/man/6/vgadb
 builds	/sys/man/7/juke
 builds	/sys/man/8/fs
+builds	/sys/man/8/partfs
 builds	/sys/man/9/devattach
 built	/sys/man/1/0intro
 built	/sys/man/1/acid
@@ -8917,6 +8927,7 @@ cfs	/sys/man/8/kfscmd
 cfs	/sys/man/8/plan9.ini
 cfs	/sys/man/8/prep
 cfsctl	/sys/man/4/cfs
+cga	/sys/man/8/nboot
 cga	/sys/man/8/plan9.ini
 cgi	/sys/man/4/wikifs
 cgreen	/sys/man/3/draw
@@ -9469,6 +9480,7 @@ characters	/sys/man/7/dict
 characters	/sys/man/8/fs
 characters	/sys/man/8/lp
 characters	/sys/man/8/mk9660
+characters	/sys/man/8/nboot
 characters	/sys/man/8/plan9.ini
 characters	/sys/man/8/scanmail
 characters	/sys/man/9/devattach
@@ -9815,7 +9827,6 @@ cisctrace	/sys/man/2/debugger
 cistrcmp	/sys/man/2/strcat
 cistrncmp	/sys/man/2/strcat
 cistrstr	/sys/man/2/strcat
-cisttvd	/sys/man/1/gzip
 cited	/sys/man/6/color
 cited	/sys/man/8/fs
 ck	/sys/man/8/snoopy
@@ -11113,6 +11124,7 @@ common	/sys/man/8/acmed
 common	/sys/man/8/boot
 common	/sys/man/8/dhcpd
 common	/sys/man/8/mk9660
+common	/sys/man/8/nboot
 common	/sys/man/8/pem
 common	/sys/man/8/plan9.ini
 common	/sys/man/8/prep
@@ -17146,6 +17158,7 @@ describes	/sys/man/6/venti
 describes	/sys/man/7/0intro
 describes	/sys/man/7/juke
 describes	/sys/man/8/0intro
+describes	/sys/man/8/nboot
 describes	/sys/man/8/nfsserver
 describes	/sys/man/8/replica
 describes	/sys/man/8/secstore
@@ -20086,6 +20099,7 @@ doubled	/sys/man/2/quote
 doubled	/sys/man/2/thread
 doubler	/sys/man/6/vgadb
 doubles	/sys/man/1/proof
+doubling	/sys/man/8/nboot
 doubly	/sys/man/7/map
 doubly	/sys/man/8/fs
 doubtful	/sys/man/1/ssh1
@@ -21352,6 +21366,7 @@ empties	/sys/man/9/qio
 emptive	/sys/man/2/0intro
 empty.l	/sys/man/2/lock
 emulate	/sys/man/1/vt
+emulate	/sys/man/8/nboot
 emulate	/sys/man/8/realemu
 emulated	/sys/man/1/8c
 emulated	/sys/man/1/8l
@@ -21364,6 +21379,7 @@ emulation	/sys/man/4/jtagfs
 emulation	/sys/man/8/mk9660
 emulation	/sys/man/8/nboot
 emulation	/sys/man/8/realemu
+emulations	/sys/man/8/nboot
 emulator	/sys/man/1/vt
 en	/sys/man/1/0intro
 en	/sys/man/1/acme
@@ -30182,6 +30198,7 @@ holds	/sys/man/6/authsrv
 holds	/sys/man/6/htmlroff
 holds	/sys/man/6/venti.conf
 holds	/sys/man/7/scat
+holds	/sys/man/8/nboot
 holds	/sys/man/8/ndb
 holds	/sys/man/8/venti
 holds	/sys/man/9/parsecmd
@@ -30206,6 +30223,7 @@ honor	/sys/man/5/flush
 honor	/sys/man/5/version
 honored	/sys/man/2/control
 honored	/sys/man/8/dhcpd
+honored	/sys/man/8/nboot
 honors	/sys/man/2/exec
 hop	/sys/man/3/ip
 hope	/sys/man/9/panic
@@ -32606,6 +32624,7 @@ input	/sys/man/8/fs
 input	/sys/man/8/histogram
 input	/sys/man/8/ipserv
 input	/sys/man/8/lp
+input	/sys/man/8/nboot
 input	/sys/man/8/ndb
 input	/sys/man/8/pem
 input	/sys/man/8/plan9.ini
@@ -36896,6 +36915,7 @@ lines	/sys/man/8/booting
 lines	/sys/man/8/cron
 lines	/sys/man/8/fossilcons
 lines	/sys/man/8/gpsfs
+lines	/sys/man/8/nboot
 lines	/sys/man/8/ndb
 lines	/sys/man/8/nfsserver
 lines	/sys/man/8/pem
@@ -37407,6 +37427,7 @@ loader	/sys/man/2/object
 loader	/sys/man/4/namespace
 loader	/sys/man/8/mk9660
 loader	/sys/man/8/nboot
+loader	/sys/man/8/plan9.ini
 loader	/sys/man/8/update
 loaders	/sys/man/1/8c
 loaders	/sys/man/1/8l
@@ -37416,6 +37437,7 @@ loaders	/sys/man/2/dynld
 loaders	/sys/man/6/ar
 loaders	/sys/man/8/9boot
 loaders	/sys/man/8/nboot
+loaders	/sys/man/8/partfs
 loadfile	/sys/man/1/acme
 loadfont	/sys/man/2/cachechars
 loadfossil	/sys/man/4/fossil
@@ -39462,6 +39484,7 @@ maximum	/sys/man/8/fossilcons
 maximum	/sys/man/8/histogram
 maximum	/sys/man/8/ipconfig
 maximum	/sys/man/8/mk9660
+maximum	/sys/man/8/nboot
 maximum	/sys/man/8/ndb
 maximum	/sys/man/8/ping
 maximum	/sys/man/8/plan9.ini
@@ -39974,15 +39997,19 @@ menu	/sys/man/4/rio
 menu	/sys/man/7/map
 menu	/sys/man/8/9boot
 menu	/sys/man/8/histogram
+menu	/sys/man/8/nboot
 menu	/sys/man/8/ping
 menu	/sys/man/8/plan9.ini
 menu	/sys/man/8/stats
 menu	/sys/man/8/update
 menu's	/sys/man/2/control
+menuconsole	/sys/man/8/nboot
 menuconsole	/sys/man/8/plan9.ini
+menudefault	/sys/man/8/nboot
 menudefault	/sys/man/8/plan9.ini
 menuhit	/sys/man/2/event
 menuhit	/sys/man/2/mouse
+menuitem	/sys/man/8/nboot
 menuitem	/sys/man/8/plan9.ini
 menuname	/sys/man/2/control
 menus	/sys/man/1/rio
@@ -42127,6 +42154,7 @@ names	/sys/man/8/kfscmd
 names	/sys/man/8/listen
 names	/sys/man/8/mk9660
 names	/sys/man/8/mkfs
+names	/sys/man/8/nboot
 names	/sys/man/8/ndb
 names	/sys/man/8/ping
 names	/sys/man/8/plan9.ini
@@ -42236,6 +42264,7 @@ nblock	/sys/man/8/venti
 nblock	/sys/man/8/venti-fmt
 nblocks	/sys/man/2/venti-cache
 nblocks	/sys/man/8/venti-fmt
+nboot	/sys/man/8/nboot
 nbot	/sys/man/2/control
 nbox	/sys/man/2/frame
 nbrecv	/sys/man/2/thread
@@ -43304,6 +43333,7 @@ noauth	/sys/man/8/fsconfig
 noauth	/sys/man/8/kfscmd
 nobody	/sys/man/4/nfs
 nobootprompt	/sys/man/8/plan9.ini
+nocga	/sys/man/8/nboot
 noclr	/sys/man/2/cachechars
 noctl	/sys/man/2/disk
 nod	/sys/man/1/split
@@ -43325,6 +43355,7 @@ noheader	/sys/man/3/ip
 nohist	/sys/man/1/mp3enc
 noise	/sys/man/8/gpsfs
 noisy	/sys/man/8/fs
+nokbd	/sys/man/8/nboot
 nolabel	/sys/man/7/scat
 nomark	/sys/man/4/acme
 nomce	/sys/man/8/plan9.ini
@@ -43588,6 +43619,7 @@ nopen	/sys/man/3/aoe
 nopipe	/sys/man/2/9p
 noproc	/sys/man/1/lp
 noproc	/sys/man/8/lp
+nopxestop	/sys/man/8/nboot
 nor	/sys/man/1/eqn
 nor	/sys/man/1/page
 nor	/sys/man/1/patch
@@ -43824,6 +43856,7 @@ noting	/sys/man/8/replica
 notion	/sys/man/1/diff
 notion	/sys/man/8/scuzz
 notional	/sys/man/9/devattach
+nouartbios	/sys/man/8/nboot
 noun	/sys/man/1/spell
 nouns	/sys/man/1/games
 nousbprobe	/sys/man/8/plan9.ini
@@ -44093,6 +44126,7 @@ numbered	/sys/man/6/ndb
 numbered	/sys/man/6/vgadb
 numbered	/sys/man/7/map
 numbered	/sys/man/8/fs
+numbered	/sys/man/8/nboot
 numbered	/sys/man/8/prep
 numbering	/sys/man/1/cpp
 numbering	/sys/man/1/eqn
@@ -46063,6 +46097,7 @@ output	/sys/man/8/listen
 output	/sys/man/8/lp
 output	/sys/man/8/mk9660
 output	/sys/man/8/mkfs
+output	/sys/man/8/nboot
 output	/sys/man/8/ndb
 output	/sys/man/8/pci
 output	/sys/man/8/pcmcia
@@ -46976,6 +47011,7 @@ partfs	/sys/man/4/usb
 partfs	/sys/man/8/diskparts
 partfs	/sys/man/8/mkusbboot
 partfs	/sys/man/8/partfs
+partfs	/sys/man/8/plan9.ini
 partfs	/sys/man/8/prep
 partfs.c	/sys/man/8/partfs
 partial	/sys/man/1/8a
@@ -47194,6 +47230,7 @@ pass	/sys/man/4/nntpfs
 pass	/sys/man/8/9pcon
 pass	/sys/man/8/boot
 pass	/sys/man/8/mkfs
+pass	/sys/man/8/nboot
 pass	/sys/man/8/ndb
 pass	/sys/man/8/plan9.ini
 pass	/sys/man/8/ppp
@@ -48091,6 +48128,7 @@ pick	/sys/man/2/0intro
 pick	/sys/man/2/regexp
 pick	/sys/man/6/color
 picked	/sys/man/1/8l
+picked	/sys/man/8/nboot
 picking	/sys/man/6/color
 pickled	/sys/man/2/sechash
 picks	/sys/man/2/dh
@@ -48575,6 +48613,7 @@ plan9.ini	/sys/man/8/fsconfig
 plan9.ini	/sys/man/8/mkusbboot
 plan9.ini	/sys/man/8/mouse
 plan9.ini	/sys/man/8/nboot
+plan9.ini	/sys/man/8/partfs
 plan9.ini	/sys/man/8/plan9.ini
 plan9.ini	/sys/man/8/prep
 plan9.ini	/sys/man/8/update
@@ -49982,6 +50021,7 @@ presented	/sys/man/5/attach
 presented	/sys/man/6/utf
 presented	/sys/man/8/aquarela
 presented	/sys/man/8/httpd
+presented	/sys/man/8/nboot
 presented	/sys/man/8/plan9.ini
 presenting	/sys/man/1/tweak
 presenting	/sys/man/4/archfs
@@ -51168,6 +51208,7 @@ produce	/sys/man/4/u9fs
 produce	/sys/man/6/a.out
 produce	/sys/man/6/htmlroff
 produce	/sys/man/8/mouse
+produce	/sys/man/8/nboot
 produce	/sys/man/8/venti
 produced	/sys/man/1/acme
 produced	/sys/man/1/cal
@@ -51981,6 +52022,7 @@ provided	/sys/man/8/aquarela
 provided	/sys/man/8/gpsfs
 provided	/sys/man/8/nboot
 provided	/sys/man/8/ndb
+provided	/sys/man/8/partfs
 provided	/sys/man/8/plan9.ini
 provided	/sys/man/8/pop3
 provided	/sys/man/8/realemu
@@ -53048,6 +53090,7 @@ rate	/sys/man/8/9boot
 rate	/sys/man/8/gpsfs
 rate	/sys/man/8/ipconfig
 rate	/sys/man/8/mouse
+rate	/sys/man/8/nboot
 rate	/sys/man/8/ppp
 rate	/sys/man/8/venti
 ratfs	/sys/man/4/ratfs
@@ -53746,6 +53789,7 @@ readobj	/sys/man/2/object
 readonly	/sys/man/8/fsconfig
 readp	/sys/man/9/kproc
 readparts	/sys/man/8/9boot
+readparts	/sys/man/8/partfs
 readparts	/sys/man/8/plan9.ini
 reads	/sys/man/1/bc
 reads	/sys/man/1/calendar
@@ -54490,6 +54534,7 @@ redirect	/sys/man/1/acid
 redirect	/sys/man/1/con
 redirect	/sys/man/4/webfs
 redirect	/sys/man/8/httpd
+redirect	/sys/man/8/nboot
 redirect	/sys/man/8/vga
 redirected	/sys/man/1/rc
 redirected	/sys/man/1/rio
@@ -59430,6 +59475,7 @@ sdaoe	/sys/man/3/sdaoe
 sdaoe.c	/sys/man/3/sdaoe
 sdata.c	/sys/man/3/sdahci
 sdb	/sys/man/8/9boot
+sdb0part	/sys/man/8/plan9.ini
 sdc0	/sys/man/2/authsrv
 sdc0	/sys/man/3/fs
 sdc0	/sys/man/3/sd
@@ -60023,6 +60069,7 @@ selected	/sys/man/4/ssh
 selected	/sys/man/6/vgadb
 selected	/sys/man/7/juke
 selected	/sys/man/7/playlistfs
+selected	/sys/man/8/nboot
 selected	/sys/man/8/ping
 selected	/sys/man/8/plan9.ini
 selected	/sys/man/8/venti-fmt
@@ -60059,6 +60106,7 @@ selection	/sys/man/4/ssh
 selection	/sys/man/6/color
 selection	/sys/man/6/plumb
 selection	/sys/man/8/cec
+selection	/sys/man/8/nboot
 selection	/sys/man/8/plan9.ini
 selection	/sys/man/9/error
 selections	/sys/man/1/sam
@@ -60485,6 +60533,7 @@ serial	/sys/man/8/gpsfs
 serial	/sys/man/8/ipconfig
 serial	/sys/man/8/mkusbboot
 serial	/sys/man/8/mouse
+serial	/sys/man/8/nboot
 serial	/sys/man/8/plan9.ini
 serial	/sys/man/8/ppp
 serial	/sys/man/9/qio
@@ -61356,6 +61405,7 @@ short	/sys/man/6/plot
 short	/sys/man/6/venti
 short	/sys/man/7/map
 short	/sys/man/8/fs
+short	/sys/man/8/nboot
 short	/sys/man/9/devattach
 short	/sys/man/9/inb
 short	/sys/man/9/lock
@@ -62113,6 +62163,7 @@ skipped	/sys/man/2/hkdf
 skipped	/sys/man/3/proc
 skipped	/sys/man/5/0intro
 skipped	/sys/man/6/plumb
+skipped	/sys/man/8/nboot
 skipping	/sys/man/1/db
 skipping	/sys/man/2/bio
 skipping	/sys/man/5/0intro
@@ -63726,6 +63777,7 @@ specifying	/sys/man/8/9pcon
 specifying	/sys/man/8/fossilcons
 specifying	/sys/man/8/fsconfig
 specifying	/sys/man/8/fshalt
+specifying	/sys/man/8/nboot
 specifying	/sys/man/8/plan9.ini
 specifying	/sys/man/8/snoopy
 specifying	/sys/man/8/vga
@@ -64623,6 +64675,7 @@ stack	/sys/man/8/boot
 stack	/sys/man/8/dhcpd
 stack	/sys/man/8/fs
 stack	/sys/man/8/ipconfig
+stack	/sys/man/8/nboot
 stack	/sys/man/8/plan9.ini
 stack	/sys/man/8/ppp
 stack	/sys/man/9/error
@@ -65381,6 +65434,7 @@ stop	/sys/man/7/playlistfs
 stop	/sys/man/8/fossilcons
 stop	/sys/man/8/fs
 stop	/sys/man/8/kfscmd
+stop	/sys/man/8/nboot
 stop	/sys/man/8/plan9.ini
 stop	/sys/man/8/scuzz
 stop	/sys/man/9/kproc
@@ -67207,6 +67261,7 @@ supported	/sys/man/8/apm
 supported	/sys/man/8/backup
 supported	/sys/man/8/fsconfig
 supported	/sys/man/8/httpd
+supported	/sys/man/8/nboot
 supported	/sys/man/8/plan9.ini
 supported	/sys/man/8/prep
 supported	/sys/man/8/scanmail
@@ -67241,6 +67296,7 @@ supports	/sys/man/8/9boot
 supports	/sys/man/8/dhcpd
 supports	/sys/man/8/fsconfig
 supports	/sys/man/8/httpd
+supports	/sys/man/8/nboot
 supports	/sys/man/8/ppp
 supports	/sys/man/8/scuzz
 supports	/sys/man/8/smtp
@@ -68366,6 +68422,7 @@ table	/sys/man/8/fs
 table	/sys/man/8/httpd
 table	/sys/man/8/ipconfig
 table	/sys/man/8/lp
+table	/sys/man/8/partfs
 table	/sys/man/8/plan9.ini
 table	/sys/man/8/prep
 table	/sys/man/8/scuzz
@@ -71715,6 +71772,7 @@ uart	/sys/man/1/expect
 uart	/sys/man/3/ptrace
 uart	/sys/man/3/uart
 uart	/sys/man/4/usb
+uart	/sys/man/8/nboot
 uart	/sys/man/8/plan9.ini
 uart	/sys/man/9/uartp8250
 uart0	/sys/man/9/intrenable
@@ -73537,6 +73595,7 @@ using	/sys/man/8/listen
 using	/sys/man/8/loadfossil
 using	/sys/man/8/mkpaqfs
 using	/sys/man/8/mkusbboot
+using	/sys/man/8/nboot
 using	/sys/man/8/newuser
 using	/sys/man/8/nfsserver
 using	/sys/man/8/ping
@@ -74488,6 +74547,7 @@ vc	/sys/man/1/yesterday
 vc	/sys/man/4/cwfs
 vc	/sys/man/4/fossil
 vc	/sys/man/4/fs
+vd	/sys/man/1/gzip
 vdiv3	/sys/man/2/arith3
 vec	/sys/man/1/eqn
 vec	/sys/man/6/plot
