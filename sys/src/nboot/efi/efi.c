@@ -9,6 +9,17 @@ EFI_SYSTEM_TABLE *ST;
 void* (*open)(char *name);
 int (*read)(void *f, void *data, int len);
 void (*close)(void *f);
+void (*stop)(void);
+
+/*
+ * on ia32 and amd64, we use IMAGE_FILE_RELOCS_STRIPPED which
+ * disables relocations, so this is a no-op.
+ *
+ * on arm64, the EFI loader can move our code, so we need to
+ * update some of our stored addresses (such as callbacks)
+ * which assume we are loaded at our requested base address.
+ */
+extern void *rebase(void *addr);
 
 void
 putc(int c)
@@ -42,7 +53,7 @@ unload(void)
 	eficall(ST->BootServices->ExitBootServices, IH, MK);
 }
 
-static void
+void
 memconf(char **cfg)
 {
 	static uchar memtype[EfiMaxMemoryType] = {
@@ -73,6 +84,10 @@ memconf(char **cfg)
 	if(eficall(ST->BootServices->GetMemoryMap, &mapsize, mapbuf, &MK, &entsize, &entvers))
 		return;
 
+	/* only called to get MK for ExitBootServices() */
+	if(cfg == nil)
+		return;
+
 	s = *cfg;
 	for(p = mapbuf; mapsize >= entsize; p += entsize, mapsize -= entsize){
 		t = (EFI_MEMORY_DESCRIPTOR*)p;
@@ -93,7 +108,7 @@ memconf(char **cfg)
 	*s = '\0';
 	if(s > *cfg){
 		s[-1] = '\n';
-		print(*cfg);
+		/* print(*cfg); -- no printing allowed, can change MK */
 		*cfg = s;
 	}
 }
@@ -276,7 +291,7 @@ Found:
 void
 eficonfig(char **cfg)
 {
-	memconf(cfg);
+	/* memconf(cfg); -- must be called right before unload() */
 	acpiconf(cfg);
 	screenconf(cfg);
 }
@@ -294,6 +309,11 @@ efimain(EFI_HANDLE ih, EFI_SYSTEM_TABLE *st)
 	if(pxeinit(&f) && isoinit(&f) && fsinit(&f))
 		print("no boot devices\n");
 
+	open = rebase(open);
+	read = rebase(read);
+	close = rebase(close);
+	if(stop) stop = rebase(stop);
+
 	for(;;){
 		kern = configure(f, path);
 		f = open(kern);
@@ -303,6 +323,7 @@ efimain(EFI_HANDLE ih, EFI_SYSTEM_TABLE *st)
 		}
 		print(bootkern(f));
 		print("\n");
+		close(f);
 		f = nil;
 	}
 }

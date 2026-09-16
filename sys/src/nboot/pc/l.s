@@ -145,17 +145,6 @@ _pret32:
 	ANDL $0xFFFF, AX
 	RET
 
-TEXT usleep(SB), $0
-	MOVL t+4(SP), AX
-	PUSHL AX
-	CALL rmode16(SB)
-	STI
-	POPR(rDX)
-	POPR(rCX)
-	MOVB $0x86, AH
-	BIOSCALL(0x15)
-	JMP _pret32
-
 #ifdef PXE
 
 TEXT pxeinit(SB), $0
@@ -291,6 +280,12 @@ TEXT bootname(SB), $0
 
 TEXT uart(SB), $0
 	BYTE $0xff
+
+TEXT nocga(SB), $0
+	BYTE $0x00
+
+TEXT nokbd(SB), $0
+	BYTE $0x00
 
 TEXT hex(SB), $0
 	BYTE $'0'; BYTE $'1'; BYTE $'2'; BYTE $'3';

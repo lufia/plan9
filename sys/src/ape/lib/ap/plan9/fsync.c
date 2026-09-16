@@ -3,9 +3,8 @@
 #include <errno.h>
 
 int
-fsync(int fd)
+fsync(int)
 {
-	USED(fd);
 	/* TODO: should fsync return an error? */
 	return 0;
 }

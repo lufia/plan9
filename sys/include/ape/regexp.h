@@ -35,16 +35,9 @@ struct Resub{
 /*
  *	character class, each pair of rune's defines a range
  */
-enum{
-	NCCRUNE	= 256,
-	NCLASS	= 16,
-	NINST		= 5,
-
-};
-
 struct Reclass{
 	wchar_t	*end;
-	wchar_t	spans[NCCRUNE];
+	wchar_t	spans[64];
 };
 
 /*
@@ -69,8 +62,8 @@ struct Reinst{
  */
 struct Reprog{
 	Reinst	*startinst;	/* start pc */
-	Reclass	class[NCLASS];	/* .data */
-	Reinst	firstinst[NINST];	/* .text */
+	Reclass	class[16];	/* .data */
+	Reinst	firstinst[5];	/* .text */
 };
 
 extern Reprog	*regcomp(char*);

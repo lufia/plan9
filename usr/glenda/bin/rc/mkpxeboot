@@ -2,7 +2,7 @@
 
 rfork en
 mount /srv/boot /n/boot
-file=/n/boot/boot/pxeboot.raw.new
+file=/n/boot/boot/pxeboot.raw
 dd -bs 1000000 -if /dev/zero -of $file -count 4
 disk/partfs $file
 cd /dev/sdXX

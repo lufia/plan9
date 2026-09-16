@@ -1,13 +1,12 @@
 #include <unistd.h>
-#include <stdlib.h>
-
-extern void (*_atexitfns[ATEXIT_MAX])(void);
+#define	NONEXIT	34
+extern void (*_atexitfns[NONEXIT])(void);
 
 int
 atexit(void (*f)(void))
 {
 	int i;
-	for(i=0; i<ATEXIT_MAX; i++)
+	for(i=0; i<NONEXIT; i++)
 		if(!_atexitfns[i]){
 			_atexitfns[i] = f;
 			return(0);

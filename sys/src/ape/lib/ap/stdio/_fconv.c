@@ -103,9 +103,9 @@ _multadd(Bigint *b, int m, int a)	/* multiply by m and add a */
 	}
 
  int
-_hi0bits(unsigned long x)
+_hi0bits(register unsigned long x)
 {
-	int k = 0;
+	register int k = 0;
 
 	if (!(x & 0xffff0000)) {
 		k = 16;
@@ -134,8 +134,8 @@ _hi0bits(unsigned long x)
  static int
 lo0bits(unsigned long *y)
 {
-	int k;
-	unsigned long x = *y;
+	register int k;
+	register unsigned long x = *y;
 
 	if (x & 7) {
 		if (x & 1)
@@ -218,6 +218,8 @@ _mult(Bigint *a, Bigint *b)
 #ifdef Pack_32
 	for(; xb < xbe; xb++, xc0++) {
 		if (y = *xb & 0xffff) {
+			int lim = 10000;
+
 			x = xa;
 			xc = xc0;
 			carry = 0;
@@ -228,10 +230,12 @@ _mult(Bigint *a, Bigint *b)
 				carry = z2 >> 16;
 				Storeinc(xc, z2, z);
 				}
-				while(x < xae);
+				while(x < xae && --lim > 0); /* TODO: sanity */
 			*xc = carry;
 			}
 		if (y = *xb >> 16) {
+			int lim = 10000;
+
 			x = xa;
 			xc = xc0;
 			carry = 0;
@@ -243,7 +247,7 @@ _mult(Bigint *a, Bigint *b)
 				z2 = (*x++ >> 16) * y + (*xc & 0xffff) + carry;
 				carry = z2 >> 16;
 				}
-				while(x < xae);
+				while(x < xae && --lim > 0); /* TODO: sanity */
 			*xc = z2;
 			}
 		}
@@ -274,7 +278,7 @@ _mult(Bigint *a, Bigint *b)
 _pow5mult(Bigint *b, int k)
 {
 	Bigint *b1, *p5, *p51;
-	int i;
+	int i, lim = 10000;
 	static int p05[3] = { 5, 25, 125 };
 
 	if (i = k & 3)
@@ -288,6 +292,8 @@ _pow5mult(Bigint *b, int k)
 		p5->next = 0;
 		}
 	for(;;) {
+		if (--lim <= 0)
+			break;		/* TODO: sanity */
 		if (k & 1) {
 			b1 = mult(b, p5);
 			Bfree(b);

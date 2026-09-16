@@ -469,8 +469,6 @@ another:
 		p = rq->head;
 		if(p == nil)
 			continue;
-		if(p->mp != m)
-			continue;
 		if(pri == p->basepri)
 			continue;
 		updatecpu(p);
@@ -843,16 +841,19 @@ wakeup(Rendez *r)
 	lock(r);
 	p = r->p;
 
-	if(p != nil){
+	if(p == nil)
+		unlock(r);
+	else{
 		lock(&p->rlock);
 		if(p->state != Wakeme || p->r != r)
 			panic("wakeup: state");
 		r->p = nil;
 		p->r = nil;
-		ready(p);
 		unlock(&p->rlock);
+		unlock(r);
+		/* hands off r */
+		ready(p);
 	}
-	unlock(r);
 
 	splx(s);
 
@@ -909,9 +910,16 @@ postnote(Proc *p, int dolock, char *n, int flag)
 				panic("postnote: state %d %d %d", r->p != p, p->r != r, p->state);
 			p->r = nil;
 			r->p = nil;
-			ready(p);
+			/*
+			 * The unlock must precede ready(p), in case the readied process
+			 * immediately deallocates the Rendez. This can happen with semacquire,
+			 * where the Rendez is on the stack.
+			 */
 			unlock(r);
-			break;
+			unlock(&p->rlock);
+			ready(p);
+			splx(s);
+			return ret;
 		}
 
 		/* give other process time to get out of critical section and try again */
@@ -1058,7 +1066,7 @@ pexit(char *exitstr, int freemem)
 	 * if not a kernel process and have a parent,
 	 * do some housekeeping.
 	 */
-	if(up->kp == 0) {
+	if(up->kp == 0 && up->parentpid != 0) {
 		p = up->parent;
 		if(p == nil) {
 			if(exitstr == nil)
@@ -1093,13 +1101,13 @@ pexit(char *exitstr, int freemem)
 			p->time[TCUser] += utime;
 			p->time[TCSys] += stime;
 			/*
-			 * If there would be more than 128 wait records
+			 * If there would be more than 2000 wait records
 			 * processes for my parent, then don't leave a wait
 			 * record behind.  This helps prevent badly written
 			 * daemon processes from accumulating lots of wait
 			 * records.
 		 	 */
-			if(p->nwait < 128) {
+			if(p->nwait < 2000) {
 				wq->next = p->waitq;
 				p->waitq = wq;
 				p->nwait++;
@@ -1296,11 +1304,14 @@ procflushseg(Segment *s)
 	 *  wait for all processors to take a clock interrupt
 	 *  and flush their mmu's
 	 */
+again:
 	for(i = 0; i < MACHMAX; i++){
-		if((mp = sys->machptr[i]) == nil || !mp->online || mp == m)
+		if((mp = sys->machptr[i]) == nil || !mp->online || i == m->machno)
 			continue;
-		while(mp->mmuflush)
+		if(mp->mmuflush){
 			sched();
+			goto again;
+		}
 	}
 }
 
