@@ -492,7 +492,7 @@ objfile(char *file)
 	seek(f, off, 0);
 	cnt = esym - off;
 	start = malloc(cnt + 10);
-	cnt = read(f, start, cnt);
+	cnt = readn(f, start, cnt);
 	if(cnt <= 0){
 		close(f);
 		return;
@@ -794,7 +794,7 @@ readsome(int f, uchar *buf, uchar *good, uchar *stop, int max)
 	n = MAXIO - n;
 	if(n > max)
 		n = max;
-	n = read(f, stop, n);
+	n = readn(f, stop, n);
 	if(n <= 0)
 		return 0;
 	return stop + n;

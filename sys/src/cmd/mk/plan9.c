@@ -35,7 +35,7 @@ readenv(void)
 			if(f < 0)
 				continue;
 			p = Malloc(len+1);
-			if(read(f, p, len) != len){
+			if(readn(f, p, len) != len){
 				perror(nam);
 				close(f);
 				continue;
