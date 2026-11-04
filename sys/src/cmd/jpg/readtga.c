@@ -14,6 +14,7 @@
 
 enum {
 	HdrLen = 18,
+	Maxpixels = 1<<28,
 };
 
 typedef struct {
@@ -114,8 +115,8 @@ rdhdr(Biobuf *bp)
 		return nil;
 	}
 	if(Bread(bp, h->cmap, n) != n){
-		free(h);
 		free(h->cmap);
+		free(h);
 		return nil;
 	}
 	return h;
@@ -141,11 +142,14 @@ luma_rle(Biobuf *bp, uchar *l, int num)
 			len += 1;	/* run of zero is meaningless */
 			if(luma(bp, l, 1) != 1)
 				break;
-			for(i = 0; i < len && got < num; i++)
-				l[i+1] = *l;
+			for(i = 1; i < len && got+i < num; i++)
+				l[i] = *l;
+			len = i;
 		}
 		else{
 			len += 1;	/* raw block of zero is meaningless */
+			if(got+len > num)
+				len = num-got;
 			if(luma(bp, l, len) != len)
 				break;
 		}
@@ -212,14 +216,17 @@ rgba_rle(Biobuf *bp, int bpp, uchar *r, uchar *g, uchar *b, int num)
 			len += 1;	/* run of zero is meaningless */
 			if(rgba(bp, bpp, r, g, b, 1) != 1)
 				break;
-			for(i = 0; i < len-1 && got < num; i++){
-				r[i+1] = *r;
-				g[i+1] = *g;
-				b[i+1] = *b;
+			for(i = 1; i < len && got+i < num; i++){
+				r[i] = *r;
+				g[i] = *g;
+				b[i] = *b;
 			}
+			len = i;
 		}
 		else{
 			len += 1;	/* raw block of zero is meaningless */
+			if(got+len > num)
+				len = num-got;
 			if(rgba(bp, bpp, r, g, b, len) != len)
 				break;
 		}
@@ -338,6 +345,11 @@ Breadtga(Biobuf *bp)
 		ar->chandesc = CRGB;
 	}
 
+	if(h->width <= 0 || h->height <= 0 ||
+	   (vlong)h->width * h->height > Maxpixels){
+		werrstr("ReadTGA: bad image size %dx%d", h->width, h->height);
+		goto Error;
+	}
 	ar->chanlen = h->width*h->height;
 	ar->r = Rect(0, 0, h->width, h->height);
 	for (c = 0; c < ar->nchans; c++)

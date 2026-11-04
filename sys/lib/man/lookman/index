@@ -604,6 +604,7 @@ absent	/sys/man/3/proc
 absent	/sys/man/4/usb
 absent	/sys/man/8/9pcon
 absolute	/sys/man/1/acme
+absolute	/sys/man/1/gzip
 absolute	/sys/man/2/0intro
 absolute	/sys/man/2/abs
 absolute	/sys/man/2/control
@@ -14789,6 +14790,7 @@ current	/sys/man/1/games
 current	/sys/man/1/git
 current	/sys/man/1/grap
 current	/sys/man/1/gs
+current	/sys/man/1/gzip
 current	/sys/man/1/history
 current	/sys/man/1/jpg
 current	/sys/man/1/kbmap
@@ -22027,6 +22029,7 @@ entry	/sys/man/1/8l
 entry	/sys/man/1/colors
 entry	/sys/man/1/db
 entry	/sys/man/1/freq
+entry	/sys/man/1/gzip
 entry	/sys/man/1/kbmap
 entry	/sys/man/1/lp
 entry	/sys/man/1/ls
@@ -35612,6 +35615,8 @@ leading	/sys/man/7/scat
 leading	/sys/man/8/plan9.ini
 leading	/sys/man/8/scanmail
 leads	/sys/man/1/git
+leads	/sys/man/1/gzip
+leads	/sys/man/1/tar
 leaf	/sys/man/1/nm
 leaf	/sys/man/2/venti-file
 leaf	/sys/man/3/usb
