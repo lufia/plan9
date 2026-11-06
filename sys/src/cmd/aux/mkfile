@@ -53,7 +53,6 @@ UPDATE=\
 
 DIRS=mnihongo\
 	dmi\
-	cpuid\
 	flashfs\
 	gps\
 	na\
