@@ -172,7 +172,7 @@ static char magic[] = "\235any old ☺ rubbish\173";
 static char uniq[sizeof magic + 2*sizeof(ulong)];
 
 static char *
-xputbe(char *p, ulong ul)
+putbe(char *p, ulong ul)
 {
 	*p++ = ul>>24;
 	*p++ = ul>>16;
@@ -192,8 +192,8 @@ addmagic(char *buff, int bytes)
 	static ulong seq;
 
 	strcpy(uniq, magic);
-	p = xputbe(uniq + sizeof magic - 1, time(0));
-	xputbe(p, ++seq);
+	p = putbe(uniq + sizeof magic - 1, time(0));
+	putbe(p, ++seq);
 
 	memcpy(buff, uniq, sizeof uniq);
 	tail = buff + bytes - sizeof uniq;

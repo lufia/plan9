@@ -28,7 +28,6 @@ CFILES=\
 	fmod.c\
 	frand.c\
 	frexp.c\
-	getbe.c\
 	getcallerpc.c\
 	getfields.c\
 	getuser.c\
