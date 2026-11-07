@@ -5,6 +5,7 @@ TARG=\
 	9pcon\
 	accupoint\
 	acidleak\
+	aout2efi\
 	apm\
 	astarld\
 	cddb\
@@ -51,8 +52,6 @@ UPDATE=\
 </sys/src/cmd/mkmany
 
 DIRS=mnihongo\
-	dmi\
-	cpuid\
 	flashfs\
 	gps\
 	na\

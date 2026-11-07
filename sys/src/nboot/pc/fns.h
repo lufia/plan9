@@ -1,6 +1,8 @@
 /* handy strings in l.s */
 extern char origin[];
 extern char uart;
+extern char nocga;
+extern char nokbd;
 extern char hex[];
 extern char bootname[];
 
@@ -8,7 +10,6 @@ extern char bootname[];
 void start(void *sp);
 void cgaputc(int c);
 int kbdgetc(void);
-void usleep(int t);
 void halt(void);
 void jump(void *pc);
 

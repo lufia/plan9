@@ -2,6 +2,7 @@
 #include	<stdlib.h>
 #include	<string.h>
 #include	<unistd.h>
+#include	<inttypes.h>
 #include	<errno.h>
 #include	<sys/types.h>
 #include	<fcntl.h>
@@ -18,14 +19,13 @@ enum {
 typedef long long vlong;
 typedef unsigned long ulong;
 typedef unsigned long long uvlong;
-typedef unsigned long uint;
 
 #include	"/sys/include/tos.h"
 
-extern	void*	sbrk(ulong);
+extern	void*	sbrk(uintptr_t);
 extern	long	_callpc(void**);
 extern	long	_savearg(void);
-extern	void	_cycles(uvlong*);	/* 64-bit value of the cycle counter if there is one, 0 if there isn't */
+extern	void	_cycles(uvlong*); /* uvlong cycle counter if present, else 0 */
 
 static ulong	khz;
 static ulong	perr;

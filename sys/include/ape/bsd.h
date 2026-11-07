@@ -15,9 +15,15 @@
 extern "C" {
 #endif
 
+#include "_apetypes.h"
+
 #ifndef _SIZE_T
 #define _SIZE_T
+#ifdef _BITS64
+typedef unsigned long long size_t;
+#else
 typedef unsigned long size_t;
+#endif
 #endif
 
 /* ifndefs because X11 stuff (ugh) */
@@ -34,6 +40,7 @@ extern int	ffs(unsigned int);
 extern void	bhappy(void*);
 extern int	rresvport(int*);
 extern int	rcmd(char**, int, char*, char*, char*, int*);
+extern char*	strdup(char*);
 extern int	strcasecmp(char*, char*);
 extern int 	putenv(char*);
 extern int	setenv(const char*, const char*, int);
@@ -45,6 +52,9 @@ extern int	getentropy(void*, size_t);
 
 extern const char	*getprogname(void);
 extern void	setprogname(const char*);
+extern void* memccpy(void*, void*, int, size_t);
+extern int fsync(int);
+extern int ftruncate(int, off_t);
 
 extern int	getopt(int, char**, char*);
 extern int	opterr;

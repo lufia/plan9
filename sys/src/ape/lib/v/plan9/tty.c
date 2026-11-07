@@ -14,9 +14,8 @@ static int ctlfd = -1;
 
 /* fd is ignored */
 
-tty_echooff(int fd)
+tty_echooff(int)
 {
-	USED(fd);
 	if(ctlfd >= 0)
 		return 0;
 	ctlfd = open("/dev/consctl", O_WRONLY);
@@ -26,9 +25,8 @@ tty_echooff(int fd)
 	return 0;
 }
 
-tty_echoon(int fd)
+tty_echoon(int)
 {
-	USED(fd);
 	if(ctlfd >= 0){
 		write(ctlfd, "rawoff", 6);
 		close(ctlfd);

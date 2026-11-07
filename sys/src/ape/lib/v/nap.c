@@ -1,14 +1,11 @@
-extern int _SLEEP(long);
-
-/*
- * from nap(2), 8th edition.  assume 60Hz
- * won't overflow.  n can be no bigger than 2*60.
- *
- * obsolete.
- */
 int
 nap(int n)
 {
-	_SLEEP((n*16667)/1000);
+	register i;
+
+	while(n-- > 0){
+		for(i = 0; i < 1000*1000*10; i++)
+			;
+	}
 	return 0;
 }

@@ -12,7 +12,7 @@ jobs:
     - name: Setup qemu
       run: |
         sudo apt update
-        sudo apt -y install qemu-kvm expect
+        sudo apt -y install qemu-system-x86 expect
     - name: Install plan9 binaries from the latest release
       run: |
         gh release download --pattern=x86.tar.gz
@@ -20,6 +20,12 @@ jobs:
         rm -f x86.tar.gz
       env:
         GH_TOKEN: ${{ github.token }}
+    - name: Enable KVM
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0660"' \
+          | sudo tee /etc/udev/rules.d/99-kvm.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
     - name: Run tests
       run: |
         ./boot/mkdirs

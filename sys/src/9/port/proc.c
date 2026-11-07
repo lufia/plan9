@@ -959,9 +959,10 @@ wakeup(Rendez *r)
 		}
 		r->p = nil;
 		p->r = nil;
-		unlock(r);
-		ready(p);
 		unlock(&p->rlock);
+		unlock(r);
+		/* hands off r */
+		ready(p);
 	}
 
 	splx(s);
@@ -1021,8 +1022,10 @@ postnote(Proc *p, int dolock, char *n, int flag)
 			 * where the Rendez is on the stack.
 			 */
 			unlock(r);
+			unlock(&p->rlock);
 			ready(p);
-			break;
+			splx(s);
+			return ret;
 		}
 
 		/* give other process time to get out of critical section and try again */

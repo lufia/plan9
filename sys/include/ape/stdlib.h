@@ -6,9 +6,8 @@
 
 #define EXIT_FAILURE 1
 #define EXIT_SUCCESS 0
-#define MB_CUR_MAX 3
+#define MB_CUR_MAX 4
 #define RAND_MAX 32767
-#define ATEXIT_MAX 32
 
 typedef struct { int quot, rem; } div_t;
 typedef struct { long quot, rem; } ldiv_t;

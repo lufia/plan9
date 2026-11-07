@@ -49,14 +49,14 @@ gzip, gunzip, bzip2, bunzip2, lzip, lunzip, compress, uncompress, zip, unzip \- 
 ]
 .PP
 .B zip
-.RB [ -avD [ 1-9 ]]
+.RB [ -vD [ 1-9 ]]
 .RB [ -f
 .IR zipfile ]
 .I file
 .RB [ ... ]
 .br
 .B unzip
-.RB [ -cistTvD ]
+.RB [ -acistTvD ]
 .RB [ -f
 .IR zipfile ]
 .RI [ file
@@ -158,6 +158,9 @@ or the standard output if no file is given.
 extracts files from an archive created by
 .IR zip .
 If no files are named as arguments, all of files in the archive are extracted.
+An entry whose name is absolute, or leads out of the current directory through
+.BR .. ,
+is not extracted.
 A directory's name implies all recursively contained files and subdirectories.
 .I Zip
 is the
@@ -171,7 +174,7 @@ The options are:
 .\" .TP 0.6i
 .TP 0.3i
 .B -a
-Automaticialy creates directories as needed, needed for zip files
+Automatically creates directories as needed, needed for zip files
 created by broken implementations which omit directories.
 .TP
 .B -c

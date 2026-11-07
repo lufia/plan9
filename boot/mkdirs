@@ -1,12 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 cd $(dirname $0)/..
-
-# list the empty directories from a Plan 9 CD image:
-# find . -type d -empty | awk '{print "\t"$1" \\"}'
-
-# empty directories
 
 lst=( \
 	./386/bin \
@@ -19,6 +14,7 @@ lst=( \
 	./386/bin/fossil \
 	./386/bin/fs \
 	./386/bin/games \
+	./386/bin/git \
 	./386/bin/ip/httpd \
 	./386/bin/ndb \
 	./386/bin/replica \
@@ -31,6 +27,7 @@ lst=( \
 	./acme/bin/alpha \
 	./acme/bin/amd64 \
 	./acme/bin/arm \
+	./acme/bin/arm64 \
 	./acme/bin/mips \
 	./acme/bin/mips64 \
 	./acme/bin/power \
@@ -50,6 +47,7 @@ lst=( \
 	./amd64/bin/fossil \
 	./amd64/bin/fs \
 	./amd64/bin/games \
+	./amd64/bin/git \
 	./amd64/bin/ip/httpd \
 	./amd64/bin/ndb \
 	./amd64/bin/replica \
@@ -67,6 +65,7 @@ lst=( \
 	./arm/bin/fossil \
 	./arm/bin/fs \
 	./arm/bin/games \
+	./arm/bin/git \
 	./arm/bin/ip/httpd \
 	./arm/bin/ndb \
 	./arm/bin/replica \
@@ -74,6 +73,7 @@ lst=( \
 	./arm/bin/usb \
 	./arm/bin/venti \
 	./arm/lib/ape \
+	./arm64/bin/ape \
 	./arm64/bin/auth \
 	./arm64/bin/aux \
 	./arm64/bin/bitsy \
@@ -82,6 +82,7 @@ lst=( \
 	./arm64/bin/fossil \
 	./arm64/bin/fs \
 	./arm64/bin/games \
+	./arm64/bin/git \
 	./arm64/bin/ip/httpd \
 	./arm64/bin/ndb \
 	./arm64/bin/replica \
@@ -143,6 +144,7 @@ lst=( \
 	./mips/bin/fossil \
 	./mips/bin/fs \
 	./mips/bin/games \
+	./mips/bin/git \
 	./mips/bin/ip/httpd \
 	./mips/bin/ndb \
 	./mips/bin/replica \
@@ -159,6 +161,7 @@ lst=( \
 	./mips64/bin/fossil \
 	./mips64/bin/fs \
 	./mips64/bin/games \
+	./mips64/bin/git \
 	./mips64/bin/ip/httpd \
 	./mips64/bin/ndb \
 	./mips64/bin/replica \
@@ -239,6 +242,7 @@ lst=( \
 	./power64/bin/fossil \
 	./power64/bin/fs \
 	./power64/bin/games \
+	./power64/bin/git \
 	./power64/bin/ip/httpd \
 	./power64/bin/ndb \
 	./power64/bin/replica \
@@ -255,6 +259,7 @@ lst=( \
 	./power/bin/fossil \
 	./power/bin/fs \
 	./power/bin/games \
+	./power/bin/git \
 	./power/bin/ip/httpd \
 	./power/bin/ndb \
 	./power/bin/replica \
@@ -273,6 +278,7 @@ lst=( \
 	./riscv/bin/fossil \
 	./riscv/bin/fs \
 	./riscv/bin/games \
+	./riscv/bin/git \
 	./riscv/bin/ip/httpd \
 	./riscv/bin/ndb \
 	./riscv/bin/replica \
@@ -289,6 +295,7 @@ lst=( \
 	./riscv64/bin/fossil \
 	./riscv64/bin/fs \
 	./riscv64/bin/games \
+	./riscv64/bin/git \
 	./riscv64/bin/ip/httpd \
 	./riscv64/bin/ndb \
 	./riscv64/bin/replica \
@@ -305,6 +312,7 @@ lst=( \
 	./sparc/bin/fossil \
 	./sparc/bin/fs \
 	./sparc/bin/games \
+	./sparc/bin/git \
 	./sparc/bin/ip/httpd \
 	./sparc/bin/ndb \
 	./sparc/bin/replica \
@@ -321,6 +329,7 @@ lst=( \
 	./spim/bin/fossil \
 	./spim/bin/fs \
 	./spim/bin/games \
+	./spim/bin/git \
 	./spim/bin/ip/httpd \
 	./spim/bin/ndb \
 	./spim/bin/replica \
@@ -337,6 +346,7 @@ lst=( \
 	./spim64/bin/fossil \
 	./spim64/bin/fs \
 	./spim64/bin/games \
+	./spim64/bin/git \
 	./spim64/bin/ip/httpd \
 	./spim64/bin/ndb \
 	./spim64/bin/replica \
@@ -371,12 +381,30 @@ for i in "${lst[@]}"; do
 	mkdir -p $i
 done
 
-# empty files
-
 lst=( \
 	./mail/box/glenda/mbox
 )
 
 for i in "${lst[@]}"; do
 	touch $i
+done
+
+lst=( \
+	./sys/src/9k/root/nvram
+)
+
+for i in "${lst[@]}"; do
+	mkdir -p $(dirname $i)
+	[ -f $i ] || dd if=/dev/zero of=$i bs=512 count=1 status=none
+done
+
+lst=( \
+	./sys/src/9/vt4/qtm.h \
+	./sys/src/9/vt5/qtm.h \
+	./sys/src/boot/vt4/qtm.h \
+	./sys/src/boot/vt5/qtm.h \
+)
+
+for i in "${lst[@]}"; do
+	[ -d $(dirname $i) ] && touch $i
 done

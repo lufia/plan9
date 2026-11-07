@@ -6,9 +6,8 @@
  */
 
 int
-sigsuspend(sigset_t *set)
+sigsuspend(sigset_t *)
 {
-	USED(set);
 	errno = EINVAL;
 	return -1;
 }

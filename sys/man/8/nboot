@@ -1,6 +1,8 @@
 .TH 9BOOT 8
 .SH NAME
-9bootfat, 9bootiso, 9boothyb, 9bootpxe, bootia32.efi, bootx64.efi, efiboot.fat \- PC bootloader for FAT, ISO and PXE network booting
+9bootfat, 9bootiso, 9boothyb, 9bootpxe, \
+bootia32.efi, bootx64.efi, bootaa64.efi, \
+efiboot.fat \- PC bootloader for FAT, ISO and PXE network booting
 .SH SYNOPSIS
 Started by PC BIOS/EFI or chainloaded by partition bootsector
 .SH DESCRIPTION
@@ -14,7 +16,7 @@ initialization and load the kernel from the boot media into memory.
 After reading the configuration, the loader will automatically 
 attempt to boot the kernel that was specified by the
 .B bootfile=
-parameter. If there is no such parameter, a key
+parameter. If there is no such parameter, any key
 gets pressed on the keyboard or the kernel file was not
 found then the loader enters the interactive
 boot console.
@@ -44,6 +46,27 @@ configuration file preventing automatic boot.
 .TP
 .B boot
 will end the console and attempt booting the kernel.
+.PP
+If the configuration holds a
+.B menu
+block, its
+.B menuitem
+lines are presented as a numbered menu and the block selected is
+read together with the
+.B common
+block, as
+.IR plan9.ini (8)
+describes.
+.B menudefault
+and
+.B menuconsole
+are honored.
+A
+.B p
+after the selection is ignored, and because the loader makes a
+single pass over the configuration, the
+.B menu
+block must come before any other block.
 .SS
 There are many ways to boot a PC so
 .IR 9boot
@@ -105,10 +128,12 @@ file.
 .SH EFI BOOTING
 EFI firmware looks for the files
 .I bootia32.efi
-(for 386)
-or
+(for 386),
 .I bootx64.efi
 (for amd64)
+or
+.I bootaa64.efi
+(for arm64)
 in the boot media and executes them.
 For local disk media, these files are located in the directory
 .B /efi/boot
@@ -171,10 +196,12 @@ is read from.
 .B /386/bootx64.efi
 .br
 .B /386/efiboot.fat
-.SH SOURCE
-.BR /sys/src/boot/pc
 .br
-.BR /sys/src/boot/efi
+.B /arm64/bootaa64.efi
+.SH SOURCE
+.BR /sys/src/nboot/pc
+.br
+.BR /sys/src/nboot/efi
 .br
 .SH "SEE ALSO"
 .IR plan9.ini (8),
@@ -183,6 +210,36 @@ is read from.
 .IR ndb (6)
 .br
 .I https://uefi.org
+.SH BUGS
+The uart number is picked up from
+.B console=
+but the parameters are ignored as BIOS allows
+only a maximum baud-rate of 9600 so the setting
+.B "b9600 l8 s1"
+is assumed.
+Some BIOS emulate/redirect keyboard input
+and CGA output to the serial console,
+which causes doubling of characters.
+This can be avoided using
+.B *nokbd=
+and
+.B *nocga=
+parameters.
+Also,
+in some of these emulations the BIOS uart functions
+can produce some problems that can be avoided using the
+.B *nouartbios=
+parameter.
+Serial console is not supported by EFI.
+.PP
+Before starting the kernel, the EFI loader
+attempts to stop the network stack.
+This can be skipped by specifying
+.B *nopxestop=
+parameter.
+.PP
+.B 9bootfat
+only supports short (8+3) file-names.
 .SH HISTORY
 9boot first appeared in 9front (April, 2011).
 EFI support first appeared in 9front (Oct, 2014).

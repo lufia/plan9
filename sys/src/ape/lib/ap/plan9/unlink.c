@@ -26,6 +26,7 @@ unlink(const char *path)
 		_syserrno();
 		return -1;
 	}
+	fd = -1;
 	for(i=0, f = _fdinfo;i < OPEN_MAX; i++, f++) {
 		if((f->flags&FD_ISOPEN) && (db2=_dirfstat(i)) != nil) {
 			if(db1->qid.path == db2->qid.path &&
@@ -66,8 +67,10 @@ unlink(const char *path)
 			free(db2);
 		}
 	}
-	if((n = _REMOVE(path)) < 0)
-		_syserrno();
+	n = 0;
+	if(fd == -1)
+		if((n=_REMOVE(path)) < 0)
+			_syserrno();
 	free(db1);
 	return n;
 }

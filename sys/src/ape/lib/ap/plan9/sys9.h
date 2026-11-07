@@ -1,3 +1,4 @@
+#include "_apetypes.h"
 typedef
 struct Waitmsg
 {
@@ -32,7 +33,7 @@ struct Waitmsg
 #define	AWRITE	2	/* write access */
 #define	AREAD	4	/* read access */
 
-/* Segattch */
+/* Segattach */
 #define	SG_RONLY	0040	/* read only */
 #define	SG_CEXEC	0100	/* detach on exec */
 
@@ -77,7 +78,6 @@ enum
 extern	int	_AWAIT(char*, int);
 extern	int	_ALARM(unsigned long);
 extern	int	_BIND(const char*, const char*, int);
-extern	int	_BRK_(void*);
 extern	int	_CHDIR(const char*);
 extern	int	_CLOSE(int);
 extern	int	_CREATE(char*, int, unsigned long);
@@ -93,13 +93,14 @@ extern	int	_FWSTAT(int, unsigned char*, int);
 extern	int	_MOUNT(int, int, const char*, int, const char*);
 extern	int	_NOTED(int);
 extern	int	_NOTIFY(int(*)(void*, char*));
+extern	long long	_NSEC(void);
 extern	int	_OPEN(const char*, int);
 extern	int	_PIPE(int*);
 extern	long	_PREAD(int, void*, long, long long);
 extern	long	_PWRITE(int, void*, long, long long);
 extern	long	_READ(int, void*, long);
 extern	int	_REMOVE(const char*);
-extern	void*	_RENDEZVOUS(void*, void*);
+extern	void*	_RENDEZVOUS(void *, void *);
 extern	int	_RFORK(int);
 extern	void*	_SEGATTACH(int, char*, void*, unsigned long);
 extern	void*	_SEGBRK(void*, void*);

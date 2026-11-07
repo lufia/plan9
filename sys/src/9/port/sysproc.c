@@ -604,9 +604,10 @@ shargs(char *s, int n, char **ap)
 
 	s += 2;
 	n -= 2;		/* skip #! */
-	for(i=0; s[i]!='\n'; i++)
-		if(i == n-1)
-			return 0;
+	for(i=0; i<n && s[i]!='\n'; i++)
+		;
+	if(i == n)
+		return 0;
 	s[i] = 0;
 	*ap = 0;
 	i = 0;
@@ -1162,9 +1163,9 @@ tsemacquire(Segment *s, long *addr, ulong ms)
 		}
 		if(waserror())
 			break;
-		t = m->ticks;
+		t = MACHP(0)->ticks;
 		tsleep(&phore, semawoke, &phore, ms);
-		elms = TK2MS(m->ticks - t);
+		elms = TK2MS(MACHP(0)->ticks - t);
 		poperror();
 		if(elms >= ms){
 			timedout = 1;

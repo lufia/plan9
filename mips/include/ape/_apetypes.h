@@ -1,3 +1,5 @@
+/* 32-bit ABI: leave _BITS64 undefined */
+
 #if !defined(__BYTE_ORDER) && defined(__BIG_ENDIAN)
 #define	__BYTE_ORDER	__BIG_ENDIAN
 #endif

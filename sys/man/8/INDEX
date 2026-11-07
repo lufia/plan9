@@ -127,6 +127,8 @@ na na
 9boothyb nboot
 9bootiso nboot
 9bootpxe nboot
+\ nboot
+bootaa64.efi nboot
 bootia32.efi nboot
 bootx64.efi nboot
 efiboot.fat nboot

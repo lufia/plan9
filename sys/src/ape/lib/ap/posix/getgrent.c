@@ -32,7 +32,7 @@ endgrent(void)
 }
 
 static char *
-grskip(char *p, int c)
+grskip(register char *p, register c)
 {
 	while( *p && *p != c ) ++p;
 	if( *p ) *p++ = 0;
@@ -40,9 +40,9 @@ grskip(char *p, int c)
 }
 
 struct group *
-getgrent(void)
+getgrent()
 {
-	char *p, **q;
+	register char *p, **q;
 
 	if( !grf && !(grf = fopen( GROUP, "r" )) )
 		return(NULL);
