@@ -1,4 +1,5 @@
 void		_assert(char*);
+int		aadd(int*, int);
 void		accounttime(void);
 void		addbootfile(char*, uchar*, ulong);
 Timer*		addclock0link(void (*)(void), int);
@@ -349,6 +350,7 @@ void		validname(char*, int);
 char*		validnamedup(char*, int);
 void		validstat(uchar*, usize);
 void*		vmemchr(void*, int, int);
+void		wakebig(void);
 Proc*		wakeup(Rendez*);
 int		walk(Chan**, char**, int, int, int*);
 void		wlock(RWlock*);

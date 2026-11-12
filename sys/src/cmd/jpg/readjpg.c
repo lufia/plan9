@@ -323,6 +323,8 @@ readslave(Header *header, int colorspace)
 			header->Y = int2(b, 1);
 			header->X = int2(b, 3);
 			header->Nf =b[5];
+			if(header->Nf != 1 && header->Nf != 3)
+				jpgerror(header, "ReadJPG: image must have 1 or 3 components");
 			for(i=0; i<header->Nf; i++){
 				header->comp[i].C = b[6+3*i+0];
 				nibbles(b[6+3*i+1], &H, &V);
@@ -331,6 +333,8 @@ readslave(Header *header, int colorspace)
 				header->comp[i].H = H;
 				header->comp[i].V = V;
 				header->comp[i].Tq = b[6+3*i+2];
+				if(header->comp[i].Tq > 3)
+					jpgerror(header, "ReadJPG: invalid quantization table index");
 			}
 			header->mode = m;
 			header->sf = b;
@@ -470,12 +474,14 @@ Readerr:
 
 static
 int
-huffmantable(Header *h, uchar *b)
+huffmantable(Header *h, uchar *b, int nb)
 {
 	Huffman *t;
 	int Tc, th, n, nsize, i, j, k, v, cnt, code, si, sr, m;
 	int *maxcode;
 
+	if(nb < 17)
+		jpgerror(h, "ReadJPG: truncated Huffman table");
 	nibbles(b[0], &Tc, &th);
 	if(Tc > 1)
 		jpgerror(h, "ReadJPG: unknown Huffman table class %d", Tc);
@@ -490,6 +496,8 @@ huffmantable(Header *h, uchar *b)
 	nsize = 0;
 	for(i=0; i<16; i++)
 		nsize += b[1+i];
+	if(nb < 17+nsize)
+		jpgerror(h, "ReadJPG: truncated Huffman table");
 	t->size = jpgmalloc(h, (nsize+1)*sizeof(int), 1);
 	k = 0;
 	for(i=1; i<=16; i++){
@@ -581,7 +589,7 @@ huffmantables(Header *h, uchar *b, int n)
 	int l, mt;
 
 	for(l=0; l<n; l+=17+mt)
-		mt = huffmantable(h, &b[l]);
+		mt = huffmantable(h, &b[l], n-l);
 }
 
 static
@@ -1422,8 +1430,7 @@ decode(Header *h, Huffman *t)
 	m = 1<<cnt;
 	sr = h->sr;
 	code <<= 1;
-	i = 9;
-	for(;;i++){
+	for(i = 9; i < 17; i++){
 		if(sr & m)
 			code |= 1;
 		if(code <= maxcode[i])
