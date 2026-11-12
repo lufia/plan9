@@ -40,6 +40,10 @@
  enough to guarantee bug-free decoding. caveat emptor!
 */
 
+enum {
+	Maxpixels = 1<<28,
+};
+
 static short
 r16(Biobuf*b)
 {
@@ -408,7 +412,7 @@ load_32(Biobuf *b, long width, long height, Rgb* buf, Rgb* clut)
 				ulong val;
 				Bread(b, c, sizeof(c));
 				val =  (ulong)c[0] + ((ulong)c[1] << 8) +
-				      ((ulong)c[2] << 16) + ((ulong)c[1] << 24);
+				      ((ulong)c[2] << 16) + ((ulong)c[3] << 24);
 
 				buf[i].alpha = 0;
 				if(shft_blue >= 0)
@@ -490,7 +494,8 @@ ReadBMP(Biobuf *b, int *width, int *height)
 	if(num_coltab) {
 		int i; 
 		Bseek(b, bmih.size + Filehdrsz, 0);
-
+		if(num_coltab > nelem(clut))
+			sysfatal("too many color palette entries: %d > %d", num_coltab, nelem(clut));
 		for(i = 0; i < num_coltab; i++) {
 			clut[i].blue  = (uchar)Bgetc(b);
 			clut[i].green = (uchar)Bgetc(b);
@@ -502,6 +507,10 @@ ReadBMP(Biobuf *b, int *width, int *height)
 	*width = bmih.width;
 	*height = bmih.height;
 	colours = bmih.bpp;
+
+	if(*width <= 0 || *height == 0 ||
+	   (vlong)*width * abs(*height) > Maxpixels)
+		sysfatal("bad image size %dx%d", *width, *height);
 
 	Bseek(b, bmfh.offbits, 0);
 

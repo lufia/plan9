@@ -29858,6 +29858,7 @@ hexadecimal	/sys/man/8/aquarela
 hexadecimal	/sys/man/8/dsa
 hexadecimal	/sys/man/8/fossilcons
 hexadecimal	/sys/man/8/ndb
+hexadecimal	/sys/man/8/plan9.ini
 hexadecimal	/sys/man/8/rsa
 hexadecimal	/sys/man/8/securenet
 hexagon	/sys/man/7/map
@@ -41856,6 +41857,7 @@ multi	/sys/man/6/vgadb
 multi	/sys/man/8/acmed
 multi	/sys/man/8/booting
 multiboot	/sys/man/8/9boot
+multiboot	/sys/man/8/plan9.ini
 multibyte	/sys/man/3/draw
 multibyte	/sys/man/6/utf
 multicast	/sys/man/2/ip
@@ -62140,6 +62142,7 @@ sizes	/sys/man/6/image
 sizes	/sys/man/6/venti
 sizes	/sys/man/7/scat
 sizes	/sys/man/8/mkfs
+sizes	/sys/man/8/plan9.ini
 sizes	/sys/man/8/venti
 sizes	/sys/man/8/venti-fmt
 sizes	/sys/man/8/vga
