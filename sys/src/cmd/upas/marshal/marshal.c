@@ -933,7 +933,7 @@ static void
 tee(int in, int out1, int out2)
 {
 	int n;
-	char buf[8*1024];
+	char buf[IOUNIT];
 
 	while ((n = read(in, buf, sizeof buf)) > 0)
 		if (write(out1, buf, n) != n ||
@@ -1736,7 +1736,7 @@ Break2:
 void
 Bdrain(Biobuf *b)
 {
-	char buf[8192];
+	char buf[IOUNIT];
 
 	while(Bread(b, buf, sizeof buf) > 0)
 		;

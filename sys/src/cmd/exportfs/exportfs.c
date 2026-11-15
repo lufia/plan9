@@ -14,7 +14,7 @@
 #define Extern
 #include "exportfs.h"
 
-#define MAXRPC (IOHDRSZ+16*1024) /* see MAXRPC in devmnt; was 8K+IOHDRSZ */
+#define MAXRPC (IOHDRSZ+IOUNIT) /* see MAXRPC in devmnt; was 8K+IOHDRSZ */
 
 #define QIDPATH	((1LL<<48)-1)
 vlong newqid = 0;

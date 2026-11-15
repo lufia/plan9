@@ -22,7 +22,7 @@ static void
 sum(int fd, char *name)
 {
 	int n;
-	uchar buf[8192], digest[MD5dlen];
+	uchar buf[IOUNIT], digest[MD5dlen];
 	DigestState *s;
 
 	s = md5(nil, 0, nil, nil);

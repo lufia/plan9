@@ -12,7 +12,7 @@
 #include <fcall.h>
 #include <libsec.h>
 
-#define	Maxfdata 8192
+#define	Maxfdata IOUNIT
 #define MaxStr 128
 
 void	remoteside(int);

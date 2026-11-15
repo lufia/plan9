@@ -1,8 +1,7 @@
 #include <u.h>
 #include <libc.h>
 
-#define	DEFB	(16*1024)
-
+int	buflen;
 int	failed;
 int	gflag;
 int	uflag;
@@ -124,6 +123,11 @@ copy(char *from, char *to, int todir)
 		failed = 1;
 		return;
 	}
+
+	buflen = iounit(fdf);
+	if(buflen <= 0)
+		buflen = IOUNIT;
+
 	if(copy1(fdf, fdt, from, to)==0 && (xflag || gflag || uflag)){
 		nulldir(&dirt);
 		if(xflag){
@@ -150,13 +154,19 @@ copy1(int fdf, int fdt, char *from, char *to)
 	int rv;
 	char err[ERRMAX];
 
-	buf = malloc(DEFB);
+	buf = malloc(buflen);
+	if(buf == nil){
+		fprint(2, "cp: out of memory\n");
+		failed = 1;
+		return -1;
+	}
+
 	/* clear any residual error */
 	err[0] = '\0';
 	errstr(err, ERRMAX);
 	rv = 0;
 	for(rcount=0;; rcount++) {
-		n = read(fdf, buf, DEFB);
+		n = read(fdf, buf, buflen);
 		if(n <= 0)
 			break;
 		n1 = write(fdt, buf, n);

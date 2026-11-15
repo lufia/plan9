@@ -1,6 +1,7 @@
 /* Future Technology Devices International serial ports */
 #include <u.h>
 #include <libc.h>
+#include <fcall.h>
 #include <thread.h>
 #include "usb.h"
 #include "usbfs.h"

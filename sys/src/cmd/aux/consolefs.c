@@ -27,6 +27,7 @@ enum
 	Qdata,
 
 	Bufsize=	32*1024,	/* chars buffered per reader */
+	Stacksize=	Bufsize+1024*3,	/* fsreply(Bufsize+IOHDRSZ)+fsreader(1024)+others */
 	Maxcons=	64,		/* maximum consoles */
 	Nhash=		64,		/* Fid hash buckets */
 };
@@ -162,7 +163,7 @@ char Enofid[] = "no such fid";
 char *consoledb = "/lib/ndb/consoledb";
 char *mntpt = "/mnt/consoles";
 
-int messagesize = 8192+IOHDRSZ;
+int messagesize = IOUNIT+IOHDRSZ;
 
 void
 fatal(char *fmt, ...)
@@ -357,7 +358,7 @@ fsmount(char *mntpt)
 	/* start up the file system process */
 	v[0] = fs;
 	v[1] = pfd;
-	proccreate(fsrun, v, 16*1024);
+	proccreate(fsrun, v, Stacksize);
 
 	/* Typically mounted before /srv exists */
 	if(access("#s/consoles", AEXIST) < 0){
@@ -417,7 +418,7 @@ fsreopen(Fs* fs, Console *c)
 
 	v[0] = fs;
 	v[1] = c;
-	proccreate(fsreader, v, 16*1024);
+	proccreate(fsreader, v, Stacksize);
 
 	return 0;
 }
@@ -764,8 +765,8 @@ fsversion(Fs *fs, Request *r, Fid*)
 		return;
 	}
 	messagesize = r->f.msize;
-	if(messagesize > 8192+IOHDRSZ)
-		messagesize = 8192+IOHDRSZ;
+	if(messagesize > IOUNIT+IOHDRSZ)
+		messagesize = IOUNIT+IOHDRSZ;
 	r->f.msize = messagesize;
 	if(strncmp(r->f.version, "9P2000", 6) != 0){
 		fsreply(fs, r, "unrecognized 9P version");
@@ -1206,7 +1207,7 @@ void
 fsreply(Fs *fs, Request *r, char *err)
 {
 	int n;
-	uchar buf[8192+IOHDRSZ];
+	uchar buf[Bufsize+IOHDRSZ];
 
 	if(err){
 		r->f.type = Rerror;

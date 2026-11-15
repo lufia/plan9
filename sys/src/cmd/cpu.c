@@ -14,7 +14,7 @@
 #include <libsec.h>
 
 enum {
-	Maxfdata	= 16*1024,
+	Maxfdata	= IOUNIT,
 	MaxStr		= 512,
 };
 

@@ -27,7 +27,7 @@ enum
 enum
 {
 	Blockincr =	256,
-	Maxblock = 	16*1024,
+	Maxblock = 	IOUNIT,
 	NRange =		10,
 	Infinity = 		0x7FFFFFFF,	/* huge value for regexp address */
 };

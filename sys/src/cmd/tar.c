@@ -55,8 +55,7 @@ enum {
 	Binsize = 0x80,		/* flag in size[0], from gnu: positive binary size */
 	Binnegsz = 0xff,	/* flag in size[0]: negative binary size */
 
-	Nblock = 40,		/* maximum blocksize */
-	Dblock = 20,		/* default blocksize */
+	Dblock = IOUNIT/Tblock,	/* blocksize */
 	Debug = 0,
 };
 

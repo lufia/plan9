@@ -1,5 +1,4 @@
 </$objtype/mkfile
-CFLAGS = $CFLAGS -DIOUNIT=8192
 
 TARG=7c
 OFILES=\

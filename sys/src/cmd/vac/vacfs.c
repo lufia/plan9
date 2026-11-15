@@ -42,7 +42,7 @@ uchar	*data;
 int	mfd[2];
 int	srvfd = -1;
 char	*user;
-uchar	mdata[16*1024+IOHDRSZ];
+uchar	mdata[IOUNIT+IOHDRSZ];
 int messagesize = sizeof mdata;
 Fcall	rhdr;
 Fcall	thdr;
