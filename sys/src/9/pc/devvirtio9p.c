@@ -66,7 +66,7 @@ enum {
 
 	Fmounttag	= 1,	/* 9P device feature bit 0: config carries a mount tag */
 
-	Msize		= IOHDRSZ + 16*1024,	/* matches MAXRPC in devmnt.c */
+	Msize		= IOHDRSZ + 32*1024,	/* matches MAXRPC in devmnt.c */
 	Maxslot		= 64,	/* cap on outstanding RPCs per device */
 
 	Fidhash		= 257,	/* buckets in the directory-fid set */

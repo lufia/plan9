@@ -25,8 +25,9 @@
 enum { MAXLEN = ((uvlong)1<<63)-1 };
 
 int	debug, statson, noauth, openserver;
+int	mainstacksize = 64*1024;
 
-#define	MAXFDATA	8192	/* i/o size for read/write */
+#define	MAXFDATA	IOUNIT	/* i/o size for read/write */
 
 struct P9fs
 {

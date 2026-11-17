@@ -558,7 +558,7 @@ vacstdin(VacFile *fp, char *name)
 {
 	vlong off;
 	VacFile *f;
-	static char buf[16*1024];
+	static char buf[IOUNIT];
 	int n;
 
 	if((f = vacfilecreate(fp, name, 0666)) == nil){

@@ -16,7 +16,7 @@
  * connection.
  */
 
-#define MAXRPC (IOHDRSZ+16*1024)	/* maybe a larger size will be faster */
+#define MAXRPC (IOHDRSZ+32*1024)	/* maybe a larger size will be faster */
 /* use a known-good common size for initial negotiation */
 #define MAXCMNRPC (IOHDRSZ+8192)
 

@@ -4,9 +4,6 @@
 #include <flate.h>
 #include <regexp.h>
 
-/* 9legacy libc lacks IOUNIT */
-#define IOUNIT 32768U
-
 typedef struct Conn	Conn;
 typedef struct Hash	Hash;
 typedef struct Delta	Delta;

@@ -87,7 +87,7 @@ struct List
 enum
 {
 	Blockincr =	256,
-	Maxblock = 	16*1024,
+	Maxblock = 	IOUNIT,
 
 	BUFSIZE = Maxblock,	/* size from fbufalloc() */
 	RBUFSIZE = BUFSIZE/sizeof(Rune),

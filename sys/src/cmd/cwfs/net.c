@@ -6,7 +6,7 @@
 #include <thread.h>
 
 enum {
-	Maxfdata	= 8192,
+	Maxfdata	= IOUNIT,
 	Nqueue		= 200,		/* queue size (tunable) */
 
 	Netclosed	= 0,		/* Connection state */

@@ -103,7 +103,7 @@ call(char *net, char *host, char *service, char **na)
 void
 rex(int fd, char *cmd, char *proto)
 {
-	char buf[4096];
+	char buf[IOUNIT];
 	int kid, n, oalarm;
 	AuthInfo *ai;
 
@@ -129,7 +129,7 @@ rex(int fd, char *cmd, char *proto)
 void
 tcpexec(int fd, char *addr, char *cmd)
 {
-	char *cp, *ep, *u, *ru, buf[4096];
+	char *cp, *ep, *u, *ru, buf[IOUNIT];
 	int kid, n;
 
 	/*
@@ -212,7 +212,7 @@ sshexec(char *host, char *cmd)
 int
 send(int fd)
 {
-	char buf[4096];
+	char buf[IOUNIT];
 	int n;
 	int kid;
 	switch(kid = fork()){

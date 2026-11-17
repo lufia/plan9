@@ -119,7 +119,7 @@ static char	Ebadcmd[]	=	"error in jtag operation";
 
 static ArmCtxt ctxt;
 static Fs		fs;
-static int		messagesize = 8192+IOHDRSZ;
+static int		messagesize = IOUNIT+IOHDRSZ;
 
 static int
 cmdsetdebug(uchar *deb)
