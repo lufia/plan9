@@ -684,6 +684,7 @@ extern int	iptentative(Fs*, uchar *addr);
 extern int	ipisbm(uchar *);
 extern int	ipismulticast(uchar *);
 extern Ipifc*	findipifc(Fs*, uchar *remote, int type);
+extern Ipifc*	findlocalifc(Fs*, uchar *local);
 extern void	findlocalip(Fs*, uchar *local, uchar *remote);
 extern int	ipv4local(Ipifc *ifc, uchar *addr);
 extern int	ipv6local(Ipifc *ifc, uchar *addr);

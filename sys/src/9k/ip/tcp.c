@@ -883,7 +883,9 @@ tcpmtu(Proto *tcp, uchar *addr, int version, uint *scale)
 	Ipifc *ifc;
 	int mtu;
 
-	ifc = findipifc(tcp->f, addr, 0);
+	ifc = findlocalifc(tcp->f, addr);
+	if(ifc == nil)
+		ifc = findipifc(tcp->f, addr, 0);
 	switch(version){
 	default:
 	case V4:

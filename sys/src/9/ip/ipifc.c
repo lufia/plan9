@@ -1140,6 +1140,23 @@ findipifc(Fs *f, uchar *remote, int type)
 	return nil;
 }
 
+Ipifc*
+findlocalifc(Fs *f, uchar *local)
+{
+	Conv **cp, **e;
+	Ipifc *ifc;
+
+	e = &f->ipifc->conv[f->ipifc->nc];
+	for(cp = f->ipifc->conv; cp < e; cp++){
+		if(*cp == nil)
+			continue;
+		ifc = (Ipifc*)(*cp)->ptcl;
+		if(iplocalonifc(ifc, local) != nil)
+			return ifc;
+	}
+	return nil;
+}
+
 enum {
 	unknownv6,		/* UGH */
 //	multicastv6,
